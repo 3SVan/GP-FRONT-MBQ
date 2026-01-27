@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AuthAPI } from "../../api/auth.api";
 
 function Login() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ function Login() {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+
     const newErrors = {};
     if (!formData.email) newErrors.email = "El correo es requerido";
     else if (!validateEmail(formData.email)) newErrors.email = "Correo no válido";
@@ -45,19 +47,32 @@ function Login() {
     }
 
     setIsLoading(true);
-    
+    setErrors({}); // limpia errores anteriores
+
     try {
-      // Simular autenticación (aquí iría tu API real)
-      console.log("Login exitoso:", formData);
-      
-      // Navegar a Autentificacion después del login exitoso
-      setTimeout(() => {
-        navigate("/autentificacion");
-      }, 1000);
-      
-    } catch (error) {
-      console.error("Error en login:", error);
-      setErrors({ general: "Error al iniciar sesión" });
+      // ✅ Llamada real al backend
+      const res = await AuthAPI.loginStart({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      // Opcional: si backend está en TEST_MODE puede devolver el código
+      const returnedCode = res?.data?.code;
+
+      // ✅ Navegar a Autentificacion pasando email (y code si existe)
+      navigate("/autentificacion", {
+        state: {
+          email: formData.email,
+          code: returnedCode, // opcional
+        },
+      });
+    } catch (err) {
+      console.error("Error en login:", err);
+
+      // Si tu client normaliza errores, err.message es suficiente
+      setErrors({
+        general: err?.message || "Error al iniciar sesión",
+      });
     } finally {
       setIsLoading(false);
     }

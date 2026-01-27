@@ -1,62 +1,106 @@
 import { Routes, Route } from "react-router-dom";
-import Login from "./routes/Login.jsx";
-import Autentificacion from "./routes/Autentificacion.jsx";
-import CambioPass from "./routes/CambioPass.jsx";
-import DashboardAdmin from "./routes/DashboardAdmin.jsx";
-import ExpedientesDigitales from "./routes/ExpedientesDigitales.jsx";
-import GestionProveedores from "./routes/GestionProveedores.jsx";
-import Usuarios from "./routes/Usuarios.jsx";
-import VerificacionR from "./routes/VerificacionR.jsx";
-import Aprobacion from "./routes/Aprobacion.jsx";
-import DashboardApro from "./routes/DashboardApro.jsx";
-import Graficas from "./routes/Graficas.jsx";
-import Reportes from "./routes/Reportes.jsx";
-import DashboardProvider from "./routes/DashboardProvider.jsx";
-import GestionDatosPro from "./routes/GestionDatosPro.jsx";
-import OrdenCompraPro from "./routes/OrdenCompraPro.jsx";
-import DocumentosPro from "./routes/DocumentosPro.jsx";
-import EstatusPago from "./routes/EstatusPago.jsx";
 
-import HistorialActividad from './routes/HistorialActividad';
-import ActualizacionListaSAT from './routes/ActualizacionListaSAT';
-import ReactivacionProveedores from './routes/ReactivacionProveedores';
-import HistorialPagos from './routes/HistorialPagos';
-import GestionPagos from "./routes/GestionPagos.jsx";
-import AprobaciondePagos from "./routes/AprobaciondePagos.jsx";
+/* =======================
+   AUTH
+======================= */
+import Login from "./pages/auth/Login.jsx";
+import Autentificacion from "./pages/auth/Autentificacion.jsx";
+import CambioPass from "./pages/auth/CambioPass.jsx";
 
+/* =======================
+   ADMIN
+======================= */
+import DashboardAdmin from "./pages/admin/DashboardAdmin.jsx";
+import GestionProveedores from "./pages/admin/GestionProveedores.jsx";
+import Usuarios from "./pages/admin/Usuarios.jsx";
+import VerificacionR from "./pages/admin/VerificacionR.jsx";
+import HistorialActividad from "./pages/admin/HistorialActividad.jsx";
+import ReactivacionProveedores from "./pages/admin/ReactivacionProveedores.jsx";
+import ActualizacionListaSAT from "./pages/admin/ActualizacionListaSAT.jsx";
 
+/* ADMIN → PAGOS */
+import GestionPagos from "./pages/admin/pagos/GestionPagos.jsx";
+import HistorialPagos from "./pages/admin/pagos/HistorialPagos.jsx";
+import AprobaciondePagos from "./pages/admin/pagos/AprobaciondePagos.jsx";
 
+/* ADMIN → EXPEDIENTES */
+import ExpedientesDigitales from "./pages/admin/expedientes/ExpedientesDigitales.jsx";
+
+/* =======================
+   APPROVER
+======================= */
+import DashboardApro from "./pages/approver/DashboardApro.jsx";
+import Aprobacion from "./pages/approver/Aprobacion.jsx";
+import Reportes from "./pages/approver/Reportes.jsx";
+import SolicitudesAcceso from "./pages/approver/SolicitudesAcceso.jsx";
+
+/* =======================
+   PROVIDER
+======================= */
+import DashboardProvider from "./pages/provider/DashboardProvider.jsx";
+import GestionDatosPro from "./pages/provider/GestionDatosPro.jsx";
+import OrdenCompraPro from "./pages/provider/OrdenCompraPro.jsx";
+import DocumentosPro from "./pages/provider/DocumentosPro.jsx";
+import EstatusPago from "./pages/provider/EstatusPago.jsx";
+
+/* =======================
+   SHARED
+======================= */
+import Graficas from "./pages/shared/Graficas.jsx";
+
+/* =======================
+   DEV / TEST
+======================= */
+import TestApi from "./components/TestApi.jsx";
 
 function App() {
   return (
     <Routes>
+
+      {/* AUTH */}
       <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/autentificacion" element={<Autentificacion />} />
-        <Route path="/cambio-pass" element={<CambioPass />} />
-        <Route path="/dashboarda" element={<DashboardAdmin />} />
-        <Route path="/expedientes" element={<ExpedientesDigitales />} />
-        <Route path="/gestionpro" element={<GestionProveedores />} />
-        <Route path="/usarios" element={<Usuarios />} />
-        <Route path="/verificacior" element={<VerificacionR />} />
-        <Route path="/aprobacion" element={<Aprobacion />} />
-        <Route path="/dashboardapro" element={<DashboardApro />} />
-        <Route path="/graficas" element={<Graficas />} />
-        <Route path="/reportes" element={<Reportes />} />
-        <Route path="/dashboardprovider" element={<DashboardProvider />} />
-        <Route path="/gestionproveedor" element={<GestionDatosPro />} />
-        <Route path="/ordenesdecomprapro" element={<OrdenCompraPro />} />
-        <Route path="/documentospro" element={<DocumentosPro />} />
-        <Route path="/estatuspago" element={<EstatusPago />} />
-        <Route path="/historialactividad" element={<HistorialActividad />} />
-        <Route path="/actualizacionsat" element={<ActualizacionListaSAT />} />
-        <Route path="/reactivacionproveedores" element={<ReactivacionProveedores />} />
-        <Route path="/historialpagos" element={<HistorialPagos />} />
-        <Route path="/gestionpagos" element={<GestionPagos />} />
-        <Route path="/apropagos" element={<AprobaciondePagos />} />
+      <Route path="/cambio-pass" element={<CambioPass />} />
+
+      {/* ADMIN */}
+      <Route path="/admin" element={<DashboardAdmin />} />
+      <Route path="/admin/proveedores" element={<GestionProveedores />} />
+      <Route path="/admin/usuarios" element={<Usuarios />} />
+      <Route path="/admin/verificacion" element={<VerificacionR />} />
+      <Route path="/admin/historial-actividad" element={<HistorialActividad />} />
+      <Route path="/admin/reactivacion-proveedores" element={<ReactivacionProveedores />} />
+      <Route path="/admin/actualizacion-sat" element={<ActualizacionListaSAT />} />
+
+      {/* ADMIN → PAGOS */}
+      <Route path="/admin/pagos" element={<GestionPagos />} />
+      <Route path="/admin/pagos/historial" element={<HistorialPagos />} />
+      <Route path="/admin/pagos/aprobacion" element={<AprobaciondePagos />} />
+
+      {/* ADMIN → EXPEDIENTES */}
+      <Route path="/admin/expedientes" element={<ExpedientesDigitales />} />
+
+      {/* APPROVER */}
+      <Route path="/approver" element={<DashboardApro />} />
+      <Route path="/approver/aprobaciones" element={<Aprobacion />} />
+      <Route path="/approver/reportes" element={<Reportes />} />
+      <Route path="/approver/solicitudes-acceso" element={<SolicitudesAcceso />} />
+
+      {/* PROVIDER */}
+      <Route path="/provider" element={<DashboardProvider />} />
+      <Route path="/provider/datos" element={<GestionDatosPro />} />
+      <Route path="/provider/ordenes-compra" element={<OrdenCompraPro />} />
+      <Route path="/provider/documentos" element={<DocumentosPro />} />
+      <Route path="/provider/estatus-pago" element={<EstatusPago />} />
+
+      {/* SHARED */}
+      <Route path="/graficas" element={<Graficas />} />
+
+      {/* DEV */}
+      <Route path="/test-api" element={<TestApi />} />
 
     </Routes>
   );
 }
 
 export default App;
- 

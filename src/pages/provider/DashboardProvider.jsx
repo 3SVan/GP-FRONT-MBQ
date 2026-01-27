@@ -19,10 +19,10 @@ import {
 } from "lucide-react";
 
 // Importar los componentes reales
-import GestionDatosPro from "./GestionDatosPro";
-import OrdenCompraPro from "./OrdenCompraPro";
-import DocumentosPro from "./DocumentosPro";
-import EstatusPago from "./EstatusPago";
+import GestionDatosPro from "./GestionDatosPro.jsx";
+import OrdenCompraPro from "./OrdenCompraPro.jsx";
+import DocumentosPro from "./DocumentosPro.jsx";
+import EstatusPago from "./EstatusPago.jsx";
 
 function DashboardProvider() {
   const [sidebarOpen, setSidebarOpen] = useState(true);

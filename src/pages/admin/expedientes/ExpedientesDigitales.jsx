@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Search, Eye, User, Building, Download, FileText, Receipt, X, AlertCircle, Info, AlertTriangle, CheckCircle } from "lucide-react";
-import Aprobacion from './Aprobacion';
+import Aprobacion from "../../approver/Aprobacion.jsx";
 
 function ExpedientesDigitales() {
   const [proveedores, setProveedores] = useState([

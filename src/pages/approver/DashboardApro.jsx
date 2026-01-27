@@ -20,10 +20,11 @@ import {
 } from "lucide-react";
 
 // Importar componentes
-import Aprobacion from './Aprobacion';
-import Graficas from './Graficas';
-import Reportes from "./Reportes";
-import AprobaciondePagos from "./AprobaciondePagos";
+import Aprobacion from "./Aprobacion.jsx";
+import Reportes from "./Reportes.jsx";
+import Graficas from "../shared/Graficas.jsx";
+import AprobaciondePagos from "../admin/pagos/AprobaciondePagos.jsx";
+
 
 function DashboardApro() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
