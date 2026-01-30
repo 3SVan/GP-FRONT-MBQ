@@ -23,7 +23,7 @@ import GestionDatosPro from "./GestionDatosPro.jsx";
 import OrdenCompraPro from "./OrdenCompraPro.jsx";
 import DocumentosPro from "./DocumentosPro.jsx";
 import EstatusPago from "./EstatusPago.jsx";
-import logo from "../assets/logo-relleno.png";
+import logo from "../../assets/logo-relleno.png";
 
 
 function DashboardProvider() {

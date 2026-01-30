@@ -24,7 +24,7 @@ import Aprobacion from "./Aprobacion.jsx";
 import Reportes from "./Reportes.jsx";
 import Graficas from "../shared/Graficas.jsx";
 import AprobaciondePagos from "../admin/pagos/AprobaciondePagos.jsx";
-import logo from "../assets/logo-relleno.png";
+import logo from "../../assets/logo-relleno.png";
 
 
 
