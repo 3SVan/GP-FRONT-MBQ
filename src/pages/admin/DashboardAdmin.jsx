@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
 import { AnalyticsAPI } from "../../api/analytics.api";
 import { NotificationsAPI } from "../../api/notifications.api";
-import logo from "../assets/logo-relleno.png";
+import logo from "../../assets/logo-relleno.png";
 
 
 import {

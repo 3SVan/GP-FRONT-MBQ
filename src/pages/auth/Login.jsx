@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
-import logo from "../assets/logo-relleno.png";
+import logo from "../../assets/logo-relleno.png";
 
 
 function Login() {
