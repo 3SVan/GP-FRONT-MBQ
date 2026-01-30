@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import './assets/logo-relleno.png'
+import logo from "../assets/logo-relleno.png";
 import App from "./App.jsx";
 import './index.css'
 

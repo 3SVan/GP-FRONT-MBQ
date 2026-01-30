@@ -24,6 +24,8 @@ import Aprobacion from "./Aprobacion.jsx";
 import Reportes from "./Reportes.jsx";
 import Graficas from "../shared/Graficas.jsx";
 import AprobaciondePagos from "../admin/pagos/AprobaciondePagos.jsx";
+import logo from "../assets/logo-relleno.png";
+
 
 
 function DashboardApro() {
@@ -550,7 +552,7 @@ function DashboardApro() {
           {sidebarOpen && (
             <div className="flex items-center gap-3">
               <img
-                src="/src/assets/logo-relleno.png"
+                src={logo}
                 alt="Logo"
                 className="h-8 object-contain"
               />

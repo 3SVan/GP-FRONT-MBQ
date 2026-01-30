@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
 import { AnalyticsAPI } from "../../api/analytics.api";
 import { NotificationsAPI } from "../../api/notifications.api";
+import logo from "../assets/logo-relleno.png";
+
 
 import {
   Users,
@@ -425,7 +427,7 @@ function DashboardAdmin() {
         <div className="flex items-center justify-between px-4 py-4">
           {sidebarOpen && (
             <div className="flex items-center gap-3">
-              <img src="/src/assets/logo-relleno.png" alt="Logo" className="h-8 object-contain" />
+              <img src={logo} alt="Logo" className="h-8 object-contain" />
               <span className="font-semibold text-darkBlue">Gestión de Proveedores</span>
             </div>
           )}

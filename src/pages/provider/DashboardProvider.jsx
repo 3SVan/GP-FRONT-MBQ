@@ -23,6 +23,8 @@ import GestionDatosPro from "./GestionDatosPro.jsx";
 import OrdenCompraPro from "./OrdenCompraPro.jsx";
 import DocumentosPro from "./DocumentosPro.jsx";
 import EstatusPago from "./EstatusPago.jsx";
+import logo from "../assets/logo-relleno.png";
+
 
 function DashboardProvider() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -452,7 +454,7 @@ function DashboardProvider() {
         <div className="flex items-center justify-between px-4 py-4">
           {sidebarOpen && (
             <div className="flex items-center gap-3">
-              <img src="/src/assets/logo-relleno.png" alt="Logo" className="h-8 object-contain" />
+              <img src="/src/assets/lleno.png" alt="Logo" className="h-8 object-contain" />
               <span className="font-semibold text-darkBlue">Portal Proveedores</span>
             </div>
           )}
