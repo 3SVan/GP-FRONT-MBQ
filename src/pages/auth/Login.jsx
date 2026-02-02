@@ -80,19 +80,44 @@ function Login() {
     }
   };
 
-  const handleForgotSubmit = (e) => {
+  const handleForgotSubmit = async (e) => {
     e.preventDefault();
+
     const newErrors = {};
     if (!forgotEmail) newErrors.forgotEmail = "El correo es requerido";
     else if (!validateEmail(forgotEmail)) newErrors.forgotEmail = "Correo no válido";
 
-    if (Object.keys(newErrors).length === 0) {
-      alert(`Se ha enviado un enlace de recuperación a ${forgotEmail}`);
-      setShowForgot(false);
-      setForgotEmail("");
-    } else setErrors(newErrors);
-  };
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
+    try {
+      setIsLoading(true);
+
+      await AuthAPI.forgotPassword({ email: forgotEmail });
+
+      // ✅ Limpieza UI
+      setShowForgot(false);
+      setErrors({});
+      const emailToReset = forgotEmail.trim();
+      setForgotEmail("");
+
+      // ✅ Ir a pantalla para ingresar código + nueva contraseña
+      navigate("/autentificacion", {
+        state: {
+          email: emailToReset,
+          mode: "reset-password",
+        },
+      });
+    } catch (err) {
+      setErrors({
+        forgotEmail: err?.message || "No se pudo enviar el correo",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const handleRequestAccessChange = (e) => {
     const { name, value } = e.target;
     setRequestAccessData(prev => ({ 
@@ -254,14 +279,16 @@ function Login() {
 
         {/* Enlaces en la misma línea */}
         <div className="flex justify-between text-center">
-          <button 
-            onClick={() => setShowForgot(true)} 
+          <button
+            type="button"
+            onClick={() => setShowForgot(true)}
             className="text-midBlue hover:text-darkBlue font-medium text-sm transition-colors"
           >
             ¿Olvidaste tu contraseña?
           </button>
-          <button 
-            onClick={() => setShowRequestAccess(true)} 
+          <button
+            type="button"
+            onClick={() => setShowRequestAccess(true)}
             className="text-midBlue hover:text-darkBlue font-medium text-sm transition-colors"
           >
             Solicitar acceso

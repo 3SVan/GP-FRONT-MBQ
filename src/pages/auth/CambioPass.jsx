@@ -1,49 +1,64 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/auth/CambioPass.jsx
+import React, { useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { AuthAPI } from "../../api/auth.api";
 
 function CambioPass() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Vienen desde Autentificacion cuando es reset:
+  // navigate("/cambio-pass", { state: { email, token } })
+  const email = location.state?.email || "";
+  const token = location.state?.token || ""; // si existe => reset-password
+
+  const isResetMode = Boolean(email && token);
+
   const [formData, setFormData] = useState({
     nuevaPassword: "",
-    confirmarPassword: ""
+    confirmarPassword: "",
   });
+
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // Estado para nueva contraseña
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Estado para confirmar contraseña
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const goToDashboardByRole = (roles = []) => {
+    if (roles.includes("ADMIN")) return navigate("/admin", { replace: true });
+    if (roles.includes("APPROVER")) return navigate("/approver", { replace: true });
+    if (roles.includes("PROVIDER")) return navigate("/provider", { replace: true });
+    return navigate("/login", { replace: true });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+    if (errors.general) setErrors((prev) => ({ ...prev, general: "" }));
   };
 
   const validatePassword = (password) => {
     const hasMinLength = password.length >= 8;
     const hasLetters = /[a-zA-Z]/.test(password);
     const hasNumbers = /[0-9]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
+    const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
+
     return {
       isValid: hasMinLength && hasLetters && hasNumbers && hasSpecialChar,
-      requirements: {
-        minLength: hasMinLength,
-        hasLetters,
-        hasNumbers,
-        hasSpecialChar
-      }
+      requirements: { minLength: hasMinLength, hasLetters, hasNumbers, hasSpecialChar },
     };
   };
 
+  const passwordValidation = useMemo(
+    () => validatePassword(formData.nuevaPassword),
+    [formData.nuevaPassword]
+  );
+
   const validateForm = () => {
     const newErrors = {};
-    const passwordValidation = validatePassword(formData.nuevaPassword);
 
     if (!formData.nuevaPassword.trim()) {
       newErrors.nuevaPassword = "La nueva contraseña es requerida";
@@ -57,51 +72,106 @@ function CambioPass() {
       newErrors.confirmarPassword = "Las contraseñas no coinciden";
     }
 
-    return { newErrors, passwordValidation };
+    // En reset mode, necesitamos email/token sí o sí
+    if (isResetMode && (!email || !token)) {
+      newErrors.general = "Falta información para recuperación. Vuelve a solicitar el código.";
+    }
+
+    return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { newErrors, passwordValidation } = validateForm();
 
+    const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
     setIsLoading(true);
+    setErrors({});
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      if (isResetMode) {
+        // ✅ RESET PASSWORD real (NO requiere cookie)
+        await AuthAPI.resetPassword({
+          email,
+          token,
+          newPassword: formData.nuevaPassword,
+        });
+
+        setShowSuccess(true);
+
+        // después del reset, lo más normal es mandarlo a login
+        setTimeout(() => {
+          navigate("/login", { replace: true });
+        }, 1200);
+
+        return;
+      }
+
+      // ✅ CHANGE PASSWORD (primer login / autenticado)
+      // Requiere cookie, si no hay sesión te dará 401.
+      // Si tu backend pide { currentPassword, newPassword } ajusta esto:
+      await AuthAPI.changePassword({
+        // si tu endpoint requiere currentPassword, aquí tendrías que pedirlo en UI
+        newPassword: formData.nuevaPassword,
+      });
+
       setShowSuccess(true);
-      
-      // Navegar al Dashboard después de 2 segundos
-      setTimeout(() => {
-        navigate("/dashboarda");
-      }, 2000);
-    }, 1500);
-  };
 
-  const passwordValidation = validatePassword(formData.nuevaPassword);
+      // leer roles y mandar dashboard por rol
+      const meRes = await AuthAPI.me();
+      const roles = meRes?.data?.user?.roles || [];
+
+      setTimeout(() => {
+        goToDashboardByRole(roles);
+      }, 1200);
+    } catch (err) {
+      setShowSuccess(false);
+      setErrors({
+        general: err?.message || "No se pudo cambiar la contraseña",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-beige p-6">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-lightBlue">
-        
         <div className="p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-darkBlue mb-3">Cambiar Contraseña</h1>
+            <h1 className="text-2xl font-bold text-darkBlue mb-3">
+              {isResetMode ? "Recuperar Contraseña" : "Cambiar Contraseña"}
+            </h1>
             <p className="text-midBlue text-sm">
-              Crea una nueva contraseña segura
+              {isResetMode
+                ? "Crea una nueva contraseña para tu cuenta"
+                : "Crea una nueva contraseña segura"}
             </p>
+
+            {isResetMode && email ? (
+              <p className="text-xs text-midBlue mt-2">
+                Cuenta: <span className="font-semibold text-darkBlue">{email}</span>
+              </p>
+            ) : null}
           </div>
 
+          {errors.general ? (
+            <div className="text-red-600 text-sm text-center bg-red-50 py-2 rounded-lg mb-4 border border-red-200">
+              {errors.general}
+            </div>
+          ) : null}
+
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Campo Nueva Contraseña */}
+            {/* Nueva contraseña */}
             <div className="space-y-2">
               <label className="block text-darkBlue font-semibold text-sm">
                 Nueva contraseña
               </label>
+
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -110,13 +180,16 @@ function CambioPass() {
                   onChange={handleChange}
                   placeholder="Mínimo 8 caracteres con letras, números y símbolos"
                   className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-midBlue transition ${
-                    errors.nuevaPassword ? "border-red-500 bg-red-50 pr-10" : "border-lightBlue pr-10"
+                    errors.nuevaPassword
+                      ? "border-red-500 bg-red-50 pr-10"
+                      : "border-lightBlue pr-10"
                   }`}
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-darkBlue focus:outline-none"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-darkBlue focus:outline-none"
                   aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? (
@@ -132,63 +205,27 @@ function CambioPass() {
                   )}
                 </button>
               </div>
-              
-              {/* Indicadores de requisitos */}
-              {formData.nuevaPassword && (
+
+              {formData.nuevaPassword ? (
                 <div className="space-y-1 mt-2">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      passwordValidation.requirements.minLength ? "bg-green-500" : "bg-red-500"
-                    }`}></div>
-                    <span className={`text-xs ${
-                      passwordValidation.requirements.minLength ? "text-green-600" : "text-red-600"
-                    }`}>
-                      Mínimo 8 caracteres
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      passwordValidation.requirements.hasLetters ? "bg-green-500" : "bg-red-500"
-                    }`}></div>
-                    <span className={`text-xs ${
-                      passwordValidation.requirements.hasLetters ? "text-green-600" : "text-red-600"
-                    }`}>
-                      Incluir letras
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      passwordValidation.requirements.hasNumbers ? "bg-green-500" : "bg-red-500"
-                    }`}></div>
-                    <span className={`text-xs ${
-                      passwordValidation.requirements.hasNumbers ? "text-green-600" : "text-red-600"
-                    }`}>
-                      Incluir números
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      passwordValidation.requirements.hasSpecialChar ? "bg-green-500" : "bg-red-500"
-                    }`}></div>
-                    <span className={`text-xs ${
-                      passwordValidation.requirements.hasSpecialChar ? "text-green-600" : "text-red-600"
-                    }`}>
-                      Incluir carácter especial (!@#$% etc.)
-                    </span>
-                  </div>
+                  <Req ok={passwordValidation.requirements.minLength} text="Mínimo 8 caracteres" />
+                  <Req ok={passwordValidation.requirements.hasLetters} text="Incluir letras" />
+                  <Req ok={passwordValidation.requirements.hasNumbers} text="Incluir números" />
+                  <Req ok={passwordValidation.requirements.hasSpecialChar} text="Incluir carácter especial (!@#$% etc.)" />
                 </div>
-              )}
-              
-              {errors.nuevaPassword && (
+              ) : null}
+
+              {errors.nuevaPassword ? (
                 <p className="text-red-500 text-xs mt-1">{errors.nuevaPassword}</p>
-              )}
+              ) : null}
             </div>
 
-            {/* Campo Confirmar Contraseña */}
+            {/* Confirmar */}
             <div className="space-y-2">
               <label className="block text-darkBlue font-semibold text-sm">
                 Confirmar contraseña
               </label>
+
               <div className="relative">
                 <input
                   type={showConfirmPassword ? "text" : "password"}
@@ -197,13 +234,16 @@ function CambioPass() {
                   onChange={handleChange}
                   placeholder="Repite tu contraseña"
                   className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-midBlue transition ${
-                    errors.confirmarPassword ? "border-red-500 bg-red-50 pr-10" : "border-lightBlue pr-10"
+                    errors.confirmarPassword
+                      ? "border-red-500 bg-red-50 pr-10"
+                      : "border-lightBlue pr-10"
                   }`}
                 />
+
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-darkBlue focus:outline-none"
+                  onClick={() => setShowConfirmPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-darkBlue focus:outline-none"
                   aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showConfirmPassword ? (
@@ -219,18 +259,17 @@ function CambioPass() {
                   )}
                 </button>
               </div>
-              {errors.confirmarPassword && (
+
+              {errors.confirmarPassword ? (
                 <p className="text-red-500 text-xs mt-1">{errors.confirmarPassword}</p>
-              )}
+              ) : null}
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
               className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 ${
-                isLoading 
-                  ? "bg-midBlue opacity-70 cursor-not-allowed" 
-                  : "bg-midBlue hover:bg-darkBlue text-white"
+                isLoading ? "bg-midBlue opacity-70 cursor-not-allowed" : "bg-midBlue hover:bg-darkBlue text-white"
               }`}
             >
               {isLoading ? "Cambiando contraseña..." : "Cambiar contraseña"}
@@ -239,10 +278,9 @@ function CambioPass() {
         </div>
       </div>
 
-      {/* Modal de éxito */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6 backdrop-blur-sm">
-          <div 
+          <div
             className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-lightBlue animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
@@ -250,37 +288,38 @@ function CambioPass() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-green-600 text-2xl">✓</span>
               </div>
-              
+
               <h3 className="text-xl font-bold text-darkBlue mb-4">
                 ¡Contraseña Cambiada!
               </h3>
               <p className="text-midBlue text-sm mb-6">
                 Tu contraseña ha sido actualizada exitosamente.
               </p>
-              
+
               <div className="text-center text-midBlue text-xs">
-                Redirigiendo al dashboard...
+                Redirigiendo...
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.8);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
         }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
+        .animate-scale-in { animation: scale-in 0.3s ease-out; }
       `}</style>
+    </div>
+  );
+}
+
+function Req({ ok, text }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`w-2 h-2 rounded-full ${ok ? "bg-green-500" : "bg-red-500"}`} />
+      <span className={`text-xs ${ok ? "text-green-600" : "text-red-600"}`}>{text}</span>
     </div>
   );
 }

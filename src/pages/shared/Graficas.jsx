@@ -1,41 +1,99 @@
 // src/pages/shared/Graficas.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  FileText,
-  Eye,
-  Trash2,
-  Plus,
-  Edit,
-  FileSpreadsheet,
-} from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FileText, Eye, Trash2, Plus, Edit, FileSpreadsheet } from "lucide-react";
 
-import { ProvidersAPI } from "../../api/providers.api"; // ✅ crea este archivo como te lo pasé
+import { ProvidersAPI } from "../../api/providers.api";
+import { AuthAPI } from "../../api/auth.api";
 
-// Componente de gráficas y tabla para usar directamente en el dashboard
-function Graficas({ showAlert, loading = false, stats = null }) {
-  // ✅ Tabla ahora viene de BD
+/**
+ * Graficas
+ * Props:
+ * - showAlert: fn(type, title, message, showConfirm?, onConfirm?)
+ * - loading: boolean (para stats)
+ * - stats: objeto de métricas del backend (opcional)
+ * - tableEnabled: boolean (default true)
+ * - tableScope: "admin" | "none" (default "admin")
+ *
+ * Nota: Si entras como PROVIDER, NO debes usar tableScope="admin"
+ * porque /providers/admin/table requiere rol ADMIN.
+ */
+function Graficas({
+  showAlert,
+  loading = false,
+  stats = null,
+  tableEnabled = true,
+  tableScope = "admin",
+}) {
+  // ✅ showAlert estable (evita loops infinitos)
+  const showAlertRef = useRef(showAlert);
+  useEffect(() => {
+    showAlertRef.current = showAlert;
+  }, [showAlert]);
+
+  // Tabla
   const [tableData, setTableData] = useState([]);
-  const [loadingTable, setLoadingTable] = useState(true);
+  const [loadingTable, setLoadingTable] = useState(false);
   const [tableQuery, setTableQuery] = useState("");
 
-  // Comentarios (solo UI local por ahora)
-  const [editingComment, setEditingComment] = useState(null);
-  const [commentText, setCommentText] = useState("");
+  // Debounce para query (evita pegarle al back en cada tecla)
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(tableQuery), 350);
+    return () => clearTimeout(t);
+  }, [tableQuery]);
 
-  // ✅ fetch tabla desde BD
+  // Roles (para proteger llamadas admin)
+  const [roles, setRoles] = useState([]);
   useEffect(() => {
     let alive = true;
+    (async () => {
+      try {
+        const me = await AuthAPI.me();
+        if (!alive) return;
+        setRoles(me?.data?.user?.roles || []);
+      } catch {
+        // Si no hay sesión/cookie todavía, no matamos la UI
+        if (!alive) return;
+        setRoles([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const isAdmin = roles.includes("ADMIN");
+
+  // ✅ fetch tabla desde BD (SIN LOOP)
+  useEffect(() => {
+    let alive = true;
+
+    // Si la tabla está apagada o no aplica, salimos
+    if (!tableEnabled || tableScope === "none") return;
+
+    // Si pidieron tabla admin pero NO eres admin → NO llames al endpoint
+    if (tableScope === "admin" && !isAdmin) {
+      setLoadingTable(false);
+      setTableData([]);
+      return;
+    }
 
     (async () => {
       try {
         setLoadingTable(true);
-        const data = await ProvidersAPI.getAdminTable(tableQuery);
+
+        // Solo soportamos tabla admin aquí
+        const data = await ProvidersAPI.getAdminTable(debouncedQuery);
         if (!alive) return;
 
         setTableData(data?.results || []);
       } catch (err) {
         console.error(err);
-        showAlert?.("error", "Proveedores", "No se pudo cargar la tabla de proveedores.");
+        showAlertRef.current?.(
+          "error",
+          "Proveedores",
+          "No se pudo cargar la tabla de proveedores."
+        );
       } finally {
         if (alive) setLoadingTable(false);
       }
@@ -44,27 +102,16 @@ function Graficas({ showAlert, loading = false, stats = null }) {
     return () => {
       alive = false;
     };
-  }, [tableQuery, showAlert]);
+  }, [debouncedQuery, tableEnabled, tableScope, isAdmin]);
 
   /**
-   * ✅ Mapeo de stats reales (vienen del backend /api/analytics/dashboard)
-   * stats = {
-   *   proveedores: { aprobado, rechazado },
-   *   facturas: { aprobadas, rechazadas, "pendientes por pagar", pagadas },
-   *   contratos: { nuevos, "en aviso", vencidos },
-   *   ordenesCompra: { retrasadas, aprobadas, rechazadas }
-   * }
+   * Mapeo de stats reales
    */
   const chartData = useMemo(() => {
     if (!stats) {
       return {
         proveedores: { aprobado: 0, rechazado: 0 },
-        facturas: {
-          aprobadas: 0,
-          rechazadas: 0,
-          "pendientes por pagar": 0,
-          pagadas: 0,
-        },
+        facturas: { aprobadas: 0, rechazadas: 0, "pendientes por pagar": 0, pagadas: 0 },
         contratos: { nuevos: 0, "en aviso": 0, vencidos: 0 },
         ordenesCompra: { retrasadas: 0, aprobadas: 0, rechazadas: 0 },
       };
@@ -94,9 +141,7 @@ function Graficas({ showAlert, loading = false, stats = null }) {
     };
   }, [stats]);
 
-  // =========================
   // Helpers UI
-  // =========================
   const normalizeDocName = (doc, fallbackPrefix) => {
     if (doc?.nombre) return doc.nombre;
     if (doc?.number) return `${fallbackPrefix}_${doc.number}.pdf`;
@@ -111,21 +156,18 @@ function Graficas({ showAlert, loading = false, stats = null }) {
     return false;
   };
 
-  // =========================
   // Acciones tabla
-  // =========================
   const handleDelete = (id) => {
     const proveedor = tableData.find((p) => p.id === id);
 
-    showAlert?.(
+    showAlertRef.current?.(
       "warning",
       "Confirmar Eliminación",
       `¿Estás seguro de que quieres eliminar a "${proveedor?.proveedor}"? Esta acción no se puede deshacer.`,
       true,
       () => {
-        // ⚠️ Esto es solo UI local; si quieres borrado real, lo conectamos al endpoint de inactivar/eliminar
         setTableData((prev) => prev.filter((item) => item.id !== id));
-        showAlert?.("success", "Eliminado", "El proveedor ha sido eliminado (solo UI).");
+        showAlertRef.current?.("success", "Eliminado", "El proveedor ha sido eliminado (solo UI).");
       }
     );
   };
@@ -134,16 +176,14 @@ function Graficas({ showAlert, loading = false, stats = null }) {
     const proveedor = tableData.find((p) => p.id === id);
     if (!proveedor) return;
 
-    showAlert?.(
+    showAlertRef.current?.(
       "info",
       "Detalles del Proveedor",
       `Nombre: ${proveedor.proveedor}\nCategoría: ${proveedor.categoria}\nEstatus: ${proveedor.estatus}\nComentarios: ${proveedor.comentarios?.length || 0}`
     );
   };
 
-  // =========================
-  // Export/Descargas (mantengo tu enfoque “fake” si no hay URL)
-  // =========================
+  // Export (igual que lo traías)
   const generarExcelConFormato = (datos, cabeceras, titulo, nombreArchivo) => {
     const html = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -232,15 +272,6 @@ function Graficas({ showAlert, loading = false, stats = null }) {
           <p><span class="label">Categoría:</span> ${proveedor.categoria}</p>
           <p><span class="label">Estatus:</span> ${proveedor.estatus}</p>
         </div>
-        <div class="section">
-          <h2>Detalles del Documento</h2>
-          <table>
-            <tr><th>Campo</th><th>Valor</th></tr>
-            <tr><td>ID del Documento</td><td>${documento.id}</td></tr>
-            <tr><td>Fecha de Emisión</td><td>${new Date().toLocaleDateString("es-MX")}</td></tr>
-            <tr><td>UUID</td><td>uuid-${documento.id}-${Date.now()}</td></tr>
-          </table>
-        </div>
         <div class="footer">
           <p>Documento generado automáticamente - Sistema de Gestión de Proveedores</p>
           <p>MBQ - ${new Date().getFullYear()}</p>
@@ -262,13 +293,11 @@ function Graficas({ showAlert, loading = false, stats = null }) {
 
   const descargarExcel = (documento, tipo, proveedor) => {
     try {
-      // Si ya hay URL real, mejor abrir
       if (openUrlIfExists(documento)) {
-        showAlert?.("success", "Descarga", "Se abrió el documento desde la URL (si el navegador lo permite).");
+        showAlertRef.current?.("success", "Descarga", "Se abrió el documento desde la URL (si el navegador lo permite).");
         return;
       }
 
-      // fallback “fake”
       const datos = [
         {
           Proveedor: proveedor.proveedor,
@@ -287,29 +316,29 @@ function Graficas({ showAlert, loading = false, stats = null }) {
       const filas = datos.map((doc) => Object.values(doc).map((v) => v.toString()));
       generarExcelConFormato(filas, cabeceras, titulo, nombreArchivo);
 
-      showAlert?.("success", "Descarga Completada", `${documento.nombre} se ha descargado correctamente en formato Excel`);
+      showAlertRef.current?.("success", "Descarga Completada", `${documento.nombre} se ha descargado correctamente en formato Excel`);
     } catch (error) {
       console.error("Error al descargar:", error);
-      showAlert?.("error", "Error en Descarga", "Hubo un problema al descargar el documento");
+      showAlertRef.current?.("error", "Error en Descarga", "Hubo un problema al descargar el documento");
     }
   };
 
   const descargarPDF = (documento, tipo, proveedor) => {
     try {
       if (openUrlIfExists(documento)) {
-        showAlert?.("success", "Descarga", "Se abrió el documento desde la URL (si el navegador lo permite).");
+        showAlertRef.current?.("success", "Descarga", "Se abrió el documento desde la URL (si el navegador lo permite).");
         return;
       }
 
       generarPDF(documento, tipo, proveedor);
-      showAlert?.("success", "Descarga Completada", `${documento.nombre} se ha descargado correctamente en formato PDF`);
+      showAlertRef.current?.("success", "Descarga Completada", `${documento.nombre} se ha descargado correctamente en formato PDF`);
     } catch (error) {
       console.error("Error al descargar PDF:", error);
-      showAlert?.("error", "Error en Descarga", "Hubo un problema al descargar el documento PDF");
+      showAlertRef.current?.("error", "Error en Descarga", "Hubo un problema al descargar el documento PDF");
     }
   };
 
-  // Colores (tal como lo traías)
+  // Colores
   const getChartColors = (chartType, labels) => {
     const colorMap = {
       verde: "#10b981",
@@ -334,7 +363,6 @@ function Graficas({ showAlert, loading = false, stats = null }) {
     return labels.map((label) => colorRules[chartType]?.[label] || "#6b7280");
   };
 
-  // PieChart
   const PieChart = ({ data, title, chartType }) => {
     const total = Object.values(data).reduce((sum, value) => sum + value, 0);
     const labels = Object.keys(data);
@@ -398,7 +426,6 @@ function Graficas({ showAlert, loading = false, stats = null }) {
     );
   };
 
-  // DocumentList
   const DocumentList = ({ documentos, tipo, proveedor }) => (
     <div className="space-y-2">
       {documentos.map((doc) => (
@@ -433,6 +460,9 @@ function Graficas({ showAlert, loading = false, stats = null }) {
   );
 
   // Comentarios (local UI)
+  const [editingComment, setEditingComment] = useState(null);
+  const [commentText, setCommentText] = useState("");
+
   const startEditingComment = (proveedorId, commentIndex = null) => {
     setEditingComment({ proveedorId, commentIndex });
     if (commentIndex !== null) {
@@ -461,7 +491,7 @@ function Graficas({ showAlert, loading = false, stats = null }) {
       );
       setEditingComment(null);
       setCommentText("");
-      showAlert?.("success", "Comentario Guardado", "El comentario se ha guardado correctamente (solo UI).");
+      showAlertRef.current?.("success", "Comentario Guardado", "El comentario se ha guardado correctamente (solo UI).");
     }
   };
 
@@ -471,7 +501,7 @@ function Graficas({ showAlert, loading = false, stats = null }) {
   };
 
   const deleteComment = (proveedorId, commentIndex) => {
-    showAlert?.("warning", "Eliminar Comentario", `¿Estás seguro de que quieres eliminar este comentario?`, true, () => {
+    showAlertRef.current?.("warning", "Eliminar Comentario", `¿Estás seguro de que quieres eliminar este comentario?`, true, () => {
       setTableData((prevData) =>
         prevData.map((proveedor) =>
           proveedor.id === proveedorId
@@ -479,7 +509,7 @@ function Graficas({ showAlert, loading = false, stats = null }) {
             : proveedor
         )
       );
-      showAlert?.("success", "Comentario Eliminado", "El comentario ha sido eliminado (solo UI).");
+      showAlertRef.current?.("success", "Comentario Eliminado", "El comentario ha sido eliminado (solo UI).");
     });
   };
 
@@ -607,130 +637,122 @@ function Graficas({ showAlert, loading = false, stats = null }) {
         <PieChart title="Órdenes de Compra" data={chartData.ordenesCompra} chartType="ordenesCompra" />
       </div>
 
-      {/* TABLA */}
-      <div className="bg-white rounded-xl border border-lightBlue shadow-lg overflow-hidden">
-        <div className="p-6 border-b border-lightBlue">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h3 className="text-xl font-semibold text-darkBlue">Gestión de Proveedores</h3>
-              <p className="text-sm text-midBlue mt-1">Lista completa de proveedores registrados</p>
-            </div>
+      {/* TABLA (solo si aplica) */}
+      {tableEnabled && tableScope !== "none" && (
+        <div className="bg-white rounded-xl border border-lightBlue shadow-lg overflow-hidden">
+          <div className="p-6 border-b border-lightBlue">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-darkBlue">Gestión de Proveedores</h3>
+                <p className="text-sm text-midBlue mt-1">Lista completa de proveedores registrados</p>
+              </div>
 
-            {/* búsqueda simple */}
-            <div className="w-full sm:w-72">
-              <input
-                value={tableQuery}
-                onChange={(e) => setTableQuery(e.target.value)}
-                placeholder="Buscar por RFC o nombre…"
-                className="w-full px-4 py-2 border border-lightBlue rounded-lg focus:outline-none focus:border-midBlue text-sm"
-              />
-              <p className="text-xs text-gray-500 mt-1">Se actualiza automáticamente</p>
+              <div className="w-full sm:w-72">
+                <input
+                  value={tableQuery}
+                  onChange={(e) => setTableQuery(e.target.value)}
+                  placeholder="Buscar por RFC o nombre…"
+                  className="w-full px-4 py-2 border border-lightBlue rounded-lg focus:outline-none focus:border-midBlue text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">Se actualiza automáticamente</p>
+              </div>
             </div>
           </div>
+
+          {!isAdmin && tableScope === "admin" ? (
+            <div className="p-6 text-sm text-midBlue">
+              No tienes permisos para ver esta tabla (requiere rol ADMIN).
+            </div>
+          ) : (
+            <>
+              {loadingTable && <div className="p-6 text-midBlue text-sm">Cargando proveedores desde BD…</div>}
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-lightBlue">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">Proveedor</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">Facturas</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">Órdenes de Compra</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">Documentos Respaldo</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">Acciones</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">Comentarios</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-lightBlue">
+                    {!loadingTable && tableData.length === 0 ? (
+                      <tr>
+                        <td className="px-6 py-6 text-sm text-gray-500" colSpan={6}>
+                          No hay proveedores para mostrar.
+                        </td>
+                      </tr>
+                    ) : (
+                      tableData.map((row) => (
+                        <tr key={row.id} className="hover:bg-lightBlue hover:bg-opacity-30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div>
+                              <div className="text-sm font-medium text-darkBlue">{row.proveedor}</div>
+                              <div className="text-xs text-midBlue">{row.categoria}</div>
+
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
+                                  row.estatus === "Activo"
+                                    ? "bg-green-100 text-green-800"
+                                    : row.estatus === "En revisión"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {row.estatus}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <DocumentList documentos={row.facturas || []} tipo="facturas" proveedor={row} />
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <DocumentList documentos={row.ordenesCompra || []} tipo="ordenes-compra" proveedor={row} />
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <DocumentList documentos={row.documentosRespaldo || []} tipo="documentos-respaldo" proveedor={row} />
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleView(row.id)}
+                                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition"
+                                title="Ver"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(row.id)}
+                                className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-4">
+                            <CommentsSection proveedor={row} />
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
-
-        {loadingTable && (
-          <div className="p-6 text-midBlue text-sm">Cargando proveedores desde BD…</div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-lightBlue">
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Proveedor
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Facturas
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Órdenes de Compra
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Documentos Respaldo
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Acciones
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Comentarios
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-lightBlue">
-              {!loadingTable && tableData.length === 0 ? (
-                <tr>
-                  <td className="px-6 py-6 text-sm text-gray-500" colSpan={6}>
-                    No hay proveedores para mostrar.
-                  </td>
-                </tr>
-              ) : (
-                tableData.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="hover:bg-lightBlue hover:bg-opacity-30 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-darkBlue">{row.proveedor}</div>
-                        <div className="text-xs text-midBlue">{row.categoria}</div>
-
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
-                            row.estatus === "Activo"
-                              ? "bg-green-100 text-green-800"
-                              : row.estatus === "En revisión"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {row.estatus}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <DocumentList documentos={row.facturas || []} tipo="facturas" proveedor={row} />
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <DocumentList documentos={row.ordenesCompra || []} tipo="ordenes-compra" proveedor={row} />
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <DocumentList documentos={row.documentosRespaldo || []} tipo="documentos-respaldo" proveedor={row} />
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleView(row.id)}
-                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition"
-                          title="Ver"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(row.id)}
-                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <CommentsSection proveedor={row} />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

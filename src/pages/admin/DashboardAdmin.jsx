@@ -6,7 +6,6 @@ import { AnalyticsAPI } from "../../api/analytics.api";
 import { NotificationsAPI } from "../../api/notifications.api";
 import logo from "../../assets/logo-relleno.png";
 
-
 import {
   Users,
   FileText,
@@ -109,16 +108,7 @@ function DashboardAdmin() {
     [notifications]
   );
 
-  const handleLogout = async () => {
-    try {
-      await AuthAPI.logout();
-    } catch (err) {
-      console.error("Error al cerrar sesión:", err);
-    } finally {
-      navigate("/");
-    }
-  };
-
+  // ✅ ALERT helper (sin cambiar tu UI)
   const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
     setAlertConfig({ type, title, message, showConfirm, onConfirm });
     setAlertOpen(true);
@@ -130,6 +120,22 @@ function DashboardAdmin() {
     }
   };
 
+  // ✅ LOGOUT real: borra cookie en backend y manda al login
+  const handleLogout = async () => {
+    try {
+      // cierra menús visuales
+      setUserMenuOpen(false);
+      setNotificationsOpen(false);
+
+      await AuthAPI.logout();
+    } catch (err) {
+      // aunque falle, forzamos salida local para no “atorar” al usuario
+      console.warn("Error al cerrar sesión:", err?.message || err);
+    } finally {
+      navigate("/login");
+    }
+  };
+
   // ✅ Cargar dashboard + notificaciones desde BD
   useEffect(() => {
     let alive = true;
@@ -137,12 +143,16 @@ function DashboardAdmin() {
     (async () => {
       try {
         setLoadingDashboard(true);
-        const [stats, notifs] = await Promise.all([
+        const [statsRes, notifsRes] = await Promise.all([
           AnalyticsAPI.getAdminDashboard(),
           NotificationsAPI.listMy(),
         ]);
 
         if (!alive) return;
+
+        // Stats: tu API puede devolver data en .data o directo, por eso normalizo:
+        const stats = statsRes?.data ?? statsRes ?? null;
+        const notifs = notifsRes?.data ?? notifsRes ?? [];
 
         setDashboardStats(stats);
         setNotifications(Array.isArray(notifs) ? notifs : []);
@@ -162,8 +172,9 @@ function DashboardAdmin() {
 
   const markAsRead = async (id) => {
     try {
-      const updated = await NotificationsAPI.markRead(id);
-      // tu back devuelve el notification actualizado
+      const updatedRes = await NotificationsAPI.markRead(id);
+      const updated = updatedRes?.data ?? updatedRes;
+
       setNotifications((prev) => prev.map((n) => (n.id === id ? updated : n)));
     } catch (err) {
       console.error(err);
@@ -411,7 +422,7 @@ function DashboardAdmin() {
     );
   };
 
-  // ✅ Contenido principal: ahora Graficas recibe data real
+  // ✅ Contenido principal: Graficas recibe data real (si tu componente la usa)
   const renderContent = () => {
     return <Graficas showAlert={showAlert} loading={loadingDashboard} stats={dashboardStats} />;
   };
@@ -530,9 +541,7 @@ function DashboardAdmin() {
                         return (
                           <div
                             key={n.id}
-                            className={`p-4 border-b border-lightBlue hover:bg-lightBlue transition ${
-                              !isRead ? "bg-blue-50" : ""
-                            }`}
+                            className={`p-4 border-b border-lightBlue hover:bg-lightBlue transition ${!isRead ? "bg-blue-50" : ""}`}
                             onClick={() => markAsRead(n.id)}
                           >
                             <div className="flex items-start gap-3">
@@ -598,7 +607,10 @@ function DashboardAdmin() {
 
             {/* MENÚ USUARIO */}
             <div className="relative">
-              <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
+              >
                 <div className="text-right">
                   <span className="text-sm font-medium text-darkBlue block">Administrador</span>
                 </div>
@@ -609,7 +621,10 @@ function DashboardAdmin() {
 
               {userMenuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-lightBlue py-2 z-50">
-                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
+                  >
                     <LogOut className="w-4 h-4" />
                     <span>Salir</span>
                   </button>
