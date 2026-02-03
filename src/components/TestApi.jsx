@@ -8,7 +8,7 @@ export default function TestApi() {
   const test = async () => {
     setResult("⏳ Haciendo request...");
     try {
-      const res = await api.get("/api/auth/me");
+      const res = await api.get("/auth/me");
       setResult("✅ OK\n" + JSON.stringify(res.data, null, 2));
     } catch (err) {
       // Para errores tipo CORS/Network, err.response puede ser undefined
