@@ -622,7 +622,12 @@ function DashboardAdmin() {
               {userMenuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-lightBlue py-2 z-50">
                   <button
-                    onClick={handleLogout}
+                    onClick={() =>
+                      showAlert("warning", "Cerrar sesión", "¿Seguro que deseas salir?", true, () => {
+                        setAlertOpen(false);
+                        handleLogout();
+                      })
+                    }
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
                   >
                     <LogOut className="w-4 h-4" />

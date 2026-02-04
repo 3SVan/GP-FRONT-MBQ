@@ -67,12 +67,11 @@ function DashboardProvider() {
   };
 
   // ✅ Logout real (limpia cookie)
-  const doLogout = async () => {
+  const handleLogout = async () => {
     try {
       setUserMenuOpen(false);
       await AuthAPI.logout();
     } catch (e) {
-      // aunque falle, redirigimos
       console.warn("logout error:", e?.message || e);
     } finally {
       navigate("/login");
@@ -92,8 +91,7 @@ function DashboardProvider() {
           nombreEmpresa: data?.businessName || "Proveedor",
         });
       } catch (e) {
-        // Si falla, no rompemos el dashboard, solo dejamos fallback
-        console.warn("No se pudo cargar /providers/me:", e?.message || e);
+        // endpoint puede no existir todavía (404), dejamos fallback "Proveedor"
       }
     })();
     return () => {
@@ -605,7 +603,7 @@ function DashboardProvider() {
                   onClick={() =>
                     showAlert("warning", "Cerrar sesión", "¿Seguro que deseas salir?", true, () => {
                       setAlertOpen(false);
-                      doLogout();
+                      handleLogout();
                     })
                   }
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
