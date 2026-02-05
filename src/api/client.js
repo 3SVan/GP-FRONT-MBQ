@@ -10,17 +10,15 @@ export const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response) {
-      const message =
-        error.response.data?.message ||
-        error.response.data?.error ||
-        "Error en la solicitud";
-      return Promise.reject(new Error(message));
-    }
-    if (error.request) {
-      return Promise.reject(new Error("No se pudo conectar con el servidor"));
-    }
-    return Promise.reject(error);
+    // conserva status/response y agrega un mensaje normalizado
+    const message =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      "Error en la solicitud";
+
+    error.userMessage = message; // 👈 útil para showAlert
+    return Promise.reject(error); // ✅ NO new Error(...)
   }
 );
 

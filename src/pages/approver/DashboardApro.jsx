@@ -1,5 +1,5 @@
 // src/pages/approver/DashboardApro.jsx
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   User,
   FileText,
@@ -13,10 +13,6 @@ import {
   CheckCircle2,
   Info,
   FileCheck,
-  Save,
-  Edit,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -27,6 +23,8 @@ import Aprobacion from "./Aprobacion.jsx";
 import Reportes from "./Reportes.jsx";
 import Graficas from "../shared/Graficas.jsx";
 import AprobaciondePagos from "../admin/pagos/AprobaciondePagos.jsx";
+import DatosAprobador from "./DatosAprobador.jsx";
+
 import logo from "../../assets/logo-relleno.png";
 
 function DashboardApro() {
@@ -36,6 +34,7 @@ function DashboardApro() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentModal, setCurrentModal] = useState("");
+
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: "",
@@ -44,7 +43,6 @@ function DashboardApro() {
     showConfirm: false,
     onConfirm: null,
   });
-  const [mostrarContraseña, setMostrarContraseña] = useState(false);
 
   // DATOS DE PRUEBA PARA APROBACIONES
   const [aprobaciones, setAprobaciones] = useState([
@@ -82,60 +80,9 @@ function DashboardApro() {
     },
   ]);
 
-  // DATOS DEL APROBADOR (mock)
-  const [datosAprobador, setDatosAprobador] = useState({
-    nombreCompleto: "Juan Pérez García",
-    area: "Finanzas",
-    correoCorporativo: "juan.perez@empresa.com",
-    telefono: "+52 55 1234 5678",
-    contraseña: "miContraseña123",
-  });
-
-  const [editando, setEditando] = useState(false);
-  const [formData, setFormData] = useState({ ...datosAprobador });
-
   // Función para manejar cambios en las aprobaciones
   const handleAprobacionChange = (nuevasAprobaciones) => {
     setAprobaciones(nuevasAprobaciones);
-  };
-
-  // Función para manejar cambios en el formulario
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Función para guardar los datos del aprobador
-  const guardarDatos = () => {
-    // Validaciones básicas
-    if (!formData.nombreCompleto.trim()) {
-      showAlert("error", "Error", "El nombre completo es obligatorio");
-      return;
-    }
-
-    if (!formData.area.trim()) {
-      showAlert("error", "Error", "El área es obligatoria");
-      return;
-    }
-
-    if (!formData.telefono.trim()) {
-      showAlert("error", "Error", "El teléfono es obligatorio");
-      return;
-    }
-
-    // Actualizar datos
-    setDatosAprobador(formData);
-    setEditando(false);
-    showAlert("success", "Datos Guardados", "Los datos se han actualizado correctamente");
-  };
-
-  // Función para cancelar edición
-  const cancelarEdicion = () => {
-    setFormData({ ...datosAprobador });
-    setEditando(false);
   };
 
   // ✅ Logout real (cookie HttpOnly)
@@ -146,7 +93,7 @@ function DashboardApro() {
     } catch (e) {
       console.warn("logout error:", e?.message || e);
     } finally {
-      navigate("/login");
+      navigate("/login", { replace: true });
     }
   };
 
@@ -174,158 +121,21 @@ function DashboardApro() {
     },
   ];
 
-  // Componente para el formulario de Datos del Aprobador
-  const FormularioDatosAprobador = () => {
-    return (
-      <div className="p-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Header del formulario */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-darkBlue">Mis Datos</h2>
-              <p className="text-midBlue">Actualiza tu información personal</p>
-            </div>
-            {!editando ? (
-              <button
-                onClick={() => setEditando(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-midBlue text-white rounded-lg hover:bg-darkBlue transition"
-              >
-                <Edit className="w-4 h-4" />
-                Editar Datos
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={guardarDatos}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                >
-                  <Save className="w-4 h-4" />
-                  Guardar
-                </button>
-                <button
-                  onClick={cancelarEdicion}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
-                >
-                  <X className="w-4 h-4" />
-                  Cancelar
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Formulario en dos columnas */}
-          <div className="bg-white rounded-lg border border-lightBlue p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Columna 1 */}
-              <div className="space-y-6">
-                {/* Nombre Completo */}
-                <div>
-                  <label className="block text-sm font-medium text-darkBlue mb-2">Nombre Completo *</label>
-                  {editando ? (
-                    <input
-                      type="text"
-                      name="nombreCompleto"
-                      value={formData.nombreCompleto}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
-                      placeholder="Ingresa tu nombre completo"
-                    />
-                  ) : (
-                    <div className="p-3 bg-beige rounded-lg text-darkBlue">{datosAprobador.nombreCompleto}</div>
-                  )}
-                </div>
-
-                {/* Correo Corporativo */}
-                <div>
-                  <label className="block text-sm font-medium text-darkBlue mb-2">Correo Corporativo</label>
-                  <input
-                    type="email"
-                    name="correoCorporativo"
-                    value={datosAprobador.correoCorporativo}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-lg text-gray-600 cursor-not-allowed"
-                  />
-                </div>
-
-                {/* Contraseña */}
-                <div>
-                  <label className="block text-sm font-medium text-darkBlue mb-2">Contraseña</label>
-                  <div className="relative">
-                    <input
-                      type={mostrarContraseña ? "text" : "password"}
-                      value={datosAprobador.contraseña}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-lg text-gray-600 cursor-not-allowed pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setMostrarContraseña(!mostrarContraseña)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    >
-                      {mostrarContraseña ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Columna 2 */}
-              <div className="space-y-6">
-                {/* Área */}
-                <div>
-                  <label className="block text-sm font-medium text-darkBlue mb-2">Área/Departamento *</label>
-                  {editando ? (
-                    <select
-                      name="area"
-                      value={formData.area}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
-                    >
-                      <option value="">Selecciona tu área</option>
-                      <option value="Finanzas">Finanzas</option>
-                      <option value="Compras">Compras</option>
-                      <option value="Recursos Humanos">Recursos Humanos</option>
-                      <option value="Operaciones">Operaciones</option>
-                      <option value="TI">Tecnologías de la Información</option>
-                      <option value="Legal">Legal</option>
-                      <option value="Administración">Administración</option>
-                    </select>
-                  ) : (
-                    <div className="p-3 bg-beige rounded-lg text-darkBlue">{datosAprobador.area}</div>
-                  )}
-                </div>
-
-                {/* Teléfono */}
-                <div>
-                  <label className="block text-sm font-medium text-darkBlue mb-2">Teléfono *</label>
-                  {editando ? (
-                    <input
-                      type="tel"
-                      name="telefono"
-                      value={formData.telefono}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
-                      placeholder="+52 55 1234 5678"
-                    />
-                  ) : (
-                    <div className="p-3 bg-beige rounded-lg text-darkBlue">{datosAprobador.telefono}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // SISTEMA DE MAPEO DE COMPONENTES
   const modalComponents = {
+    // ✅ Datos del Aprobador (AHORA VIENE DE SU ARCHIVO, PERO SE ABRE EN MODAL COMO ANTES)
+    "datos-aprobador": {
+      component: DatosAprobador,
+      title: "Datos del Aprobador",
+      props: {},
+    },
+
     // Revisión de Documentos
     "revision-documentos": {
       component: Aprobacion,
       title: "Revisión de Documentos",
       props: {
-        aprobaciones: aprobaciones,
+        aprobaciones,
         onAprobacionChange: handleAprobacionChange,
       },
     },
@@ -343,13 +153,6 @@ function DashboardApro() {
       title: "Reportes Generales",
       props: {},
     },
-
-    // Datos del Aprobador
-    "datos-aprobador": {
-      component: FormularioDatosAprobador,
-      title: "Datos del Aprobador",
-      props: {},
-    },
   };
 
   // Función para mostrar alertas centradas
@@ -358,9 +161,7 @@ function DashboardApro() {
     setAlertOpen(true);
 
     if ((type === "success" || type === "info") && !showConfirm) {
-      setTimeout(() => {
-        setAlertOpen(false);
-      }, 4000);
+      setTimeout(() => setAlertOpen(false), 4000);
     }
   };
 
@@ -376,7 +177,7 @@ function DashboardApro() {
     setCurrentModal("");
   };
 
-  // Componente de Alertas Centradas
+  // ✅ Alert con la MISMA animación del anterior (scale-95 hover:scale-100)
   const Alert = ({ isOpen, onClose, type, title, message, showConfirm = false, onConfirm }) => {
     if (!isOpen) return null;
 
@@ -451,6 +252,7 @@ function DashboardApro() {
                     </button>
                   )}
                 </div>
+
                 {!showConfirm && (
                   <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition flex-shrink-0">
                     <X className="w-5 h-5" />
@@ -464,7 +266,7 @@ function DashboardApro() {
     );
   };
 
-  // Componente del Modal
+  // ✅ Modal con la MISMA animación del anterior (scale-95 hover:scale-100)
   const Modal = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
@@ -473,10 +275,9 @@ function DashboardApro() {
     const renderModalContent = () => {
       if (modalConfig && modalConfig.component) {
         const ModalComponent = modalConfig.component;
-        return <ModalComponent {...modalConfig.props} onClose={onClose} showAlert={showAlert} />;
+        return <ModalComponent {...(modalConfig.props || {})} onClose={onClose} showAlert={showAlert} />;
       }
 
-      // Contenido por defecto
       return (
         <div className="text-center py-8">
           <div className="w-16 h-16 bg-lightBlue rounded-full flex items-center justify-center mx-auto mb-4">
@@ -491,7 +292,6 @@ function DashboardApro() {
     return (
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity backdrop-blur-sm" onClick={onClose} />
-
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-95 hover:scale-100"
@@ -512,9 +312,7 @@ function DashboardApro() {
   };
 
   // CONTENIDO PRINCIPAL
-  const renderContent = () => {
-    return <Graficas showAlert={showAlert} />;
-  };
+  const renderContent = () => <Graficas showAlert={showAlert} />;
 
   return (
     <div className="min-h-screen flex bg-beige">
@@ -532,7 +330,11 @@ function DashboardApro() {
             </div>
           )}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-lightBlue transition">
-            {sidebarOpen ? <ChevronLeft className="w-5 h-5 text-darkBlue" /> : <ChevronRight className="w-5 h-5 text-darkBlue" />}
+            {sidebarOpen ? (
+              <ChevronLeft className="w-5 h-5 text-darkBlue" />
+            ) : (
+              <ChevronRight className="w-5 h-5 text-darkBlue" />
+            )}
           </button>
         </div>
 
@@ -542,10 +344,16 @@ function DashboardApro() {
               <button
                 onClick={() => openModal(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
-                  currentModal === item.id ? "bg-lightBlue text-darkBlue border border-midBlue" : "text-darkBlue hover:bg-lightBlue"
+                  currentModal === item.id
+                    ? "bg-lightBlue text-darkBlue border border-midBlue"
+                    : "text-darkBlue hover:bg-lightBlue"
                 }`}
               >
-                <div className={`p-1.5 rounded-lg ${currentModal === item.id ? "bg-midBlue text-white" : "bg-lightBlue text-darkBlue"}`}>
+                <div
+                  className={`p-1.5 rounded-lg ${
+                    currentModal === item.id ? "bg-midBlue text-white" : "bg-lightBlue text-darkBlue"
+                  }`}
+                >
                   {item.icon}
                 </div>
                 {sidebarOpen && <span className="text-sm font-medium">{item.title}</span>}

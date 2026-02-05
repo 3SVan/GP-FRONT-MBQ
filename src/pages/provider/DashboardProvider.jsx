@@ -74,7 +74,7 @@ function DashboardProvider() {
     } catch (e) {
       console.warn("logout error:", e?.message || e);
     } finally {
-      navigate("/login");
+      navigate("/login", { replace: true });
     }
   };
 

@@ -132,7 +132,7 @@ function DashboardAdmin() {
       // aunque falle, forzamos salida local para no “atorar” al usuario
       console.warn("Error al cerrar sesión:", err?.message || err);
     } finally {
-      navigate("/login");
+      navigate("/login", { replace: true });
     }
   };
 
