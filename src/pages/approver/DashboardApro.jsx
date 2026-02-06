@@ -1,5 +1,5 @@
 // src/pages/approver/DashboardApro.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   User,
   FileText,
@@ -44,41 +44,8 @@ function DashboardApro() {
     onConfirm: null,
   });
 
-  // DATOS DE PRUEBA PARA APROBACIONES
-  const [aprobaciones, setAprobaciones] = useState([
-    {
-      id: 1,
-      proveedorNombre: "Proveedor ABC",
-      solicitud: "Alta de proveedor",
-      estado: "Pendiente",
-      fecha: "2024-01-15",
-      comentario: "",
-    },
-    {
-      id: 2,
-      proveedorNombre: "Empresa XYZ",
-      solicitud: "Modificación de datos",
-      estado: "Pendiente",
-      fecha: "2024-01-16",
-      comentario: "",
-    },
-    {
-      id: 3,
-      proveedorNombre: "Comercial S.A.",
-      solicitud: "Renovación de contrato",
-      estado: "Aprobado",
-      fecha: "2024-01-10",
-      comentario: "",
-    },
-    {
-      id: 4,
-      proveedorNombre: "Servicios Técnicos",
-      solicitud: "Alta de proveedor",
-      estado: "Rechazado",
-      fecha: "2024-01-12",
-      comentario: "Documentación incompleta",
-    },
-  ]);
+  // ✅ AHORA VIENE DEL BACK (misma variable: aprobaciones)
+  const [aprobaciones, setAprobaciones] = useState([]);
 
   // Función para manejar cambios en las aprobaciones
   const handleAprobacionChange = (nuevasAprobaciones) => {
@@ -123,7 +90,7 @@ function DashboardApro() {
 
   // SISTEMA DE MAPEO DE COMPONENTES
   const modalComponents = {
-    // ✅ Datos del Aprobador (AHORA VIENE DE SU ARCHIVO, PERO SE ABRE EN MODAL COMO ANTES)
+    // ✅ Datos del Aprobador
     "datos-aprobador": {
       component: DatosAprobador,
       title: "Datos del Aprobador",
@@ -155,7 +122,7 @@ function DashboardApro() {
     },
   };
 
-  // Función para mostrar alertas centradas
+  // ✅ Función para mostrar alertas centradas
   const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
     setAlertConfig({ type, title, message, showConfirm, onConfirm });
     setAlertOpen(true);
@@ -164,6 +131,72 @@ function DashboardApro() {
       setTimeout(() => setAlertOpen(false), 4000);
     }
   };
+
+  // =========================================================
+  // ✅ CONEXIÓN REAL AL BACK PARA LLENAR LA TABLA (SIN UI)
+  // =========================================================
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+  const ENDPOINT = "/document-reviews";
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}${ENDPOINT}`, {
+          method: "GET",
+          credentials: "include", // ✅ cookie HttpOnly
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${text}`);
+        }
+
+        const data = await res.json();
+
+        // puede venir como [] o {items: []}
+        const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+
+        // ✅ Mapeo al formato que tu tabla YA usa
+        const mapped = arr.map((d) => ({
+          id: d.id,
+
+          // nombre proveedor
+          proveedorNombre: d.proveedorNombre ?? d.providerName ?? d.provider?.name ?? "—",
+
+          // solicitud
+          solicitud: d.solicitud ?? d.requestType ?? d.type ?? d.documentType ?? "—",
+
+          // estado (tu UI usa "Pendiente/Aprobado/Rechazado")
+          estado: d.estado ?? d.status ?? "Pendiente",
+
+          // fecha (si viene ISO, tu componente Aprobacion puede formatearlo)
+          fecha: d.fecha ?? d.createdAt ?? d.updatedAt ?? "",
+
+          // comentario
+          comentario: d.comentario ?? d.comment ?? d.reason ?? "",
+
+          // Si tu Aprobacion.jsx usa el archivo/URL, puedes descomentar:
+          // documentoUrl: d.documentoUrl ?? d.fileUrl ?? d.documentUrl ?? null,
+          // documentoNombre: d.documentoNombre ?? d.fileName ?? null,
+        }));
+
+        if (mounted) setAprobaciones(mapped);
+      } catch (e) {
+        if (!mounted) return;
+        console.error("Error cargando aprobaciones:", e);
+        showAlert("error", "Error", "No se pudieron cargar los documentos");
+        setAprobaciones([]);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []); // <- no tocamos nada más del diseño
+  // =========================================================
 
   // Función para abrir modal
   const openModal = (sectionId) => {
