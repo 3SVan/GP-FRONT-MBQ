@@ -11,12 +11,12 @@ import CambioPass from "./pages/auth/CambioPass.jsx";
    ADMIN
 ======================= */
 import DashboardAdmin from "./pages/admin/DashboardAdmin.jsx";
-import GestionProveedores from "./pages/admin/GestionProveedores.jsx";
+import GestionProveedores from "./pages/admin/proveedores/GestionProveedores.jsx";
 import Usuarios from "./pages/admin/Usuarios.jsx";
-import VerificacionR from "./pages/admin/VerificacionR.jsx";
+import VerificacionR from "./pages/admin/sat/VerificacionR.jsx";
 import HistorialActividad from "./pages/admin/HistorialActividad.jsx";
-import ReactivacionProveedores from "./pages/admin/ReactivacionProveedores.jsx";
-import ActualizacionListaSAT from "./pages/admin/ActualizacionListaSAT.jsx";
+import ReactivacionProveedores from "./pages/admin/proveedores/ReactivacionProveedores.jsx";
+import ActualizacionListaSAT from "./pages/admin/sat/ActualizacionListaSAT.jsx";
 
 /* ADMIN → PAGOS */
 import GestionPagos from "./pages/admin/pagos/GestionPagos.jsx";

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle, AlertCircle, Info, X, AlertTriangle, Eye, EyeOff, Clock, User, Bell } from "lucide-react";
+import { useAdminProviders } from "../../../hooks/useAdminProviders";
+import { ProvidersAPI } from "../../../api/providers.api";
+
 
 function GestionProveedores({ mode, onClose }) {
   // Estados para los formularios
@@ -41,12 +44,12 @@ function GestionProveedores({ mode, onClose }) {
 
   // Estado para alertas internas
   const [alertOpen, setAlertOpen] = useState(false);
-  const [alertConfig, setAlertConfig] = useState({ 
-    type: '', 
-    title: '', 
-    message: '', 
-    showConfirm: false, 
-    onConfirm: null 
+  const [alertConfig, setAlertConfig] = useState({
+    type: '',
+    title: '',
+    message: '',
+    showConfirm: false,
+    onConfirm: null
   });
 
   // Estado para mostrar/ocultar contraseña
@@ -92,95 +95,23 @@ function GestionProveedores({ mode, onClose }) {
   }, [mode]);
 
   // Datos de ejemplo para proveedores (simulando base de datos)
-  const [proveedores, setProveedores] = useState([
-    {
-      id: 1,
-      nombre: "Tecnología Avanzada SA",
-      correo: "contacto@tecnologia-avanzada.com",
-      telefono: "+52 55 1234 5678",
-      direccionFiscal: "Av. Reforma 123, CDMX",
-      rfc: "TASA123456789",
-      cuentaClabe: "012180001234567890",
-      banco: "Banco Nacional",
-      observaciones: "Excelente servicio, entrega puntual",
-      tipoProveedor: "moral",
-      password: "password123",
-      versiones: [
-        {
-          version: 1,
-          fecha: "2024-01-15",
-          usuario: "admin",
-          cambios: "Registro inicial"
-        },
-        {
-          version: 2,
-          fecha: "2024-01-18",
-          usuario: "admin",
-          cambios: "Teléfono actualizado, Observaciones actualizadas"
-        }
-      ]
-    },
-    {
-      id: 2,
-      nombre: "Juan Pérez García",
-      correo: "juan.perez@ejemplo.com",
-      telefono: "+52 81 2345 6789",
-      direccionFiscal: "Calle Principal 456, Monterrey",
-      rfc: "PEGJ800101ABC",
-      cuentaClabe: "012180009876543210",
-      banco: "Banco Comercial",
-      observaciones: "Servicios profesionales - contacto preferente por email",
-      tipoProveedor: "fisica",
-      password: "password456",
-      versiones: [
-        {
-          version: 1,
-          fecha: "2024-01-10",
-          usuario: "admin",
-          cambios: "Registro inicial"
-        },
-        {
-          version: 2,
-          fecha: "2024-01-20",
-          usuario: "admin",
-          cambios: "Correo actualizado, Observaciones actualizadas"
-        }
-      ]
-    },
-    {
-      id: 3,
-      nombre: "Suministros Industriales MX",
-      correo: "ventas@suministrosindustriales.com",
-      telefono: "+52 33 5678 9012",
-      direccionFiscal: "Av. Industrial 789, Guadalajara",
-      rfc: "SIMX850305XYZ",
-      cuentaClabe: "012180003456789012",
-      banco: "Banco Mercantil",
-      observaciones: "Proveedor de materiales industriales, plazo de entrega 5 días",
-      tipoProveedor: "moral",
-      password: "password789",
-      versiones: [
-        {
-          version: 1,
-          fecha: "2024-01-12",
-          usuario: "admin",
-          cambios: "Registro inicial"
-        }
-      ]
-    }
-  ]);
 
   // Función para mostrar alertas
   const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
     setAlertConfig({ type, title, message, showConfirm, onConfirm });
     setAlertOpen(true);
-    
+
     if ((type === 'success' || type === 'info') && !showConfirm) {
       setTimeout(() => {
         setAlertOpen(false);
       }, 4000);
     }
   };
+
+  // Funciones para crear, actualizar y inactivar proveedores
+  const { create, update, inactivate } = useAdminProviders({ showAlert });
+  const [providerLoaded, setProviderLoaded] = useState(null); // aquí guardamos {id, ...provider}
+
 
   // Función para agregar notificación de solicitud (SOLO para altas)
   const agregarNotificacionSolicitud = (rfc, correo, nombre, tipoProveedor) => {
@@ -197,14 +128,14 @@ function GestionProveedores({ mode, onClose }) {
       },
       leida: false
     };
-    
+
     setNotifications(prev => [nuevaNotificacion, ...prev]);
   };
 
   // Función para marcar notificación como leída
   const marcarComoLeida = (id) => {
-    setNotifications(prev => 
-      prev.map(notif => 
+    setNotifications(prev =>
+      prev.map(notif =>
         notif.id === id ? { ...notif, leida: true } : notif
       )
     );
@@ -218,24 +149,22 @@ function GestionProveedores({ mode, onClose }) {
       <div className="relative">
         <button
           onClick={() => setShowNotifications(!showNotifications)}
-          className={`relative p-2 transition-all duration-300 ${
-            notificacionesNoLeidas > 0 
-              ? 'text-red-500 hover:text-red-600 transform hover:scale-110' 
-              : 'text-gray-400 hover:text-gray-600'
-          }`}
+          className={`relative p-2 transition-all duration-300 ${notificacionesNoLeidas > 0
+            ? 'text-red-500 hover:text-red-600 transform hover:scale-110'
+            : 'text-gray-400 hover:text-gray-600'
+            }`}
         >
           {/* Campana con diseño especial cuando hay notificaciones */}
           <div className="relative">
-            <Bell className={`w-7 h-7 transition-all duration-300 ${
-              notificacionesNoLeidas > 0 ? 'animate-bounce' : ''
-            }`} />
-            
+            <Bell className={`w-7 h-7 transition-all duration-300 ${notificacionesNoLeidas > 0 ? 'animate-bounce' : ''
+              }`} />
+
             {/* Efecto de brillo cuando hay notificaciones */}
             {notificacionesNoLeidas > 0 && (
               <div className="absolute inset-0 bg-red-400 rounded-full opacity-20 animate-ping"></div>
             )}
           </div>
-          
+
           {/* Contador de notificaciones */}
           {notificacionesNoLeidas > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white shadow-lg animate-pulse">
@@ -246,7 +175,7 @@ function GestionProveedores({ mode, onClose }) {
 
         {showNotifications && (
           <>
-            <div 
+            <div
               className="fixed inset-0 z-40"
               onClick={() => setShowNotifications(false)}
             />
@@ -257,7 +186,7 @@ function GestionProveedores({ mode, onClose }) {
                   {notificacionesNoLeidas} nuevas
                 </span>
               </div>
-              
+
               <div className="max-h-96 overflow-y-auto">
                 {notifications.length === 0 ? (
                   <div className="p-4 text-center text-gray-500">
@@ -267,33 +196,29 @@ function GestionProveedores({ mode, onClose }) {
                   notifications.map(notif => (
                     <div
                       key={notif.id}
-                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                        !notif.leida ? 'bg-red-50 border-l-4 border-l-red-500' : ''
-                      }`}
+                      className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${!notif.leida ? 'bg-red-50 border-l-4 border-l-red-500' : ''
+                        }`}
                       onClick={() => marcarComoLeida(notif.id)}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`w-3 h-3 rounded-full mt-1 flex-shrink-0 ${
-                          !notif.leida ? 'bg-red-500 animate-pulse' : 'bg-gray-300'
-                        }`} />
+                        <div className={`w-3 h-3 rounded-full mt-1 flex-shrink-0 ${!notif.leida ? 'bg-red-500 animate-pulse' : 'bg-gray-300'
+                          }`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-xs font-medium px-2 py-1 rounded ${
-                              !notif.leida 
-                                ? 'bg-red-100 text-red-800 border border-red-200' 
-                                : 'bg-green-100 text-green-800'
-                            }`}>
+                            <span className={`text-xs font-medium px-2 py-1 rounded ${!notif.leida
+                              ? 'bg-red-100 text-red-800 border border-red-200'
+                              : 'bg-green-100 text-green-800'
+                              }`}>
                               {!notif.leida ? 'Nueva Solicitud' : 'Solicitud'}
                             </span>
                             <span className="text-xs text-gray-500">{notif.datos.fecha}</span>
                           </div>
-                          
-                          <p className={`font-medium text-sm mb-2 ${
-                            !notif.leida ? 'text-red-700' : 'text-gray-800'
-                          }`}>
+
+                          <p className={`font-medium text-sm mb-2 ${!notif.leida ? 'text-red-700' : 'text-gray-800'
+                            }`}>
                             {notif.datos.nombre}
                           </p>
-                          
+
                           <div className="text-xs text-gray-600 space-y-1">
                             <div><strong className="text-gray-700">RFC:</strong> {notif.datos.rfc}</div>
                             <div><strong className="text-gray-700">Correo:</strong> {notif.datos.correo}</div>
@@ -305,7 +230,7 @@ function GestionProveedores({ mode, onClose }) {
                   ))
                 )}
               </div>
-              
+
               {notifications.length > 0 && (
                 <div className="p-3 border-t border-gray-200 bg-gray-50">
                   <button
@@ -328,31 +253,31 @@ function GestionProveedores({ mode, onClose }) {
     if (!alertOpen) return null;
 
     const alertStyles = {
-      success: { 
-        bg: 'bg-green-50', 
-        border: 'border-green-200', 
-        icon: <CheckCircle className="w-6 h-6 text-green-600" />, 
+      success: {
+        bg: 'bg-green-50',
+        border: 'border-green-200',
+        icon: <CheckCircle className="w-6 h-6 text-green-600" />,
         button: 'bg-green-600 hover:bg-green-700',
         text: 'text-green-800'
       },
-      error: { 
-        bg: 'bg-red-50', 
-        border: 'border-red-200', 
-        icon: <AlertCircle className="w-6 h-6 text-red-600" />, 
+      error: {
+        bg: 'bg-red-50',
+        border: 'border-red-200',
+        icon: <AlertCircle className="w-6 h-6 text-red-600" />,
         button: 'bg-red-600 hover:bg-red-700',
         text: 'text-red-800'
       },
-      warning: { 
-        bg: 'bg-yellow-50', 
-        border: 'border-yellow-200', 
-        icon: <AlertTriangle className="w-6 h-6 text-yellow-600" />, 
+      warning: {
+        bg: 'bg-yellow-50',
+        border: 'border-yellow-200',
+        icon: <AlertTriangle className="w-6 h-6 text-yellow-600" />,
         button: 'bg-yellow-600 hover:bg-yellow-700',
         text: 'text-yellow-800'
       },
-      info: { 
-        bg: 'bg-blue-50', 
-        border: 'border-blue-200', 
-        icon: <Info className="w-6 h-6 text-blue-600" />, 
+      info: {
+        bg: 'bg-blue-50',
+        border: 'border-blue-200',
+        icon: <Info className="w-6 h-6 text-blue-600" />,
         button: 'bg-blue-600 hover:bg-blue-700',
         text: 'text-blue-800'
       }
@@ -377,7 +302,7 @@ function GestionProveedores({ mode, onClose }) {
                   <p className="text-gray-700 whitespace-pre-line">
                     {alertConfig.message}
                   </p>
-                  
+
                   {alertConfig.showConfirm ? (
                     <div className="flex gap-3 mt-4">
                       <button
@@ -419,96 +344,122 @@ function GestionProveedores({ mode, onClose }) {
   };
 
   // Función para buscar proveedor en modificación
-  const buscarProveedor = () => {
-    if (!formModificacion.busqueda.trim()) {
-      showAlert('error', 'Búsqueda Requerida', 'Por favor ingrese un nombre o RFC para buscar el proveedor');
+  const buscarProveedor = async () => {
+    const q = formModificacion.busqueda.trim();
+    if (!q) {
+      showAlert("error", "Búsqueda Requerida", "Por favor ingrese un nombre o RFC para buscar el proveedor");
       return;
     }
 
-    const proveedor = proveedores.find(p => 
-      p.nombre.toLowerCase().includes(formModificacion.busqueda.toLowerCase()) ||
-      p.rfc.toLowerCase().includes(formModificacion.busqueda.toLowerCase())
-    );
+    try {
+      // 1) buscar
+      const { data } = await ProvidersAPI.search(q); // backend responde { results: [...] }
+      const results = data?.results || [];
 
-    if (proveedor) {
-      setFormModificacion(prev => ({
+      if (!results.length) {
+        showAlert("error", "Proveedor No Encontrado", "No se encontró ningún proveedor con los criterios de búsqueda");
+        setProveedorEncontrado(false);
+        setProviderLoaded(null);
+        return;
+      }
+
+      // 2) elegir mejor match: primero exacto por RFC si aplica
+      const qUp = q.toUpperCase();
+      const best =
+        results.find((p) => (p.rfc || "").toUpperCase() === qUp) ||
+        results[0];
+
+      // 3) traer detalle (para bankAccounts)
+      const detailRes = await ProvidersAPI.getById(best.id); // { provider }
+      const provider = detailRes?.data?.provider;
+
+      if (!provider) {
+        showAlert("error", "Error", "No se pudo cargar el detalle del proveedor");
+        return;
+      }
+
+      const bank = provider.bankAccounts?.[0] || {};
+
+      setFormModificacion((prev) => ({
         ...prev,
-        nombre: proveedor.nombre,
-        correo: proveedor.correo,
-        telefono: proveedor.telefono,
-        direccionFiscal: proveedor.direccionFiscal,
-        rfc: proveedor.rfc,
-        cuentaClabe: proveedor.cuentaClabe,
-        banco: proveedor.banco,
-        observaciones: proveedor.observaciones,
-        tipoProveedor: proveedor.tipoProveedor || "fisica",
-        password: proveedor.password,
-        ultimaModificacion: proveedor.versiones[proveedor.versiones.length - 1]
+        nombre: provider.businessName || "",
+        correo: provider.emailContacto || "",
+        telefono: provider.telefono || "",
+        direccionFiscal: provider.direccionFiscal || "",
+        rfc: provider.rfc || "",
+        cuentaClabe: bank.clabe || "",
+        banco: bank.bankName || "",
+        observaciones: provider.observaciones || "",
+        tipoProveedor: provider.personType === "MORAL" ? "moral" : "fisica",
+        // password NO se expone
+        password: "",
+        ultimaModificacion: null, // si luego quieres historial real, lo conectamos
       }));
+
+      setProviderLoaded(provider);
       setProveedorEncontrado(true);
-      showAlert('success', 'Proveedor Encontrado', `Se encontró el proveedor: ${proveedor.nombre}`);
-    } else {
-      showAlert('error', 'Proveedor No Encontrado', 'No se encontró ningún proveedor con los criterios de búsqueda');
+      showAlert("success", "Proveedor Encontrado", `Se encontró el proveedor: ${provider.businessName}`);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Error al buscar proveedor";
+      showAlert("error", "Error", msg);
       setProveedorEncontrado(false);
+      setProviderLoaded(null);
     }
   };
-
   // Handlers para Alta
   const handleAltaChange = (e) => {
     const { name, value } = e.target;
     setFormAlta(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAltaSubmit = (e) => {
+  const handleAltaSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validaciones de RFC, CORREO, NOMBRE y CONTRASEÑA
-    if (!formAlta.nombre.trim()) {
-      showAlert('error', 'Campo Requerido', 'Por favor ingrese el nombre del proveedor');
-      return;
-    }
 
-    if (!formAlta.correo.trim()) {
-      showAlert('error', 'Campo Requerido', 'Por favor ingrese el correo electrónico');
-      return;
-    }
+    if (!formAlta.nombre.trim()) return showAlert("error", "Campo Requerido", "Por favor ingrese el nombre del proveedor");
+    if (!formAlta.correo.trim()) return showAlert("error", "Campo Requerido", "Por favor ingrese el correo electrónico");
+    if (!formAlta.rfc.trim()) return showAlert("error", "Campo Requerido", "Por favor ingrese el RFC");
 
-    if (!formAlta.rfc.trim()) {
-      showAlert('error', 'Campo Requerido', 'Por favor ingrese el RFC');
-      return;
-    }
+    try {
+      const payload = {
+        businessName: formAlta.nombre.trim(),
+        rfc: formAlta.rfc.trim(),
+        emailContacto: formAlta.correo.trim(),
+        telefono: formAlta.telefono?.trim() || undefined,
+        direccionFiscal: formAlta.direccionFiscal?.trim() || undefined,
+        observaciones: formAlta.observaciones?.trim() || undefined,
+        bankName: formAlta.banco?.trim() || undefined,
+        clabe: formAlta.cuentaClabe?.trim() || undefined,
+        tipoProveedor: formAlta.tipoProveedor, // backend lo soporta
+      };
 
-    if (!formAlta.password.trim()) {
-      showAlert('error', 'Campo Requerido', 'Por favor ingrese la contraseña');
-      return;
-    }
+      await create(payload);
 
-    console.log("Datos de alta:", formAlta);
-    
-    // Agregar notificación de solicitud (SOLO para altas)
-    agregarNotificacionSolicitud(
-      formAlta.rfc,
-      formAlta.correo,
-      formAlta.nombre,
-      formAlta.tipoProveedor
-    );
-    
-    showAlert('success', 'Solicitud Enviada', 'La solicitud de alta de proveedor ha sido enviada. Se notificará al administrador.');
-    
-    // Limpiar formulario después del éxito
-    setFormAlta({
-      nombre: "",
-      correo: "",
-      telefono: "",
-      direccionFiscal: "",
-      rfc: "",
-      cuentaClabe: "",
-      banco: "",
-      observaciones: "",
-      password: "",
-      tipoProveedor: "fisica"
-    });
+      showAlert(
+        "success",
+        "Proveedor creado",
+        "El proveedor fue dado de alta. Si el usuario no existía, se generó contraseña temporal y se envió por correo."
+      );
+
+      // si quieres mantener tu campanita mock, puedes seguir agregando notificación (opcional)
+      // agregarNotificacionSolicitud(formAlta.rfc, formAlta.correo, formAlta.nombre, formAlta.tipoProveedor);
+
+      setFormAlta({
+        nombre: "",
+        correo: "",
+        telefono: "",
+        direccionFiscal: "",
+        rfc: "",
+        cuentaClabe: "",
+        banco: "",
+        observaciones: "",
+        password: "", // ya no se usa
+        tipoProveedor: "fisica",
+      });
+    } catch {
+      // el hook ya muestra alerta
+    }
   };
+
 
   // Handlers para Modificación
   const handleModificacionChange = (e) => {
@@ -516,75 +467,71 @@ function GestionProveedores({ mode, onClose }) {
     setFormModificacion(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleModificacionSubmit = (e) => {
+  const handleModificacionSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!proveedorEncontrado) {
-      showAlert('error', 'Proveedor No Encontrado', 'Primero debe buscar y cargar un proveedor para modificarlo');
+
+    if (!proveedorEncontrado || !providerLoaded?.id) {
+      showAlert(
+        "error",
+        "Proveedor No Encontrado",
+        "Primero debe buscar y cargar un proveedor para modificarlo"
+      );
       return;
     }
 
-    // Generar descripción de cambios
-    const cambios = [];
-    const proveedorOriginal = proveedores.find(p => p.rfc === formModificacion.rfc);
-    
-    if (formModificacion.nombre !== proveedorOriginal?.nombre) {
-      cambios.push("Nombre actualizado");
-    }
-    if (formModificacion.correo !== proveedorOriginal?.correo) {
-      cambios.push("Correo actualizado");
-    }
-    if (formModificacion.telefono !== proveedorOriginal?.telefono) {
-      cambios.push("Teléfono actualizado");
-    }
-    if (formModificacion.direccionFiscal !== proveedorOriginal?.direccionFiscal) {
-      cambios.push("Dirección fiscal actualizada");
-    }
-    if (formModificacion.observaciones !== proveedorOriginal?.observaciones) {
-      cambios.push("Observaciones actualizadas");
-    }
-    if (formModificacion.tipoProveedor !== proveedorOriginal?.tipoProveedor) {
-      cambios.push("Tipo de proveedor cambiado");
-    }
+    try {
+      const payload = {
+        businessName: formModificacion.nombre?.trim() || undefined,
+        emailContacto: formModificacion.correo?.trim() || undefined,
+        telefono: formModificacion.telefono?.trim() || undefined,
+        direccionFiscal: formModificacion.direccionFiscal?.trim() || undefined,
+        rfc: formModificacion.rfc?.trim() || undefined,
+        observaciones: formModificacion.observaciones?.trim() || undefined,
+        bankName: formModificacion.banco?.trim() || undefined,
+        clabe: formModificacion.cuentaClabe?.trim() || undefined,
+        // tipoProveedor NO se manda (tu backend no lo permite en update)
+        // password NO se cambia aquí (tu backend lo protege)
+      };
 
-    const nuevaVersion = {
-      version: (formModificacion.ultimaModificacion?.version || 0) + 1,
-      fecha: new Date().toISOString().split('T')[0],
-      usuario: "admin",
-      cambios: cambios.length > 0 ? cambios.join(", ") : "Sin cambios específicos registrados"
-    };
+      await update(providerLoaded.id, payload);
 
-    console.log("Datos de modificación:", formModificacion);
-    console.log("Nueva versión:", nuevaVersion);
-    
-    // NOTA: Las modificaciones NO generan notificaciones en la campanita
-    // Solo se registran en el historial de versiones
-    
-    showAlert('success', 'Proveedor Actualizado', `Los datos del proveedor han sido actualizados correctamente. Se registró la versión ${nuevaVersion.version}.`);
-    
-    setFormModificacion({
-      busqueda: "",
-      nombre: "",
-      correo: "",
-      telefono: "",
-      direccionFiscal: "",
-      rfc: "",
-      cuentaClabe: "",
-      banco: "",
-      observaciones: "",
-      tipoProveedor: "fisica",
-      password: "",
-      cambiosRealizados: [],
-      ultimaModificacion: null
-    });
-    setProveedorEncontrado(false);
+      showAlert("success", "Proveedor Actualizado", "Los datos del proveedor han sido actualizados correctamente.");
+
+      setFormModificacion({
+        busqueda: "",
+        nombre: "",
+        correo: "",
+        telefono: "",
+        direccionFiscal: "",
+        rfc: "",
+        cuentaClabe: "",
+        banco: "",
+        observaciones: "",
+        tipoProveedor: "fisica",
+        password: "",
+        cambiosRealizados: [],
+        ultimaModificacion: null,
+      });
+
+      setProveedorEncontrado(false);
+      setProviderLoaded(null);
+    } catch (err) {
+      // El hook ya muestra error, pero si quieres reforzar:
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Error al actualizar proveedor";
+      showAlert("error", "Error", msg);
+    }
   };
+
 
   // Handlers para Baja
   const handleBajaChange = (e) => {
     const { name, value } = e.target;
-    setFormBaja(prev => ({ 
-      ...prev, 
+    setFormBaja(prev => ({
+      ...prev,
       [name]: value,
       ...(name === 'motivoBaja' && value !== 'otros' && { motivoOtros: '' })
     }));
@@ -592,7 +539,7 @@ function GestionProveedores({ mode, onClose }) {
 
   const handleBajaSubmit = (e) => {
     e.preventDefault();
-    
+
     if (!formBaja.busqueda || !formBaja.motivoBaja) {
       showAlert('error', 'Campos Incompletos', 'Por favor complete todos los campos obligatorios');
       return;
@@ -604,23 +551,51 @@ function GestionProveedores({ mode, onClose }) {
     }
 
     console.log("Datos de baja:", formBaja);
-    
-    const motivoCompleto = formBaja.motivoBaja === 'otros' 
-      ? formBaja.motivoOtros 
+
+    const motivoCompleto = formBaja.motivoBaja === 'otros'
+      ? formBaja.motivoOtros
       : formBaja.motivoBaja;
-    
-    showAlert('warning', 
-      'Confirmar Baja', 
+
+    showAlert('warning',
+      'Confirmar Baja',
       `¿Está seguro de dar de baja al proveedor "${formBaja.busqueda}"?\n\nMotivo: ${motivoCompleto}\nFecha: ${formBaja.fechaBaja}\n\nEsta acción cambiará el estatus del proveedor en el sistema.`,
       true,
       () => {
-        showAlert('success', 'Proveedor Dado de Baja', 'El proveedor ha sido dado de baja exitosamente del sistema.');
-        setFormBaja({
-          busqueda: "",
-          fechaBaja: getFechaActual(),
-          motivoBaja: "",
-          motivoOtros: ""
-        });
+        const motivoCompleto = formBaja.motivoBaja === "otros" ? formBaja.motivoOtros : formBaja.motivoBaja;
+
+        // buscamos el proveedor y lo damos de baja
+        (async () => {
+          try {
+            // buscar para obtener id (igual que modificación)
+            const { data } = await ProvidersAPI.search(formBaja.busqueda.trim());
+            const results = data?.results || [];
+
+            if (!results.length) {
+              showAlert("error", "Proveedor No Encontrado", "No se encontró ningún proveedor con los criterios de búsqueda");
+              return;
+            }
+
+            const qUp = formBaja.busqueda.trim().toUpperCase();
+            const best = results.find((p) => (p.rfc || "").toUpperCase() === qUp) || results[0];
+
+            await inactivate(best.id, {
+              reason: String(motivoCompleto),
+              notes: `Fecha: ${formBaja.fechaBaja}`,
+            });
+
+            showAlert("success", "Proveedor Dado de Baja", "El proveedor ha sido dado de baja exitosamente del sistema.");
+
+            setFormBaja({
+              busqueda: "",
+              fechaBaja: getFechaActual(),
+              motivoBaja: "",
+              motivoOtros: "",
+            });
+          } catch (err) {
+            const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Error al dar de baja proveedor";
+            showAlert("error", "Error", msg);
+          }
+        })();
       }
     );
   };
@@ -1173,7 +1148,7 @@ function GestionProveedores({ mode, onClose }) {
             {getDescription()}
           </p>
         </div>
-        
+
         {/* Campana de notificaciones (SOLO visible en modo ALTA) */}
         {mode === "alta" && <CampanaNotificaciones />}
       </div>

@@ -35,20 +35,20 @@ import {
 import ExpedientesDigitales from "./expedientes/ExpedientesDigitales.jsx";
 
 // ADMIN → PROVEEDORES
-import GestionProveedores from "./GestionProveedores.jsx";
-import ReactivacionProveedores from "./ReactivacionProveedores.jsx";
+import GestionProveedores from "./proveedores/GestionProveedores.jsx";
+import ReactivacionProveedores from "./proveedores/ReactivacionProveedores.jsx";
 
 // ADMIN → USUARIOS / ACTIVIDAD
 import Usuarios from "./Usuarios.jsx";
 import HistorialActividad from "./HistorialActividad.jsx";
-import VerificacionR from "./VerificacionR.jsx";
+import VerificacionR from "./sat/VerificacionR.jsx";
 
 // ADMIN → PAGOS
 import GestionPagos from "./pagos/GestionPagos.jsx";
 import HistorialPagos from "./pagos/HistorialPagos.jsx";
 
 // ADMIN → OTROS
-import ActualizacionListaSAT from "./ActualizacionListaSAT.jsx";
+import ActualizacionListaSAT from "./sat/ActualizacionListaSAT.jsx";
 
 // SHARED
 import Graficas from "../shared/Graficas.jsx";
