@@ -406,10 +406,27 @@ function GestionProveedores({ mode, onClose }) {
       setProviderLoaded(null);
     }
   };
+  const getRfcMaxLength = (tipo) => (tipo === "fisica" ? 13 : 12);
   // Handlers para Alta
   const handleAltaChange = (e) => {
     const { name, value } = e.target;
-    setFormAlta(prev => ({ ...prev, [name]: value }));
+
+    // RFC
+    if (name === "rfc") {
+      const max = getRfcMaxLength(formAlta.tipoProveedor);
+      const next = value.toUpperCase().slice(0, max);
+      setFormAlta((prev) => ({ ...prev, rfc: next }));
+      return;
+    }
+
+    // ✅ CLABE (solo números, máximo 18)
+    if (name === "cuentaClabe") {
+      const next = value.replace(/\D/g, "").slice(0, 18);
+      setFormAlta((prev) => ({ ...prev, cuentaClabe: next }));
+      return;
+    }
+
+    setFormAlta((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleAltaSubmit = async (e) => {
@@ -464,9 +481,24 @@ function GestionProveedores({ mode, onClose }) {
   // Handlers para Modificación
   const handleModificacionChange = (e) => {
     const { name, value } = e.target;
-    setFormModificacion(prev => ({ ...prev, [name]: value }));
-  };
 
+    // RFC
+    if (name === "rfc") {
+      const max = getRfcMaxLength(formModificacion.tipoProveedor);
+      const next = value.toUpperCase().slice(0, max);
+      setFormModificacion((prev) => ({ ...prev, rfc: next }));
+      return;
+    }
+
+    // ✅ CLABE (solo números, máximo 18)
+    if (name === "cuentaClabe") {
+      const next = value.replace(/\D/g, "").slice(0, 18);
+      setFormModificacion((prev) => ({ ...prev, cuentaClabe: next }));
+      return;
+    }
+
+    setFormModificacion((prev) => ({ ...prev, [name]: value }));
+  };
   const handleModificacionSubmit = async (e) => {
     e.preventDefault();
 
@@ -659,7 +691,9 @@ function GestionProveedores({ mode, onClose }) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {formAlta.tipoProveedor === 'fisica' ? 'Nombre Completo *' : 'Nombre de la Empresa *'}
+                  {formAlta.tipoProveedor === "fisica"
+                    ? "Nombre Completo *"
+                    : "Nombre de la Empresa *"}
                 </label>
                 <input
                   type="text"
@@ -667,7 +701,11 @@ function GestionProveedores({ mode, onClose }) {
                   value={formAlta.nombre}
                   onChange={handleAltaChange}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder={formAlta.tipoProveedor === 'fisica' ? 'Nombre completo del proveedor' : 'Nombre de la empresa'}
+                  placeholder={
+                    formAlta.tipoProveedor === "fisica"
+                      ? "Nombre completo del proveedor"
+                      : "Nombre de la empresa"
+                  }
                   required
                 />
               </div>
@@ -687,6 +725,7 @@ function GestionProveedores({ mode, onClose }) {
                 />
               </div>
 
+              {/* ✅ RFC (ALTA) con límite dinámico */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   RFC *
@@ -696,13 +735,23 @@ function GestionProveedores({ mode, onClose }) {
                   name="rfc"
                   value={formAlta.rfc}
                   onChange={handleAltaChange}
+                  maxLength={getRfcMaxLength(formAlta.tipoProveedor)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder={formAlta.tipoProveedor === 'fisica' ? 'ABCD123456789' : 'ABCD123456ABC'}
+                  placeholder={
+                    formAlta.tipoProveedor === "fisica"
+                      ? "ABCD123456789"
+                      : "ABCD123456ABC"
+                  }
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formAlta.tipoProveedor === "fisica"
+                    ? "RFC persona física: 13 caracteres"
+                    : "RFC persona moral: 12 caracteres"}
+                </p>
               </div>
 
-              {/* Campos NO obligatorios (sin validación) */}
+              {/* Campos NO obligatorios */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Teléfono
@@ -738,11 +787,16 @@ function GestionProveedores({ mode, onClose }) {
                 <input
                   type="text"
                   name="cuentaClabe"
-                  value={formAlta.cuentaClabe}
-                  onChange={handleAltaChange}
+                  value={formAlta.cuentaClabe} // o formModificacion.cuentaClabe
+                  onChange={handleAltaChange}   // o handleModificacionChange
+                  maxLength={18}
+                  inputMode="numeric"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="18 dígitos"
+                  placeholder="123456789012345678"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Cuenta CLABE: 18 dígitos numéricos
+                </p>
               </div>
 
               <div>
@@ -846,10 +900,8 @@ function GestionProveedores({ mode, onClose }) {
 
             {proveedorEncontrado && (
               <>
-                {/* Historial de versiones */}
                 <HistorialVersiones ultimaModificacion={formModificacion.ultimaModificacion} />
 
-                {/* Campos editables */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -921,6 +973,7 @@ function GestionProveedores({ mode, onClose }) {
                     />
                   </div>
 
+                  {/* ✅ RFC (MODIFICACIÓN) con límite dinámico */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       RFC
@@ -930,8 +983,14 @@ function GestionProveedores({ mode, onClose }) {
                       name="rfc"
                       value={formModificacion.rfc}
                       onChange={handleModificacionChange}
+                      maxLength={getRfcMaxLength(formModificacion.tipoProveedor)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formModificacion.tipoProveedor === "fisica"
+                        ? "RFC persona física: 13 caracteres"
+                        : "RFC persona moral: 12 caracteres"}
+                    </p>
                   </div>
 
                   <div>
@@ -998,7 +1057,6 @@ function GestionProveedores({ mode, onClose }) {
                   </div>
                 </div>
 
-                {/* Botones de acción */}
                 <div className="flex gap-4 pt-4 border-t border-gray-200">
                   <button
                     type="submit"
@@ -1071,7 +1129,7 @@ function GestionProveedores({ mode, onClose }) {
                 </select>
               </div>
 
-              {formBaja.motivoBaja === 'otros' && (
+              {formBaja.motivoBaja === "otros" && (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Especifique el motivo *
@@ -1083,7 +1141,7 @@ function GestionProveedores({ mode, onClose }) {
                     rows="3"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Describa el motivo de la baja..."
-                    required={formBaja.motivoBaja === 'otros'}
+                    required
                   />
                 </div>
               )}
@@ -1113,9 +1171,7 @@ function GestionProveedores({ mode, onClose }) {
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Info className="w-8 h-8 text-blue-600" />
             </div>
-            <p className="text-gray-600 text-lg">
-              Modo no especificado
-            </p>
+            <p className="text-gray-600 text-lg">Modo no especificado</p>
           </div>
         );
     }
