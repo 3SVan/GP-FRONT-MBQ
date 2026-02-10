@@ -419,9 +419,8 @@ function GestionProveedores({ mode, onClose }) {
       return;
     }
 
-    // ✅ CLABE (solo números, máximo 18)
     if (name === "cuentaClabe") {
-      const next = value.replace(/\D/g, "").slice(0, 18);
+      const next = value.replace(/\D/g, "").slice(0, 21);
       setFormAlta((prev) => ({ ...prev, cuentaClabe: next }));
       return;
     }
@@ -490,9 +489,8 @@ function GestionProveedores({ mode, onClose }) {
       return;
     }
 
-    // ✅ CLABE (solo números, máximo 18)
     if (name === "cuentaClabe") {
-      const next = value.replace(/\D/g, "").slice(0, 18);
+      const next = value.replace(/\D/g, "").slice(0, 21);
       setFormModificacion((prev) => ({ ...prev, cuentaClabe: next }));
       return;
     }
@@ -789,13 +787,13 @@ function GestionProveedores({ mode, onClose }) {
                   name="cuentaClabe"
                   value={formAlta.cuentaClabe} // o formModificacion.cuentaClabe
                   onChange={handleAltaChange}   // o handleModificacionChange
-                  maxLength={18}
+                  maxLength={21}
                   inputMode="numeric"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="123456789012345678"
+                  placeholder="123456789012345678901"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Cuenta CLABE: 18 dígitos numéricos
+                  Cuenta CLABE: 21 dígitos numéricos
                 </p>
               </div>
 
