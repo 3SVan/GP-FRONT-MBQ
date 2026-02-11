@@ -16,4 +16,13 @@ export const AnalyticsAPI = {
   getPaymentTimings() {
     return api.get("/analytics/payment-timings").then((r) => r.data);
   },
+
+  /**
+   * ✅ GET /api/analytics/activity
+   * Historial de actividad (ADMIN)
+   * params: { page, pageSize, search, action, entity, actorId, entityId, dateFrom, dateTo }
+   */
+  getActivity(params = {}) {
+    return api.get("/analytics/activity", { params }).then((r) => r.data);
+  },
 };
