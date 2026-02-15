@@ -27,6 +27,7 @@ import GestionDatosPro from "./GestionDatosPro.jsx";
 import OrdenCompraPro from "./OrdenCompraPro.jsx";
 import DocumentosPro from "./DocumentosPro.jsx";
 import EstatusPago from "./EstatusPago.jsx";
+import ExpedientesProveedor from "./ExpedientesProveedor.jsx";
 
 import { AuthAPI } from "../../api/auth.api";
 import { ProvidersAPI } from "../../api/providers.api";
@@ -105,6 +106,7 @@ function DashboardProvider() {
     { id: "ordenes-compra", title: "Órdenes de Compra", icon: <ClipboardList className="w-5 h-5" /> },
     { id: "carga-documentos", title: "Carga de Documentos", icon: <Upload className="w-5 h-5" /> },
     { id: "gestion-pagos", title: "Estatus de Pago", icon: <DollarSign className="w-5 h-5" /> },
+    { id: "expedientes-digitales", title: "Expedientes Digitales", icon: <FileText className="w-5 h-5" /> },
   ];
 
   // -------------------------
@@ -412,6 +414,7 @@ function DashboardProvider() {
     "ordenes-compra": { component: OrdenCompraPro, title: "Órdenes de Compra" },
     "carga-documentos": { component: DocumentosPro, title: "Carga de Documentos" },
     "gestion-pagos": { component: EstatusPago, title: "Estatus de Pago" },
+    "expedientes-digitales": { component: ExpedientesProveedor, title: "Expedientes Digitales" },
   };
 
   const openModal = (sectionId) => {
