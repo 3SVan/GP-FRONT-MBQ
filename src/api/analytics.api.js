@@ -20,9 +20,16 @@ export const AnalyticsAPI = {
   /**
    * ✅ GET /api/analytics/activity
    * Historial de actividad (ADMIN)
-   * params: { page, pageSize, search, action, entity, actorId, entityId, dateFrom, dateTo }
    */
   getActivity(params = {}) {
     return api.get("/analytics/activity", { params }).then((r) => r.data);
+  },
+
+  /**
+   * ✅ GET /api/analytics/provider-dashboard
+   * Dashboard PROVEEDOR (Facturas / Contratos / Órdenes de Compra)
+   */
+  getProviderDashboard() {
+    return api.get("/analytics/provider-dashboard").then((r) => r.data);
   },
 };

@@ -1,4 +1,5 @@
 // src/pages/provider/DashboardProvider.jsx
+import { AnalyticsAPI } from "../../api/analytics.api";
 import React, { useEffect, useState } from "react";
 import {
   User,
@@ -82,19 +83,41 @@ function DashboardProvider() {
   // ✅ Cargar /api/providers/me para mostrar nombre real en header
   useEffect(() => {
     let alive = true;
+
     (async () => {
+      setStatsLoading(true);
       try {
-        const res = await ProvidersAPI.me();
-        const data = res?.data;
+        const data = await AnalyticsAPI.getProviderDashboard();
+
         if (!alive) return;
 
-        setDatosProveedor({
-          nombreEmpresa: data?.businessName || "Proveedor",
+        // Normaliza por si viene algo incompleto
+        setChartData({
+          facturas: {
+            retrasadas: Number(data?.facturas?.retrasadas ?? 0),
+            cerradas: Number(data?.facturas?.cerradas ?? 0),
+            "volumen activo": Number(data?.facturas?.["volumen activo"] ?? 0),
+          },
+          contratos: {
+            nuevos: Number(data?.contratos?.nuevos ?? 0),
+            "en aviso": Number(data?.contratos?.["en aviso"] ?? 0),
+            vencidos: Number(data?.contratos?.vencidos ?? 0),
+          },
+          ordenesCompra: {
+            retrasadas: Number(data?.ordenesCompra?.retrasadas ?? 0),
+            cerradas: Number(data?.ordenesCompra?.cerradas ?? 0),
+            "volumen activo": Number(data?.ordenesCompra?.["volumen activo"] ?? 0),
+          },
         });
-      } catch (e) {
-        // endpoint puede no existir todavía (404), dejamos fallback "Proveedor"
+      } catch (err) {
+        // si falla, no truena el dashboard
+        const msg = err?.userMessage || "No se pudieron cargar las métricas del dashboard";
+        showAlert("warning", "Dashboard", msg);
+      } finally {
+        if (alive) setStatsLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
@@ -161,11 +184,13 @@ function DashboardProvider() {
   // -------------------------
   // GRÁFICAS (local por ahora)
   // -------------------------
-  const [chartData] = useState({
-    facturas: { retrasadas: 15, cerradas: 75, "volumen activo": 10 },
-    contratos: { nuevos: 60, "en aviso": 25, vencidos: 15 },
-    ordenesCompra: { retrasadas: 8, cerradas: 80, "volumen activo": 12 },
+  const [chartData, setChartData] = useState({
+    facturas: { retrasadas: 0, cerradas: 0, "volumen activo": 0 },
+    contratos: { nuevos: 0, "en aviso": 0, vencidos: 0 },
+    ordenesCompra: { retrasadas: 0, cerradas: 0, "volumen activo": 0 },
   });
+
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const getChartColors = (chartType, labels) => {
     const colorMap = {
@@ -389,20 +414,53 @@ function DashboardProvider() {
   const DashboardContent = () => (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
+        
+        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-darkBlue mb-3">Dashboard de Proveedor</h1>
-          <p className="text-midBlue text-lg">Resumen completo de actividades y métricas</p>
+          <h1 className="text-3xl font-bold text-darkBlue mb-3">
+            Dashboard de Proveedor
+          </h1>
+          <p className="text-midBlue text-lg">
+            Resumen completo de actividades y métricas
+          </p>
         </div>
 
+        {/* Resumen */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-darkBlue mb-6 text-center">Resumen de Desempeño</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <PieChart title="Facturas" data={chartData.facturas} chartType="facturas" />
-            <PieChart title="Contratos" data={chartData.contratos} chartType="contratos" />
-            <PieChart title="Órdenes de Compra" data={chartData.ordenesCompra} chartType="ordenesCompra" />
-          </div>
+          <h2 className="text-2xl font-bold text-darkBlue mb-6 text-center">
+            Resumen de Desempeño
+          </h2>
+
+          {statsLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-pulse text-midBlue text-lg">
+                Cargando métricas del dashboard...
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              <PieChart
+                title="Facturas"
+                data={chartData.facturas}
+                chartType="facturas"
+              />
+
+              <PieChart
+                title="Contratos"
+                data={chartData.contratos}
+                chartType="contratos"
+              />
+
+              <PieChart
+                title="Órdenes de Compra"
+                data={chartData.ordenesCompra}
+                chartType="ordenesCompra"
+              />
+            </div>
+          )}
         </div>
 
+        {/* Calendario */}
         <Calendario />
       </div>
     </div>
