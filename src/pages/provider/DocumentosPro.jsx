@@ -1,3 +1,4 @@
+// src/pages/provider/DocumentosPro.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Upload, FileText, CheckCircle, X, User, Building } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -18,7 +19,7 @@ const DocumentosPro = () => {
     onConfirm: null,
   });
 
-  // Tipos de documento desde backend
+  // Tipos de documento desde backend (DocumentType[])
   const [documentTypes, setDocumentTypes] = useState([]);
   // Documentos existentes desde backend (ProviderDocument[])
   const [existingDocs, setExistingDocs] = useState([]);
@@ -27,13 +28,15 @@ const DocumentosPro = () => {
   const [loadingMe, setLoadingMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // ---- Helpers ----
+  // -------------------------
+  // Helpers
+  // -------------------------
   const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
     setAlertConfig({ type, title, message, showConfirm, onConfirm });
     setAlertOpen(true);
   };
 
-  // Componente de Alertas (idéntico a tu estilo)
+  // Componente de Alertas (mismo estilo)
   const Alert = () => {
     if (!alertOpen) return null;
 
@@ -129,6 +132,23 @@ const DocumentosPro = () => {
     return map;
   }, [existingDocs]);
 
+  // -------------------------
+  // ✅ BLOQUEO PUNTO 1:
+  // se bloquea cuando TODOS los requeridos existen ya en backend
+  // -------------------------
+  const requiredCodes = useMemo(() => {
+    return (Array.isArray(documentTypes) ? documentTypes : [])
+      .filter((d) => d?.isRequired)
+      .map((d) => d.code)
+      .filter(Boolean);
+  }, [documentTypes]);
+
+  const isLocked = useMemo(() => {
+    if (!tipoPersona) return false;
+    if (requiredCodes.length === 0) return false;
+    return requiredCodes.every((code) => Boolean(existingByCode[code]));
+  }, [tipoPersona, requiredCodes, existingByCode]);
+
   const handleTipoPersonaChange = (tipo) => {
     setTipoPersona(tipo);
     setArchivos({});
@@ -143,10 +163,7 @@ const DocumentosPro = () => {
     setLoadingTypes(true);
     setLoadingMe(true);
     try {
-      const [types, meDocs] = await Promise.all([
-        DocumentsAPI.types(pt),
-        DocumentsAPI.me(),
-      ]);
+      const [types, meDocs] = await Promise.all([DocumentsAPI.types(pt), DocumentsAPI.me()]);
 
       setDocumentTypes(Array.isArray(types) ? types : []);
       setExistingDocs(Array.isArray(meDocs?.documents) ? meDocs.documents : []);
@@ -170,28 +187,20 @@ const DocumentosPro = () => {
   }, [personTypeApi]);
 
   const handleFileUpload = (event, documentoCode) => {
+    if (isLocked) return; // ✅ bloqueo
+
     const file = event.target.files?.[0];
-
     if (file) {
-      // Validar PDF
       if (file.type !== "application/pdf") {
-        setErrors((prev) => ({
-          ...prev,
-          [documentoCode]: "Solo se permiten archivos PDF",
-        }));
+        setErrors((prev) => ({ ...prev, [documentoCode]: "Solo se permiten archivos PDF" }));
         return;
       }
 
-      // Validar tamaño (10MB)
       if (file.size > 10 * 1024 * 1024) {
-        setErrors((prev) => ({
-          ...prev,
-          [documentoCode]: "El archivo no puede ser mayor a 10MB",
-        }));
+        setErrors((prev) => ({ ...prev, [documentoCode]: "El archivo no puede ser mayor a 10MB" }));
         return;
       }
 
-      // Archivo válido
       setErrors((prev) => ({ ...prev, [documentoCode]: null }));
 
       const nuevoArchivo = {
@@ -204,14 +213,12 @@ const DocumentosPro = () => {
         archivo: file,
       };
 
-      setArchivos((prev) => ({
-        ...prev,
-        [documentoCode]: nuevoArchivo,
-      }));
+      setArchivos((prev) => ({ ...prev, [documentoCode]: nuevoArchivo }));
     }
   };
 
   const handleRemoveFile = (documentoCode) => {
+    if (isLocked) return; // ✅ bloqueo
     setArchivos((prev) => {
       const nuevos = { ...prev };
       delete nuevos[documentoCode];
@@ -235,6 +242,7 @@ const DocumentosPro = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLocked) return; // ✅ bloqueo
 
     if (!tipoPersona) {
       showAlert(
@@ -246,8 +254,6 @@ const DocumentosPro = () => {
     }
 
     const docs = getDocumentosActuales();
-
-    // Validar que requeridos estén cubiertos (local o existente)
     const faltantes = docs.filter((doc) => {
       if (!doc?.isRequired) return false;
       const code = doc?.code;
@@ -265,18 +271,16 @@ const DocumentosPro = () => {
       return;
     }
 
-    // Armamos FormData
     const fd = new FormData();
-
-    // ✅ IMPORTANTÍSIMO: el backend requiere personType en body
-    fd.append("personType", personTypeApi); // "FISICA" | "MORAL"
+    // ✅ el backend requiere personType en body
+    fd.append("personType", personTypeApi);
 
     let count = 0;
     for (const doc of docs) {
       const code = doc?.code;
       const localFile = archivos[code]?.archivo;
       if (localFile) {
-        fd.append(code, localFile); // fieldname == code
+        fd.append(code, localFile);
         count++;
       }
     }
@@ -300,10 +304,7 @@ const DocumentosPro = () => {
         "Los documentos se han enviado correctamente.\n\nTu información ha sido procesada y estará sujeta a validación."
       );
 
-      // Recargar docs existentes para reflejar status
       await loadTypesAndMe(personTypeApi);
-
-      // Limpia selección local
       setArchivos({});
       setErrors({});
     } catch (err) {
@@ -431,44 +432,49 @@ const DocumentosPro = () => {
                                     <CheckCircle className="w-5 h-5 text-green-500" />
                                     <div>
                                       <span className="font-medium text-darkBlue">
-                                        {local ? local.nombre : (existingName || "Documento cargado")}
+                                        {local
+                                          ? local.nombre
+                                          : existingName || "Documento cargado"}
                                       </span>
                                       <div className="text-xs text-midBlue">
                                         {local
                                           ? `${local.tamaño} • ${local.fecha}`
                                           : existing?.status
-                                            ? `Estatus: ${existing.status}`
-                                            : "Ya cargado"}
+                                          ? `Estatus: ${existing.status}`
+                                          : "Ya cargado"}
                                       </div>
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2">
-                                    {local ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveFile(code)}
-                                        className="text-red-500 hover:text-red-700 transition text-sm flex items-center gap-1"
-                                      >
-                                        <X className="w-4 h-4" />
-                                        Remover
-                                      </button>
-                                    ) : null}
+                                  {/* ✅ Botones ocultos si está bloqueado */}
+                                  {!isLocked && (
+                                    <div className="flex items-center gap-2">
+                                      {local ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveFile(code)}
+                                          className="text-red-500 hover:text-red-700 transition text-sm flex items-center gap-1"
+                                        >
+                                          <X className="w-4 h-4" />
+                                          Remover
+                                        </button>
+                                      ) : null}
 
-                                    <label className="cursor-pointer">
-                                      <input
-                                        type="file"
-                                        className="hidden"
-                                        id={`update-${code}`}
-                                        accept=".pdf"
-                                        onChange={(e) => handleFileUpload(e, code)}
-                                      />
-                                      <div className="flex items-center space-x-1 px-3 py-1 bg-midBlue text-white rounded-lg hover:bg-darkBlue transition text-sm">
-                                        <Upload className="w-4 h-4" />
-                                        <span>{existing ? "Reemplazar" : "Actualizar"}</span>
-                                      </div>
-                                    </label>
-                                  </div>
+                                      <label className="cursor-pointer">
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          id={`update-${code}`}
+                                          accept=".pdf"
+                                          onChange={(e) => handleFileUpload(e, code)}
+                                        />
+                                        <div className="flex items-center space-x-1 px-3 py-1 bg-midBlue text-white rounded-lg hover:bg-darkBlue transition text-sm">
+                                          <Upload className="w-4 h-4" />
+                                          <span>{existing ? "Reemplazar" : "Actualizar"}</span>
+                                        </div>
+                                      </label>
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <div
@@ -485,19 +491,30 @@ const DocumentosPro = () => {
                                   <p className="text-xs text-midBlue mb-2">
                                     Máximo 10MB - Solo archivos PDF
                                   </p>
-                                  <input
-                                    type="file"
-                                    className="hidden"
-                                    id={`upload-${code}`}
-                                    accept=".pdf"
-                                    onChange={(e) => handleFileUpload(e, code)}
-                                  />
-                                  <label
-                                    htmlFor={`upload-${code}`}
-                                    className="inline-block px-4 py-2 bg-midBlue text-white rounded-lg hover:bg-darkBlue transition cursor-pointer text-sm"
-                                  >
-                                    Seleccionar Archivo
-                                  </label>
+
+                                  {/* ✅ No permite seleccionar si está bloqueado */}
+                                  {!isLocked ? (
+                                    <>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        id={`upload-${code}`}
+                                        accept=".pdf"
+                                        onChange={(e) => handleFileUpload(e, code)}
+                                      />
+                                      <label
+                                        htmlFor={`upload-${code}`}
+                                        className="inline-block px-4 py-2 bg-midBlue text-white rounded-lg hover:bg-darkBlue transition cursor-pointer text-sm"
+                                      >
+                                        Seleccionar Archivo
+                                      </label>
+                                    </>
+                                  ) : (
+                                    <p className="text-xs text-midBlue mt-2">
+                                      Este apartado está bloqueado porque ya enviaste tus documentos.
+                                    </p>
+                                  )}
+
                                   {errors[code] && (
                                     <p className="text-red-500 text-xs mt-2">{errors[code]}</p>
                                   )}
@@ -513,38 +530,51 @@ const DocumentosPro = () => {
               </div>
             )}
 
-            {/* Resumen de Documentos Subidos */}
-            {tipoPersona && (Object.keys(archivos).length > 0 || Object.keys(existingByCode).length > 0) && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-darkBlue mb-4">Resumen de Documentos</h3>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-darkBlue">
-                    <strong>{Object.keys(archivos).length + Object.keys(existingByCode).length}</strong> de{" "}
-                    <strong>{getDocumentosActuales().filter((d) => d.isRequired).length}</strong>{" "}
-                    documentos requeridos cubiertos
-                  </p>
-                  {todosDocumentosCubiertos() && (
-                    <p className="text-green-600 text-sm font-medium mt-1">
-                      ✓ Todos los documentos requeridos han sido subidos
+            {/* Resumen */}
+            {tipoPersona &&
+              (Object.keys(archivos).length > 0 || Object.keys(existingByCode).length > 0) && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-darkBlue mb-4">
+                    Resumen de Documentos
+                  </h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-darkBlue">
+                      <strong>
+                        {Object.keys(archivos).length + Object.keys(existingByCode).length}
+                      </strong>{" "}
+                      de{" "}
+                      <strong>{getDocumentosActuales().filter((d) => d.isRequired).length}</strong>{" "}
+                      documentos requeridos cubiertos
                     </p>
-                  )}
-                </div>
-              </div>
-            )}
 
-            {/* Botón Enviar */}
+                    {todosDocumentosCubiertos() && (
+                      <p className="text-green-600 text-sm font-medium mt-1">
+                        ✓ Todos los documentos requeridos han sido subidos
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {/* Botón Enviar (oculto si isLocked) */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-lightBlue">
-              <button
-                type="submit"
-                disabled={!tipoPersona || !todosDocumentosCubiertos() || submitting}
-                className={`px-6 py-2 rounded-lg transition ${
-                  tipoPersona && todosDocumentosCubiertos() && !submitting
-                    ? "bg-midBlue text-white hover:bg-darkBlue"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                {submitting ? "Enviando..." : "Enviar Documentos"}
-              </button>
+              {isLocked ? (
+                <div className="text-sm text-midBlue font-medium">
+                  Documentos enviados. Este apartado está bloqueado.
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!tipoPersona || !todosDocumentosCubiertos() || submitting}
+                  className={`px-6 py-2 rounded-lg transition ${
+                    tipoPersona && todosDocumentosCubiertos() && !submitting
+                      ? "bg-midBlue text-white hover:bg-darkBlue"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  {submitting ? "Enviando..." : "Enviar Documentos"}
+                </button>
+              )}
             </div>
           </div>
         </form>
