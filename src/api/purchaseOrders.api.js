@@ -4,7 +4,7 @@ import { api } from "./client";
 export const PurchaseOrdersAPI = {
     // Lista órdenes del proveedor logueado
     myList() {
-        return api.get("/purchase-orders/me").then((r) => r.data);
+        return api.get("/purchase-orders/me").then(r => r.data);
     },
 
     // Crea orden de compra del proveedor (multipart)

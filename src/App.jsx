@@ -42,6 +42,7 @@ import GestionDatosPro from "./pages/provider/GestionDatosPro.jsx";
 import OrdenCompraPro from "./pages/provider/OrdenCompraPro.jsx";
 import DocumentosPro from "./pages/provider/DocumentosPro.jsx";
 import EstatusPago from "./pages/provider/EstatusPago.jsx";
+import XmlViewer from "./pages/provider/XmlViewer.jsx";
 
 /* =======================
    SHARED
@@ -92,6 +93,7 @@ function App() {
       <Route path="/provider/ordenes-compra" element={<OrdenCompraPro />} />
       <Route path="/provider/documentos" element={<DocumentosPro />} />
       <Route path="/provider/estatus-pago" element={<EstatusPago />} />
+      <Route path="/provider/xml-viewer/:orderId" element={<XmlViewer />} />
 
       {/* SHARED */}
       <Route path="/graficas" element={<Graficas />} />

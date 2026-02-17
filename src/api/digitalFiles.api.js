@@ -2,33 +2,72 @@
 import { api } from "./client";
 
 /**
- * Expedientes Digitales (Admin/Approver)
+ * Construye URL absoluta del backend
  */
-export const DigitalFilesAPI = {
-    listProviders(params = {}) {
-        return api.get("/digital-files/providers", { params }).then((r) => r.data);
-    },
+const buildUrl = (path) => {
+  const base = api?.defaults?.baseURL || "";
+  const baseNoApi = base.endsWith("/api") ? base.slice(0, -4) : base;
 
-    getProviderDocuments(providerId, params = {}) {
-        return api
-            .get(`/digital-files/providers/${providerId}/documents`, { params })
-            .then((r) => r.data);
-    },
-
-    getProviderPurchaseOrders(providerId) {
-        return api
-            .get(`/digital-files/providers/${providerId}/purchase-orders`)
-            .then((r) => r.data);
-    },
-
-    // Descargas (backend hace redirect si está en Supabase)
-    openPurchaseOrderPdf(orderId) {
-        window.open(`/api/digital-files/purchase-orders/${orderId}/download`, "_blank");
-    },
-    openInvoicePdf(orderId) {
-        window.open(`/api/digital-files/purchase-orders/${orderId}/invoice/download`, "_blank");
-    },
-    openInvoiceXml(orderId) {
-        window.open(`/api/digital-files/purchase-orders/${orderId}/invoice/xml`, "_blank");
-    },
+  return baseNoApi
+    ? `${baseNoApi}${path.startsWith("/") ? path : `/${path}`}`
+    : path;
 };
+
+/**
+ * ✅ Forzar descarga REAL (sin CORS)
+ * OJO: Esto hace navegación al endpoint del backend, y el backend redirige a Supabase con ?download=...
+ * El navegador descarga directo (como en tu screenshot).
+ */
+const forceDownloadByNavigation = (path) => {
+  const url = buildUrl(path);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.rel = "noopener noreferrer";
+  // sin target para que no abra pestaña nueva
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+/**
+ * Abrir en nueva pestaña (vista previa)
+ */
+const openInline = (path) => {
+  const url = buildUrl(path);
+  window.open(url, "_blank", "noopener,noreferrer");
+};
+
+export const DigitalFilesAPI = {
+  // ======================
+  // ORDEN DE COMPRA
+  // ======================
+  openPurchaseOrderPdf(orderId) {
+    openInline(`/api/digital-files/purchase-orders/${orderId}/view`);
+  },
+  downloadPurchaseOrderPdf(orderId) {
+    forceDownloadByNavigation(`/api/digital-files/purchase-orders/${orderId}/download`);
+  },
+
+  // ======================
+  // FACTURA PDF
+  // ======================
+  openInvoicePdf(orderId) {
+    openInline(`/api/digital-files/purchase-orders/${orderId}/invoice/view`);
+  },
+  downloadInvoicePdf(orderId) {
+    forceDownloadByNavigation(`/api/digital-files/purchase-orders/${orderId}/invoice/download`);
+  },
+
+  // ======================
+  // FACTURA XML
+  // ======================
+  openInvoiceXml(orderId) {
+    openInline(`/api/digital-files/purchase-orders/${orderId}/invoice/xml/view`);
+  },
+  downloadInvoiceXml(orderId) {
+    forceDownloadByNavigation(`/api/digital-files/purchase-orders/${orderId}/invoice/xml/download`);
+  },
+};
+
+export default DigitalFilesAPI;
