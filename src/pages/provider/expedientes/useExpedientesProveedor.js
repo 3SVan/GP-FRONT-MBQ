@@ -1,3 +1,4 @@
+// src/pages/provider/expedientes/useExpedientesProveedor.js
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PurchaseOrdersAPI } from "../../../api/purchaseOrders.api";
 import { DigitalFilesAPI } from "../../../api/digitalFiles.api";
@@ -16,6 +17,34 @@ function statusRank(st) {
   if (s === "APPROVED") return 3;
   if (s === "CANCELLED") return 4;
   return 9;
+}
+
+function pickNameFromUrl(u = "") {
+  try {
+    const clean = String(u).split("?")[0].split("#")[0];
+    return clean.split("/").pop() || "archivo";
+  } catch {
+    return "archivo";
+  }
+}
+
+/**
+ * Descarga como blob (evita que se abra otra pestaña y funciona mejor que a.download)
+ */
+async function downloadAsBlob(url, filename = "archivo") {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("No se pudo descargar el archivo");
+  const blob = await res.blob();
+
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(blobUrl);
 }
 
 export function useExpedientesProveedor({ showAlert } = {}) {
@@ -49,18 +78,56 @@ export function useExpedientesProveedor({ showAlert } = {}) {
     const normalized = list.map((po) => {
       const invoices = Array.isArray(po?.poInvoices) ? po.poInvoices : [];
 
-      // ✅ FIX: detectar facturas por URL O por storageKey, y en CUALQUIER hija (no solo inv0)
-      const hasInvoicePdf = Boolean(
-        po?.invoicePdfUrl ||
-          po?.invoiceStorageKey ||
-          invoices.some((inv) => inv?.pdfUrl || inv?.pdfStorageKey),
-      );
+      // ✅ listas MULTI (nombre + url + raw)
+      const invoicePdfs = invoices
+        .filter((inv) => inv?.pdfUrl || inv?.pdfStorageKey)
+        .map((inv) => ({
+          id: inv?.id,
+          name: pickNameFromUrl(inv?.pdfStorageKey || inv?.pdfUrl),
+          url: inv?.pdfUrl || null,
+          storageKey: inv?.pdfStorageKey || null,
+          raw: inv,
+          type: "PDF",
+        }));
 
-      const hasInvoiceXml = Boolean(
-        po?.invoiceXmlUrl ||
-          po?.invoiceXmlStorageKey ||
-          invoices.some((inv) => inv?.xmlUrl || inv?.xmlStorageKey),
-      );
+      const invoiceXmls = invoices
+        .filter((inv) => inv?.xmlUrl || inv?.xmlStorageKey)
+        .map((inv) => ({
+          id: inv?.id,
+          name: pickNameFromUrl(inv?.xmlStorageKey || inv?.xmlUrl),
+          url: inv?.xmlUrl || null,
+          storageKey: inv?.xmlStorageKey || null,
+          raw: inv,
+          type: "XML",
+        }));
+
+      // ✅ fallback legacy si no hay hijas
+      if (invoicePdfs.length === 0 && (po?.invoicePdfUrl || po?.invoiceStorageKey)) {
+        invoicePdfs.push({
+          id: null,
+          name: pickNameFromUrl(po?.invoiceStorageKey || po?.invoicePdfUrl),
+          url: po?.invoicePdfUrl || null,
+          storageKey: po?.invoiceStorageKey || null,
+          raw: null,
+          legacy: true,
+          type: "PDF",
+        });
+      }
+
+      if (invoiceXmls.length === 0 && (po?.invoiceXmlUrl || po?.invoiceXmlStorageKey)) {
+        invoiceXmls.push({
+          id: null,
+          name: pickNameFromUrl(po?.invoiceXmlStorageKey || po?.invoiceXmlUrl),
+          url: po?.invoiceXmlUrl || null,
+          storageKey: po?.invoiceXmlStorageKey || null,
+          raw: null,
+          legacy: true,
+          type: "XML",
+        });
+      }
+
+      const hasInvoicePdf = Boolean(invoicePdfs.length > 0);
+      const hasInvoiceXml = Boolean(invoiceXmls.length > 0);
 
       const backendStatus = safeUpper(po?.status || "DRAFT");
 
@@ -89,21 +156,23 @@ export function useExpedientesProveedor({ showAlert } = {}) {
           observaciones:
             po?.obervations || po?.observaciones || po?.observations || "",
 
-          // ✅ Orden actual (URL + KEY)
+          // Orden (URL + KEY)
           pdfUrl: po?.pdfUrl || null,
-          storageKey: po?.storageKey || null, // ✅ AQUI estaba el problema
+          storageKey: po?.storageKey || null,
 
-          // ✅ hijas (facturas múltiples)
+          // hijas
           poInvoices: invoices,
 
-          // ✅ legacy (por si no hay hijas)
+          // legacy
           invoicePdfUrl: po?.invoicePdfUrl || null,
           invoiceXmlUrl: po?.invoiceXmlUrl || null,
-
-          // ✅ legacy keys (útil para compat)
           invoiceStorageKey: po?.invoiceStorageKey || null,
           invoiceXmlStorageKey: po?.invoiceXmlStorageKey || null,
         },
+
+        // ✅ NUEVO: para el modal multi
+        invoicePdfs,
+        invoiceXmls,
 
         hasInvoicePdf,
         hasInvoiceXml,
@@ -153,11 +222,12 @@ export function useExpedientesProveedor({ showAlert } = {}) {
 
   const visibleRows = useMemo(
     () => rows.filter((r) => !hiddenIds.has(String(r.id))),
-    [rows, hiddenIds],
+    [rows, hiddenIds]
   );
 
   // =========================
-  // ✅ Ver/Descargar (BACK)
+  // ✅ Ver/Descargar
+  // MULTI: (row, file)
   // =========================
   const viewPurchaseOrderPdf = useCallback((row) => {
     if (!row?.id) return;
@@ -169,29 +239,71 @@ export function useExpedientesProveedor({ showAlert } = {}) {
     DigitalFilesAPI.downloadPurchaseOrderPdf(row.id);
   }, []);
 
-  const viewInvoicePdf = useCallback((row) => {
+  const viewInvoicePdf = useCallback((row, file) => {
     if (!row?.id || !row?.hasInvoicePdf) return;
+
+    // ✅ si hay url del archivo seleccionado, abre ese
+    if (file?.url) {
+      window.open(file.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // fallback legacy por orderId
     DigitalFilesAPI.openInvoicePdf(row.id);
   }, []);
 
-  const downloadInvoicePdf = useCallback((row) => {
-    if (!row?.id || !row?.hasInvoicePdf) return;
-    DigitalFilesAPI.downloadInvoicePdf(row.id);
+  const downloadInvoicePdf = useCallback(
+    async (row, file) => {
+      if (!row?.id || !row?.hasInvoicePdf) return;
+
+      try {
+        // ✅ descarga el archivo seleccionado
+        if (file?.url) {
+          await downloadAsBlob(file.url, file?.name || "factura.pdf");
+          return;
+        }
+
+        // fallback legacy
+        DigitalFilesAPI.downloadInvoicePdf(row.id);
+      } catch (e) {
+        console.error(e);
+        showAlert?.("error", "Descarga", "No se pudo descargar el archivo.");
+      }
+    },
+    [showAlert]
+  );
+
+  const viewInvoiceXml = useCallback((row, file) => {
+    if (!row?.id || !row?.hasInvoiceXml) return;
+
+    if (file?.url) {
+      window.open(file.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // fallback legacy (tu viewer por id)
+    window.open(`/provider/xml-viewer/${row.id}`, "_blank", "noopener,noreferrer");
   }, []);
 
-  const viewInvoiceXml = useCallback((row) => {
-    if (!row?.id || !row?.hasInvoiceXml) return;
-    window.open(
-      `/provider/xml-viewer/${row.id}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-  }, []);
+  const downloadInvoiceXml = useCallback(
+    async (row, file) => {
+      if (!row?.id || !row?.hasInvoiceXml) return;
 
-  const downloadInvoiceXml = useCallback((row) => {
-    if (!row?.id || !row?.hasInvoiceXml) return;
-    DigitalFilesAPI.downloadInvoiceXml(row.id);
-  }, []);
+      try {
+        if (file?.url) {
+          await downloadAsBlob(file.url, file?.name || "factura.xml");
+          return;
+        }
+
+        // fallback legacy
+        DigitalFilesAPI.downloadInvoiceXml(row.id);
+      } catch (e) {
+        console.error(e);
+        showAlert?.("error", "Descarga", "No se pudo descargar el archivo.");
+      }
+    },
+    [showAlert]
+  );
 
   // =========================
   // ✅ Acciones: enviar / eliminar
@@ -204,7 +316,7 @@ export function useExpedientesProveedor({ showAlert } = {}) {
         showAlert?.(
           "warning",
           "No permitido",
-          "Solo puedes enviar órdenes en estado Pendiente.",
+          "Solo puedes enviar órdenes en estado Pendiente."
         );
         return;
       }
@@ -218,7 +330,7 @@ export function useExpedientesProveedor({ showAlert } = {}) {
         showAlert?.("error", "Error", msg);
       }
     },
-    [canSubmit, reload, showAlert],
+    [canSubmit, reload, showAlert]
   );
 
   const deleteRow = useCallback(
@@ -229,7 +341,7 @@ export function useExpedientesProveedor({ showAlert } = {}) {
         showAlert?.(
           "warning",
           "No permitido",
-          "No puedes eliminar porque la orden ya fue enviada o finalizada.",
+          "No puedes eliminar porque la orden ya fue enviada o finalizada."
         );
         return;
       }
@@ -239,7 +351,7 @@ export function useExpedientesProveedor({ showAlert } = {}) {
         showAlert?.(
           "success",
           "Eliminado",
-          "La orden fue eliminada correctamente.",
+          "La orden fue eliminada correctamente."
         );
         setRows((prev) => prev.filter((x) => x.id !== row.id));
       } catch (err) {
@@ -247,7 +359,7 @@ export function useExpedientesProveedor({ showAlert } = {}) {
         showAlert?.("error", "Error", msg);
       }
     },
-    [canDelete, showAlert],
+    [canDelete, showAlert]
   );
 
   return {

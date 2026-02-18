@@ -1,5 +1,7 @@
-import React from "react";
-import { Eye, Download, Pencil, Check, Trash2, AlertTriangle } from "lucide-react";
+// src/components/ExpedientesTable.jsx
+import React, { useMemo, useState } from "react";
+import { Eye, Download, Pencil, Check, Trash2, AlertTriangle, FileText } from "lucide-react";
+import InvoiceFilesModal from "./InvoiceFilesModal.jsx";
 
 function formatDate(d) {
   try {
@@ -65,6 +67,66 @@ function IconCell({ enabled, onView, onDownload }) {
   );
 }
 
+/**
+ * Normaliza múltiples posibles formas de datos (por si backend cambia).
+ * Idealmente tu row debería traer algo como:
+ *   row.invoicePdfs = [{name, url, ...}, ...]
+ *   row.invoiceXmls = [{name, url, ...}, ...]
+ */
+function normalizeInvoiceFiles(row) {
+  const pickArray = (...candidates) => {
+    for (const c of candidates) {
+      if (Array.isArray(c) && c.length >= 0) return c;
+    }
+    return [];
+  };
+
+  const pdfs = pickArray(
+    row?.invoicePdfs,
+    row?.invoicePDFs,
+    row?.invoicePdfFiles,
+    row?.invoicePdfList,
+    row?.invoicesPdf,
+    row?.invoiceFiles?.pdf,
+    row?.invoiceFiles?.pdfs,
+    row?.invoice?.pdfs
+  );
+
+  const xmls = pickArray(
+    row?.invoiceXmls,
+    row?.invoiceXMLs,
+    row?.invoiceXmlFiles,
+    row?.invoiceXmlList,
+    row?.invoicesXml,
+    row?.invoiceFiles?.xml,
+    row?.invoiceFiles?.xmls,
+    row?.invoice?.xmls
+  );
+
+  return { pdfs, xmls };
+}
+
+function FileCountButton({ label, count, onClick }) {
+  const enabled = count > 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!enabled}
+      className={`w-full px-3 py-2 rounded-xl border text-sm flex items-center justify-center gap-2 transition ${
+        enabled
+          ? "hover:bg-lightBlue text-darkBlue"
+          : "opacity-40 cursor-not-allowed text-midBlue"
+      }`}
+      title={enabled ? `Ver ${label}` : `Sin ${label}`}
+    >
+      <FileText className="w-4 h-4" />
+      <span className="font-medium">{label}</span>
+      <span className="text-midBlue">({count})</span>
+    </button>
+  );
+}
+
 export default function ExpedientesTable({
   loading,
   rows,
@@ -80,12 +142,39 @@ export default function ExpedientesTable({
   onViewPurchaseOrderPdf,
   onDownloadPurchaseOrderPdf,
 
+  // ahora soportan (row, file)
   onViewInvoicePdf,
   onDownloadInvoicePdf,
 
   onViewInvoiceXml,
   onDownloadInvoiceXml,
 }) {
+  // modal state
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [filesRow, setFilesRow] = useState(null);
+  const [filesTab, setFilesTab] = useState("PDF");
+
+  const { pdfs, xmls } = useMemo(() => {
+    // no se usa directo aquí por fila; sólo para evitar warning
+    return { pdfs: [], xmls: [] };
+  }, []);
+
+  const openFiles = (row, tab) => {
+    setFilesRow(row);
+    setFilesTab(tab);
+    setFilesOpen(true);
+  };
+
+  const closeFiles = () => {
+    setFilesOpen(false);
+    setFilesRow(null);
+  };
+
+  const currentFiles = useMemo(() => {
+    if (!filesRow) return { pdfs: [], xmls: [] };
+    return normalizeInvoiceFiles(filesRow);
+  }, [filesRow]);
+
   return (
     <div className="mt-6 bg-white rounded-xl shadow-lg border border-lightBlue overflow-hidden">
       <div className="overflow-x-auto">
@@ -93,18 +182,10 @@ export default function ExpedientesTable({
           <thead className="bg-darkBlue text-white">
             <tr>
               <th className="text-left px-4 py-3 text-sm font-semibold">Fecha</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold">
-                Número de Orden
-              </th>
-              <th className="text-center px-4 py-3 text-sm font-semibold">
-                Órdenes de compra (PDF)
-              </th>
-              <th className="text-center px-4 py-3 text-sm font-semibold">
-                Factura (PDF/XML)
-              </th>
-              <th className="text-center px-4 py-3 text-sm font-semibold">
-                Acción
-              </th>
+              <th className="text-left px-4 py-3 text-sm font-semibold">Número de Orden</th>
+              <th className="text-center px-4 py-3 text-sm font-semibold">Órdenes de compra (PDF)</th>
+              <th className="text-center px-4 py-3 text-sm font-semibold">Factura (PDF/XML)</th>
+              <th className="text-center px-4 py-3 text-sm font-semibold">Acción</th>
             </tr>
           </thead>
 
@@ -126,6 +207,14 @@ export default function ExpedientesTable({
                 const lockedApproved = row.backendStatus === "APPROVED";
                 const lockedSent = row.backendStatus === "SENT";
 
+                const { pdfs: invoicePdfs, xmls: invoiceXmls } = normalizeInvoiceFiles(row);
+
+                // fallback por si aún sólo tienes flags
+                const pdfCount =
+                  invoicePdfs.length > 0 ? invoicePdfs.length : (row.hasInvoicePdf ? 1 : 0);
+                const xmlCount =
+                  invoiceXmls.length > 0 ? invoiceXmls.length : (row.hasInvoiceXml ? 1 : 0);
+
                 return (
                   <tr
                     key={row.id}
@@ -134,9 +223,7 @@ export default function ExpedientesTable({
                     {/* Fecha + status */}
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-darkBlue font-medium">
-                          {formatDate(row.fecha)}
-                        </span>
+                        <span className="text-darkBlue font-medium">{formatDate(row.fecha)}</span>
                         <StatusPill status={row.status} />
                       </div>
 
@@ -151,9 +238,7 @@ export default function ExpedientesTable({
                               lockedSent ? "text-green-600" : "text-yellow-600"
                             }`}
                           />
-                          {lockedSent
-                            ? "Enviado (no editable)"
-                            : "Bloqueado por aprobación"}
+                          {lockedSent ? "Enviado (no editable)" : "Bloqueado por aprobación"}
                         </div>
                       )}
                     </td>
@@ -165,9 +250,7 @@ export default function ExpedientesTable({
                       </div>
                       <div className="text-xs text-midBlue">
                         Monto:{" "}
-                        {Number(row?.purchaseOrder?.total || 0).toLocaleString(
-                          "es-MX",
-                        )}
+                        {Number(row?.purchaseOrder?.total || 0).toLocaleString("es-MX")}
                       </div>
                     </td>
 
@@ -180,26 +263,19 @@ export default function ExpedientesTable({
                       />
                     </td>
 
-                    {/* Factura: PDF + XML */}
+                    {/* Factura: MULTI PDF + MULTI XML (sin saturar) */}
                     <td className="px-4 py-4">
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="text-center">
-                          <div className="text-xs text-midBlue mb-1">PDF</div>
-                          <IconCell
-                            enabled={!!row.hasInvoicePdf}
-                            onView={() => onViewInvoicePdf?.(row)}
-                            onDownload={() => onDownloadInvoicePdf?.(row)}
-                          />
-                        </div>
-
-                        <div className="text-center">
-                          <div className="text-xs text-midBlue mb-1">XML</div>
-                          <IconCell
-                            enabled={!!row.hasInvoiceXml}
-                            onView={() => onViewInvoiceXml?.(row)}
-                            onDownload={() => onDownloadInvoiceXml?.(row)}
-                          />
-                        </div>
+                        <FileCountButton
+                          label="PDF"
+                          count={pdfCount}
+                          onClick={() => openFiles(row, "PDF")}
+                        />
+                        <FileCountButton
+                          label="XML"
+                          count={xmlCount}
+                          onClick={() => openFiles(row, "XML")}
+                        />
                       </div>
                     </td>
 
@@ -226,11 +302,7 @@ export default function ExpedientesTable({
                               ? "hover:bg-green-50 transition"
                               : "opacity-40 cursor-not-allowed"
                           }`}
-                          title={
-                            canSubmit?.(row)
-                              ? "Enviar a validación"
-                              : "Solo si está Pendiente"
-                          }
+                          title={canSubmit?.(row) ? "Enviar a validación" : "Solo si está Pendiente"}
                           disabled={!canSubmit?.(row)}
                         >
                           <Check className="w-4 h-4 text-green-600" />
@@ -261,6 +333,20 @@ export default function ExpedientesTable({
           </tbody>
         </table>
       </div>
+
+      {/* Modal global (1 solo) */}
+      <InvoiceFilesModal
+        open={filesOpen}
+        onClose={closeFiles}
+        row={filesRow}
+        initialTab={filesTab}
+        pdfFiles={currentFiles.pdfs}
+        xmlFiles={currentFiles.xmls}
+        onViewPdf={onViewInvoicePdf}
+        onDownloadPdf={onDownloadInvoicePdf}
+        onViewXml={onViewInvoiceXml}
+        onDownloadXml={onDownloadInvoiceXml}
+      />
     </div>
   );
 }

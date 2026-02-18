@@ -1,3 +1,4 @@
+// src/pages/provider/ExpedientesProveedor.jsx
 import React from "react";
 
 import { useExpedientesProveedor } from "./expedientes/useExpedientesProveedor";
@@ -175,6 +176,8 @@ export default function ExpedientesProveedor({ showAlert }) {
         onClose={edit.close}
         onSave={edit.save}
         onPickFile={edit.onPickFile}
+        onPickMany={edit.onPickMany}     // ✅
+        removeAt={edit.removeAt}         // ✅
         maxMb={edit.maxMb}
       />
 

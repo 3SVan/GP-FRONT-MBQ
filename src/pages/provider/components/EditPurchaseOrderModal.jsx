@@ -1,3 +1,4 @@
+// src/pages/provider/components/EditPurchaseOrderModal.jsx
 import React, { useMemo, useRef } from "react";
 import { X, FileText, Calendar } from "lucide-react";
 import UploadCard from "./UploadCard";
@@ -12,7 +13,9 @@ export default function EditPurchaseOrderModal({
   onClose,
   onSave,
 
-  onPickFile, // (key, file, type) => void
+  onPickFile, 
+  onPickMany,  
+  removeAt,       
   maxMb = 10,
 }) {
   const ocInputRef = useRef(null);
@@ -139,22 +142,26 @@ export default function EditPurchaseOrderModal({
             className="hidden"
             onChange={(e) => onPickFile?.("ocPdfFile", e.target.files?.[0], "pdf")}
           />
+
           <input
             ref={facPdfInputRef}
             type="file"
             accept=".pdf,application/pdf"
+            multiple                    // ✅
             className="hidden"
             onChange={(e) =>
-              onPickFile?.("facturaPdfFile", e.target.files?.[0], "pdf")
+              onPickMany?.("facturaPdfFiles", Array.from(e.target.files || []), "pdf")
             }
           />
+
           <input
             ref={facXmlInputRef}
             type="file"
             accept=".xml,application/xml,text/xml"
+            multiple                    // ✅
             className="hidden"
             onChange={(e) =>
-              onPickFile?.("facturaXmlFile", e.target.files?.[0], "xml")
+              onPickMany?.("facturaXmlFiles", Array.from(e.target.files || []), "xml")
             }
           />
 
@@ -164,7 +171,7 @@ export default function EditPurchaseOrderModal({
               title="Haz clic para reemplazar la orden en PDF"
               acceptLabel="PDF"
               onPick={() => ocInputRef.current?.click()}
-              newFileName={form.ocPdfFile?.name || ""}
+              newFileName={form.ocPdfFile?.name || ""}  // (single)
               required={false}
               currentFilesList={currentFiles?.orderFiles || []}
               maxMb={maxMb}
@@ -172,10 +179,11 @@ export default function EditPurchaseOrderModal({
 
             <UploadCard
               typeLabel="Factura en PDF"
-              title="Haz clic para reemplazar la factura en PDF"
+              title="Haz clic para subir una o varias facturas en PDF"
               acceptLabel="PDF"
               onPick={() => facPdfInputRef.current?.click()}
-              newFileName={form.facturaPdfFile?.name || ""}
+              newFiles={form.facturaPdfFiles || []}                 // ✅
+              onRemoveNewAt={(idx) => removeAt?.("facturaPdfFiles", idx)} // ✅
               required={false}
               currentFilesList={currentFiles?.invoicePdfFiles || []}
               maxMb={maxMb}
@@ -183,10 +191,11 @@ export default function EditPurchaseOrderModal({
 
             <UploadCard
               typeLabel="Factura en XML"
-              title="Haz clic para reemplazar la factura en XML"
+              title="Haz clic para subir uno o varios XML de facturas"
               acceptLabel="XML"
               onPick={() => facXmlInputRef.current?.click()}
-              newFileName={form.facturaXmlFile?.name || ""}
+              newFiles={form.facturaXmlFiles || []}                 // ✅
+              onRemoveNewAt={(idx) => removeAt?.("facturaXmlFiles", idx)} // ✅
               required={false}
               currentFilesList={currentFiles?.invoiceXmlFiles || []}
               maxMb={maxMb}

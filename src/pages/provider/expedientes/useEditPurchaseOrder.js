@@ -1,3 +1,4 @@
+// src/pages/provider/expedientes/useEditPurchaseOrder.js
 import { useCallback, useMemo, useState } from "react";
 import { PurchaseOrdersAPI } from "../../../api/purchaseOrders.api";
 
@@ -30,9 +31,7 @@ const MAX_BYTES = (mb) => mb * 1024 * 1024;
 export function useEditPurchaseOrder({
   showAlert,
   maxMb = MAX_MB_DEFAULT,
-  // callbacks opcionales
   onSaved,
-  // funciones para "ver" archivos actuales (usan tu lógica/endpoints)
   onViewPurchaseOrderPdf,
   onViewInvoicePdf,
   onViewInvoiceXml,
@@ -40,15 +39,17 @@ export function useEditPurchaseOrder({
   const [open, setOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
 
+  // ✅ CAMBIO: facturas ahora son arrays (multi)
   const [form, setForm] = useState({
     number: "",
     total: "",
     date: "",
     rfc: "",
     observaciones: "",
-    ocPdfFile: null,
-    facturaPdfFile: null,
-    facturaXmlFile: null,
+
+    ocPdfFile: null,          // (single)
+    facturaPdfFiles: [],      // ✅ (multi)
+    facturaXmlFiles: [],      // ✅ (multi)
   });
 
   const [currentFiles, setCurrentFiles] = useState({
@@ -70,7 +71,6 @@ export function useEditPurchaseOrder({
     setSelectedRow(null);
   }, []);
 
-  // ✅ FIX: arma "archivos actuales" usando URL o STORAGE KEY (legacy + hijas)
   const buildCurrentFiles = useCallback(
     (row) => {
       const po = row?.purchaseOrder || {};
@@ -78,17 +78,14 @@ export function useEditPurchaseOrder({
 
       const uniq = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
 
-      // Orden (puede venir como url o storageKey)
       const orderRef = po?.pdfUrl || po?.storageKey || null;
 
-      // Facturas PDF (legacy + hijas, url o key)
       const invoicePdfRefs = uniq([
         po?.invoicePdfUrl,
         po?.invoiceStorageKey,
         ...invoices.map((inv) => inv?.pdfUrl || inv?.pdfStorageKey),
       ]);
 
-      // Facturas XML (legacy + hijas, url o key)
       const invoiceXmlRefs = uniq([
         po?.invoiceXmlUrl,
         po?.invoiceXmlStorageKey,
@@ -97,29 +94,21 @@ export function useEditPurchaseOrder({
 
       return {
         orderFiles: orderRef
-          ? [
-              {
-                name: pickNameFromUrl(orderRef),
-                // usa tu endpoint (no depende de url/key)
-                onView: () => onViewPurchaseOrderPdf?.(row),
-              },
-            ]
+          ? [{ name: pickNameFromUrl(orderRef), onView: () => onViewPurchaseOrderPdf?.(row) }]
           : [],
 
         invoicePdfFiles: invoicePdfRefs.map((ref) => ({
           name: pickNameFromUrl(ref),
-          // usa tu endpoint (no depende de url/key)
           onView: () => onViewInvoicePdf?.(row),
         })),
 
         invoiceXmlFiles: invoiceXmlRefs.map((ref) => ({
           name: pickNameFromUrl(ref),
-          // usa tu endpoint (no depende de url/key)
           onView: () => onViewInvoiceXml?.(row),
         })),
       };
     },
-    [onViewInvoicePdf, onViewInvoiceXml, onViewPurchaseOrderPdf],
+    [onViewInvoicePdf, onViewInvoiceXml, onViewPurchaseOrderPdf]
   );
 
   const openForRow = useCallback(
@@ -132,15 +121,16 @@ export function useEditPurchaseOrder({
         date: toInputDate(row?.purchaseOrder?.date || row?.fecha),
         rfc: row?.purchaseOrder?.rfc || "",
         observaciones: row?.purchaseOrder?.observaciones || "",
+
         ocPdfFile: null,
-        facturaPdfFile: null,
-        facturaXmlFile: null,
+        facturaPdfFiles: [],   // ✅ reset multi
+        facturaXmlFiles: [],   // ✅ reset multi
       });
 
       setCurrentFiles(buildCurrentFiles(row));
       setOpen(true);
     },
-    [buildCurrentFiles],
+    [buildCurrentFiles]
   );
 
   const validateFile = useCallback(
@@ -175,16 +165,46 @@ export function useEditPurchaseOrder({
 
       return true;
     },
-    [maxMb, showAlert],
+    [maxMb, showAlert]
   );
 
+  // ✅ SINGLE (Orden PDF)
   const onPickFile = useCallback(
     (key, file, type) => {
       if (!validateFile(file, type)) return;
       setForm((p) => ({ ...p, [key]: file }));
     },
-    [validateFile],
+    [validateFile]
   );
+
+  // ✅ MULTI (Facturas PDF/XML)
+  const onPickMany = useCallback(
+    (key, picked, type) => {
+      const list = Array.isArray(picked) ? picked : [];
+      if (list.length === 0) return;
+
+      const bad = list.find((f) => !validateFile(f, type));
+      if (bad) return;
+
+      setForm((p) => ({
+        ...p,
+        [key]: [...(p[key] || []), ...list],
+      }));
+    },
+    [validateFile]
+  );
+
+  const removeAt = useCallback((key, idx) => {
+    setForm((p) => {
+      const arr = Array.isArray(p[key]) ? [...p[key]] : [];
+      arr.splice(idx, 1);
+      return { ...p, [key]: arr };
+    });
+  }, []);
+
+  const clearFiles = useCallback((key) => {
+    setForm((p) => ({ ...p, [key]: [] }));
+  }, []);
 
   const save = useCallback(async () => {
     if (!selectedRow?.id) return;
@@ -196,48 +216,43 @@ export function useEditPurchaseOrder({
       fd.append("fecha", String(form.date || ""));
       fd.append("observaciones", String(form.observaciones || ""));
 
+      // OC (single)
       if (form.ocPdfFile) fd.append("archivoOrden", form.ocPdfFile);
-      if (form.facturaPdfFile)
-        fd.append("archivoFacturaPdf", form.facturaPdfFile);
-      if (form.facturaXmlFile)
-        fd.append("archivoFacturaXml", form.facturaXmlFile);
+
+      // ✅ Facturas (multi): repetir la key
+      (form.facturaPdfFiles || []).forEach((f) => fd.append("archivoFacturaPdf", f));
+      (form.facturaXmlFiles || []).forEach((f) => fd.append("archivoFacturaXml", f));
 
       await PurchaseOrdersAPI.update(selectedRow.id, fd);
 
-      showAlert?.(
-        "success",
-        "Actualizado",
-        "La orden se actualizó correctamente.",
-      );
+      showAlert?.("success", "Actualizado", "La orden se actualizó correctamente.");
       close();
       onSaved?.();
     } catch (err) {
-      const msg =
-        err?.response?.data?.error || "No se pudieron guardar los cambios.";
+      const msg = err?.response?.data?.error || "No se pudieron guardar los cambios.";
       showAlert?.("error", "Error", msg);
     }
   }, [selectedRow, canSave, form, showAlert, close, onSaved]);
 
   return {
-    // modal state
     open,
     selectedRow,
     openForRow,
     close,
 
-    // form
     form,
     setForm,
     currentFiles,
 
     // file
-    onPickFile,
+    onPickFile,   // single
+    onPickMany,   // ✅ multi
+    removeAt,     // ✅ multi
+    clearFiles,   // ✅ multi
 
-    // save
     canSave,
     save,
 
-    // config
     maxMb,
   };
 }
