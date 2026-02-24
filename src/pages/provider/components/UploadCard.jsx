@@ -17,6 +17,7 @@ export default function UploadCard({
   required = false,
   typeLabel,
   currentFilesList = [],
+  onRemoveCurrentAt = null, // ✅ NUEVO: (idx) => void  (solo UI, sin endpoint)
   maxMb = 10,
 }) {
   const hasCurrent = Array.isArray(currentFilesList) && currentFilesList.length > 0;
@@ -54,17 +55,32 @@ export default function UploadCard({
               >
                 <span className="truncate text-darkBlue">{f.name}</span>
 
-                {typeof f.onView === "function" && (
-                  <button
-                    type="button"
-                    onClick={f.onView}
-                    className="p-1.5 rounded-md hover:bg-lightBlue/50 transition shrink-0"
-                    title="Ver"
-                    aria-label="Ver"
-                  >
-                    <Eye className="w-4 h-4 text-midBlue" />
-                  </button>
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {typeof f.onView === "function" && (
+                    <button
+                      type="button"
+                      onClick={f.onView}
+                      className="p-1.5 rounded-md hover:bg-lightBlue/50 transition shrink-0"
+                      title="Ver"
+                      aria-label="Ver"
+                    >
+                      <Eye className="w-4 h-4 text-midBlue" />
+                    </button>
+                  )}
+
+                  {/* ✅ NUEVO: eliminar actual (solo UI, sin endpoint) */}
+                  {typeof onRemoveCurrentAt === "function" && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveCurrentAt(idx)}
+                      className="p-1.5 rounded-md hover:bg-lightBlue/50 transition shrink-0"
+                      title="Quitar"
+                      aria-label="Quitar"
+                    >
+                      <X className="w-4 h-4 text-midBlue" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -113,7 +129,9 @@ export default function UploadCard({
           </div>
         ) : hasNewSingle ? (
           <div className="text-left bg-lightBlue/30 border border-lightBlue rounded-xl p-3 text-xs">
-            <div className="font-semibold text-midBlue mb-2">Archivo nuevo:</div>
+            <div className="font-semibold text-midBlue mb-2">
+              Archivo nuevo:
+            </div>
             <div className="text-darkBlue font-semibold break-words">
               {newFileName}
             </div>

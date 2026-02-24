@@ -30,6 +30,9 @@ import DocumentosPro from "./DocumentosPro.jsx";
 import EstatusPago from "./EstatusPago.jsx";
 import ExpedientesProveedor from "./ExpedientesProveedor.jsx";
 
+// ✅ NUEVO: Planes de Pago (Shell sin rutas)
+import PlanesPagoShell from "./planesPago/PlanesPagoShell.jsx";
+
 import { AuthAPI } from "../../api/auth.api";
 import { ProvidersAPI } from "../../api/providers.api";
 
@@ -57,6 +60,34 @@ function DashboardProvider() {
   });
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+    function pickCompanyName(p) {
+    if (!p) return "Proveedor";
+
+    // por si viene { provider: {...} }
+    const x = typeof p?.provider === "object" && p.provider ? p.provider : p;
+
+    const name =
+      x?.businessName ??
+      x?.business_name ??
+      x?.razonSocial ??
+      x?.razon_social ??
+      x?.nombreEmpresa ??
+      x?.companyName ??
+      x?.name ??
+      "Proveedor";
+
+    return typeof name === "string" ? name : "Proveedor";
+  }
+
+  function getInitials(name) {
+    const n = String(name || "").trim();
+    if (!n) return "PR";
+    const parts = n.split(/\s+/).filter(Boolean);
+    const a = (parts[0]?.[0] || "").toUpperCase();
+    const b = (parts[1]?.[0] || "").toUpperCase();
+    return (a + b) || a || "PR";
+  }
 
   // ✅ Alert helper (igual estilo que tus dashboards)
   const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
@@ -123,12 +154,43 @@ function DashboardProvider() {
     };
   }, []);
 
+  // ✅ Cargar proveedor actual para mostrar nombre real en header
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const res = await ProvidersAPI.me();
+        const me = res?.data ?? res;
+
+        if (!alive) return;
+
+        const nombreEmpresa = pickCompanyName(me);
+        setDatosProveedor({ nombreEmpresa });
+
+        // 🔍 Debug rápido (quítalo cuando ya jale)
+        console.log("providers/me =>", me);
+      } catch (err) {
+        console.warn("No se pudo cargar provider/me:", err?.message || err);
+        setDatosProveedor({ nombreEmpresa: "Proveedor" });
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // MENÚ PARA PROVEEDOR
   const menuItems = [
     { id: "gestion-datos", title: "Gestión de Datos", icon: <User className="w-5 h-5" /> },
     { id: "ordenes-compra", title: "Órdenes de Compra", icon: <ClipboardList className="w-5 h-5" /> },
     { id: "carga-documentos", title: "Carga de Documentos", icon: <Upload className="w-5 h-5" /> },
     { id: "gestion-pagos", title: "Estatus de Pago", icon: <DollarSign className="w-5 h-5" /> },
+
+    // ✅ NUEVO: Planes de pago
+    { id: "planes-pago", title: "Planes de pago", icon: <Calendar className="w-5 h-5" /> },
+
     { id: "expedientes-digitales", title: "Expedientes Digitales", icon: <FileText className="w-5 h-5" /> },
   ];
 
@@ -414,48 +476,25 @@ function DashboardProvider() {
   const DashboardContent = () => (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
-        
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-darkBlue mb-3">
-            Dashboard de Proveedor
-          </h1>
-          <p className="text-midBlue text-lg">
-            Resumen completo de actividades y métricas
-          </p>
+          <h1 className="text-3xl font-bold text-darkBlue mb-3">Dashboard de Proveedor</h1>
+          <p className="text-midBlue text-lg">Resumen completo de actividades y métricas</p>
         </div>
 
         {/* Resumen */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-darkBlue mb-6 text-center">
-            Resumen de Desempeño
-          </h2>
+          <h2 className="text-2xl font-bold text-darkBlue mb-6 text-center">Resumen de Desempeño</h2>
 
           {statsLoading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-pulse text-midBlue text-lg">
-                Cargando métricas del dashboard...
-              </div>
+              <div className="animate-pulse text-midBlue text-lg">Cargando métricas del dashboard...</div>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              <PieChart
-                title="Facturas"
-                data={chartData.facturas}
-                chartType="facturas"
-              />
-
-              <PieChart
-                title="Contratos"
-                data={chartData.contratos}
-                chartType="contratos"
-              />
-
-              <PieChart
-                title="Órdenes de Compra"
-                data={chartData.ordenesCompra}
-                chartType="ordenesCompra"
-              />
+              <PieChart title="Facturas" data={chartData.facturas} chartType="facturas" />
+              <PieChart title="Contratos" data={chartData.contratos} chartType="contratos" />
+              <PieChart title="Órdenes de Compra" data={chartData.ordenesCompra} chartType="ordenesCompra" />
             </div>
           )}
         </div>
@@ -472,6 +511,10 @@ function DashboardProvider() {
     "ordenes-compra": { component: OrdenCompraPro, title: "Órdenes de Compra" },
     "carga-documentos": { component: DocumentosPro, title: "Carga de Documentos" },
     "gestion-pagos": { component: EstatusPago, title: "Estatus de Pago" },
+
+    // ✅ NUEVO: Planes de pago
+    "planes-pago": { component: PlanesPagoShell, title: "Planes de Pago y Parcialidades" },
+
     "expedientes-digitales": { component: ExpedientesProveedor, title: "Expedientes Digitales" },
   };
 
@@ -535,15 +578,24 @@ function DashboardProvider() {
 
                   {showConfirm ? (
                     <div className="flex gap-3 mt-4">
-                      <button onClick={onConfirm} className={`px-6 py-2 text-white rounded-lg transition ${style.button} font-medium`}>
+                      <button
+                        onClick={onConfirm}
+                        className={`px-6 py-2 text-white rounded-lg transition ${style.button} font-medium`}
+                      >
                         Confirmar
                       </button>
-                      <button onClick={onClose} className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium">
+                      <button
+                        onClick={onClose}
+                        className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                      >
                         Cancelar
                       </button>
                     </div>
                   ) : (
-                    <button onClick={onClose} className={`mt-4 px-6 py-2 text-white rounded-lg transition ${style.button} font-medium`}>
+                    <button
+                      onClick={onClose}
+                      className={`mt-4 px-6 py-2 text-white rounded-lg transition ${style.button} font-medium`}
+                    >
                       Aceptar
                     </button>
                   )}
@@ -586,9 +638,15 @@ function DashboardProvider() {
 
     return (
       <>
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity backdrop-blur-sm" onClick={onClose} />
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity backdrop-blur-sm"
+          onClick={onClose}
+        />
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-gradient-to-r from-midBlue to-darkBlue px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-semibold text-white">{modalConfig?.title || currentModal}</h2>
               <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition">
@@ -619,7 +677,11 @@ function DashboardProvider() {
             </div>
           )}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-lightBlue transition">
-            {sidebarOpen ? <ChevronLeft className="w-5 h-5 text-darkBlue" /> : <ChevronRight className="w-5 h-5 text-darkBlue" />}
+            {sidebarOpen ? (
+              <ChevronLeft className="w-5 h-5 text-darkBlue" />
+            ) : (
+              <ChevronRight className="w-5 h-5 text-darkBlue" />
+            )}
           </button>
         </div>
 
@@ -629,10 +691,16 @@ function DashboardProvider() {
               <button
                 onClick={() => openModal(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
-                  currentModal === item.id ? "bg-lightBlue text-darkBlue border border-midBlue" : "text-darkBlue hover:bg-lightBlue"
+                  currentModal === item.id
+                    ? "bg-lightBlue text-darkBlue border border-midBlue"
+                    : "text-darkBlue hover:bg-lightBlue"
                 }`}
               >
-                <div className={`p-1.5 rounded-lg ${currentModal === item.id ? "bg-midBlue text-white" : "bg-lightBlue text-darkBlue"}`}>
+                <div
+                  className={`p-1.5 rounded-lg ${
+                    currentModal === item.id ? "bg-midBlue text-white" : "bg-lightBlue text-darkBlue"
+                  }`}
+                >
                   {item.icon}
                 </div>
                 {sidebarOpen && <span className="text-sm font-medium">{item.title}</span>}
@@ -648,13 +716,18 @@ function DashboardProvider() {
           <h1 className="text-2xl font-bold text-darkBlue">Bienvenido</h1>
 
           <div className="relative">
-            <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
+            >
               <div className="text-right">
                 <span className="text-sm font-medium text-darkBlue block">Proveedor</span>
-                <span className="text-xs text-midBlue">{datosProveedor.nombreEmpresa}</span>
+                <span className="text-xs text-midBlue block max-w-[180px] truncate">
+                  {datosProveedor.nombreEmpresa}
+                </span>
               </div>
               <div className="w-10 h-10 bg-midBlue text-white rounded-full flex items-center justify-center font-semibold shadow-lg">
-                PR
+                {getInitials(datosProveedor.nombreEmpresa)}
               </div>
             </button>
 

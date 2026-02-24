@@ -13,13 +13,16 @@ import {
   CheckCircle2,
   Info,
   FileCheck,
+  Receipt,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
+import { UsersAPI } from "../../api/users.api";
 
 // Importar componentes
 import Aprobacion from "./Aprobacion.jsx";
+import Parcialidades from "./Parcialidades.jsx";
 import Reportes from "./Reportes.jsx";
 import Graficas from "../shared/Graficas.jsx";
 import AprobaciondePagos from "../admin/pagos/AprobaciondePagos.jsx";
@@ -46,6 +49,36 @@ function DashboardApro() {
 
   // ✅ AHORA VIENE DEL BACK (misma variable: aprobaciones)
   const [aprobaciones, setAprobaciones] = useState([]);
+
+    // ✅ Usuario logueado (para mostrar nombre debajo de "Aprobador")
+  const [currentUser, setCurrentUser] = useState(null);
+
+  function pickUserDisplayName(u) {
+    if (!u) return "";
+
+    // A veces el backend regresa { user: {...} }
+    const x = typeof u?.user === "object" && u.user ? u.user : u;
+
+    const name =
+      x?.fullName ??
+      x?.nombreCompleto ??
+      x?.name ??
+      x?.nombre ??
+      x?.username ??
+      x?.email ??
+      "";
+
+    return typeof name === "string" ? name : "";
+  }
+
+  function getInitials(name) {
+    const n = String(name || "").trim();
+    if (!n) return "AP";
+    const parts = n.split(/\s+/).filter(Boolean);
+    const a = (parts[0]?.[0] || "").toUpperCase();
+    const b = (parts[1]?.[0] || "").toUpperCase();
+    return (a + b) || a || "AP";
+  }
 
   // Función para manejar cambios en las aprobaciones
   const handleAprobacionChange = (nuevasAprobaciones) => {
@@ -82,6 +115,11 @@ function DashboardApro() {
       icon: <FileCheck className="w-5 h-5" />,
     },
     {
+      id: "parcialidades",
+      title: "Parcialidades",
+      icon: <Receipt className="w-5 h-5" />,
+    },
+    {
       id: "reportes",
       title: "Reportes",
       icon: <BarChart className="w-5 h-5" />,
@@ -114,8 +152,15 @@ function DashboardApro() {
       props: {},
     },
 
+    // Parcialidades
+    "parcialidades": {
+      component: Parcialidades,
+      title: "Parcialidades",
+      props: {},
+    },
+
     // Reportes
-    reportes: {
+    "reportes": {
       component: Reportes,
       title: "Reportes Generales",
       props: {},
@@ -197,6 +242,24 @@ function DashboardApro() {
     };
   }, []); // <- no tocamos nada más del diseño
   // =========================================================
+
+  // ✅ Traer usuario actual (cookie HttpOnly)
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const me = await UsersAPI.me(); // ✅ mismo endpoint que DatosAprobador
+        if (mounted) setCurrentUser(me);
+      } catch (e) {
+        console.warn("No se pudo cargar el usuario actual:", e?.message || e);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Función para abrir modal
   const openModal = (sectionId) => {
@@ -409,11 +472,17 @@ function DashboardApro() {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
               >
-                <div className="text-right">
+                <div className="text-right leading-tight">
                   <span className="text-sm font-medium text-darkBlue block">Aprobador</span>
+
+                  {/* ✅ Nombre debajo */}
+                  <span className="text-xs text-gray-600 block">
+                    {pickUserDisplayName(currentUser) || "—"}
+                  </span>
                 </div>
+
                 <div className="w-10 h-10 bg-midBlue text-white rounded-full flex items-center justify-center font-semibold shadow-lg">
-                  AP
+                  {getInitials(pickUserDisplayName(currentUser))}
                 </div>
               </button>
 

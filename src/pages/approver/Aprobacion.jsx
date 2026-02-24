@@ -9,16 +9,26 @@ function Aprobacion({ aprobaciones, onAprobacionChange, showAlert }) {
   const [aprobacionSeleccionada, setAprobacionSeleccionada] = useState(null);
   const [comentarioRechazo, setComentarioRechazo] = useState("");
 
+  const getSolicitudText = (solicitud) => {
+  if (typeof solicitud === "string") return solicitud;
+  if (solicitud && typeof solicitud === "object") {
+    return solicitud.name || solicitud.description || solicitud.code || `Solicitud #${solicitud.id}`;
+  }
+  return "";
+};
+
   // Función para manejar aprobación
   const manejarAprobacion = (id, accion) => {
-    const nuevasAprobaciones = aprobaciones.map(aprobacion => 
-      aprobacion.id === id 
-        ? { 
-            ...aprobacion, 
-            estado: accion === 'aprobar' ? 'Aprobado' : 'Rechazado',
-            fecha: new Date().toISOString().split('T')[0],
-            comentario: accion === 'rechazar' ? comentarioRechazo : aprobacion.comentario
-          } 
+    const base = Array.isArray(aprobaciones) ? aprobaciones : [];
+
+    const nuevasAprobaciones = base.map((aprobacion) =>
+      aprobacion.id === id
+        ? {
+            ...aprobacion,
+            estado: accion === "aprobar" ? "Aprobado" : "Rechazado",
+            fecha: new Date().toISOString().split("T")[0],
+            comentario: accion === "rechazar" ? comentarioRechazo : aprobacion.comentario,
+          }
         : aprobacion
     );
     
@@ -209,7 +219,7 @@ BT
 0 -40 Td
 (Proveedor: ${aprobacion.proveedorNombre}) Tj
 0 -20 Td
-(Solicitud: ${aprobacion.solicitud}) Tj
+(Solicitud: ${getSolicitudText(aprobacion.solicitud)}) Tj
 0 -20 Td
 (Estado: ${aprobacion.estado}) Tj
 0 -20 Td
@@ -263,7 +273,7 @@ startxref
     showAlert(
       'warning', 
       'Confirmar Aprobación',
-      `¿Está seguro de aprobar esta solicitud?\n\nProveedor: ${aprobacion.proveedorNombre}\nSolicitud: ${aprobacion.solicitud}\nID: #${aprobacion.id}`,
+      `¿Está seguro de aprobar esta solicitud?\n\nProveedor: ${aprobacion.proveedorNombre}\nSolicitud: ${getSolicitudText(aprobacion.solicitud)}\nID: #${aprobacion.id}`,
       true,
       () => manejarAprobacion(aprobacion.id, 'aprobar')
     );
@@ -317,11 +327,9 @@ startxref
 
   // Función para determinar el tipo de documento basado en la solicitud
   const getTipoDocumento = (solicitud) => {
-    if (solicitud.toLowerCase().includes('orden') || solicitud.toLowerCase().includes('compra')) {
-      return 'orden-compra';
-    } else {
-      return 'general';
-    }
+    const s = getSolicitudText(solicitud).toLowerCase();
+    if (s.includes("orden") || s.includes("compra")) return "orden-compra";
+    return "general";
   };
 
   // Función para alternar entre Excel y PDF
@@ -357,10 +365,15 @@ startxref
   };
 
   // Filtrar aprobaciones
-  const aprobacionesFiltradas = aprobaciones.filter(aprobacion => {
-    const coincideBusqueda = 
-      aprobacion.proveedorNombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      aprobacion.solicitud.toLowerCase().includes(busqueda.toLowerCase());
+  const aprobacionesSafe = Array.isArray(aprobaciones) ? aprobaciones : [];
+
+  const aprobacionesFiltradas = aprobacionesSafe.filter((aprobacion) => {
+    const coincideBusqueda =
+      String(aprobacion.proveedorNombre ?? "")
+        .toLowerCase()
+        .includes(busqueda.toLowerCase()) ||
+      getSolicitudText(aprobacion.solicitud).toLowerCase().includes(busqueda.toLowerCase());
+
     const coincideEstado = !filtroEstatus || aprobacion.estado === filtroEstatus;
     return coincideBusqueda && coincideEstado;
   });
@@ -449,7 +462,7 @@ startxref
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-midBlue">
-                      {aprobacion.solicitud}
+                      {getSolicitudText(aprobacion.solicitud)}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${getEstadoColor(aprobacion.estado)}`}>

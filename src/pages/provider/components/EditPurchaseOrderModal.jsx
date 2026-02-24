@@ -1,6 +1,6 @@
 // src/pages/provider/components/EditPurchaseOrderModal.jsx
 import React, { useMemo, useRef } from "react";
-import { X, FileText, Calendar } from "lucide-react";
+import { X, FileText } from "lucide-react";
 import UploadCard from "./UploadCard";
 
 export default function EditPurchaseOrderModal({
@@ -13,9 +13,9 @@ export default function EditPurchaseOrderModal({
   onClose,
   onSave,
 
-  onPickFile, 
-  onPickMany,  
-  removeAt,       
+  onPickFile,
+  onPickMany,
+  removeAt,
   maxMb = 10,
 }) {
   const ocInputRef = useRef(null);
@@ -31,6 +31,21 @@ export default function EditPurchaseOrderModal({
   }, [row, form]);
 
   if (!open || !row) return null;
+
+  // ✅ (UI) helpers para “ocultar” archivos actuales sin endpoint
+  // Guardamos en form flags: ocPdfRemoved, removedInvoicePdfNames, removedInvoiceXmlNames
+  const orderFilesUI =
+    (currentFiles?.orderFiles || []).filter((f) => !form?.ocPdfRemoved);
+
+  const invoicePdfUI =
+    (currentFiles?.invoicePdfFiles || []).filter(
+      (f) => !(form?.removedInvoicePdfNames || []).includes(f.name)
+    );
+
+  const invoiceXmlUI =
+    (currentFiles?.invoiceXmlFiles || []).filter(
+      (f) => !(form?.removedInvoiceXmlNames || []).includes(f.name)
+    );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -146,7 +161,7 @@ export default function EditPurchaseOrderModal({
             ref={facPdfInputRef}
             type="file"
             accept=".pdf,application/pdf"
-            multiple                    // ✅
+            multiple
             className="hidden"
             onChange={(e) =>
               onPickMany?.("facturaPdfFiles", Array.from(e.target.files || []), "pdf")
@@ -157,7 +172,7 @@ export default function EditPurchaseOrderModal({
             ref={facXmlInputRef}
             type="file"
             accept=".xml,application/xml,text/xml"
-            multiple                    // ✅
+            multiple
             className="hidden"
             onChange={(e) =>
               onPickMany?.("facturaXmlFiles", Array.from(e.target.files || []), "xml")
@@ -170,9 +185,17 @@ export default function EditPurchaseOrderModal({
               title="Haz clic para reemplazar la orden en PDF"
               acceptLabel="PDF"
               onPick={() => ocInputRef.current?.click()}
-              newFileName={form.ocPdfFile?.name || ""}  // (single)
+              newFileName={form.ocPdfFile?.name || ""} // (single)
               required={false}
-              currentFilesList={currentFiles?.orderFiles || []}
+              currentFilesList={orderFilesUI}
+              // ✅ NUEVO: quitar actual (solo UI)
+              onRemoveCurrentAt={() => {
+                // Aquí normalmente solo hay 1 archivo de orden
+                setForm((p) => ({
+                  ...p,
+                  ocPdfRemoved: true, // flag UI
+                }));
+              }}
               maxMb={maxMb}
             />
 
@@ -181,10 +204,21 @@ export default function EditPurchaseOrderModal({
               title="Haz clic para subir una o varias facturas en PDF"
               acceptLabel="PDF"
               onPick={() => facPdfInputRef.current?.click()}
-              newFiles={form.facturaPdfFiles || []}                 // ✅
-              onRemoveNewAt={(idx) => removeAt?.("facturaPdfFiles", idx)} // ✅
+              newFiles={form.facturaPdfFiles || []}
+              onRemoveNewAt={(idx) => removeAt?.("facturaPdfFiles", idx)}
               required={false}
-              currentFilesList={currentFiles?.invoicePdfFiles || []}
+              currentFilesList={invoicePdfUI}
+              // ✅ NUEVO: quitar actual (solo UI)
+              onRemoveCurrentAt={(idx) => {
+                const f = invoicePdfUI[idx];
+                if (!f?.name) return;
+                setForm((p) => ({
+                  ...p,
+                  removedInvoicePdfNames: Array.from(
+                    new Set([...(p.removedInvoicePdfNames || []), f.name])
+                  ),
+                }));
+              }}
               maxMb={maxMb}
             />
 
@@ -193,10 +227,21 @@ export default function EditPurchaseOrderModal({
               title="Haz clic para subir uno o varios XML de facturas"
               acceptLabel="XML"
               onPick={() => facXmlInputRef.current?.click()}
-              newFiles={form.facturaXmlFiles || []}                 // ✅
-              onRemoveNewAt={(idx) => removeAt?.("facturaXmlFiles", idx)} // ✅
+              newFiles={form.facturaXmlFiles || []}
+              onRemoveNewAt={(idx) => removeAt?.("facturaXmlFiles", idx)}
               required={false}
-              currentFilesList={currentFiles?.invoiceXmlFiles || []}
+              currentFilesList={invoiceXmlUI}
+              // ✅ NUEVO: quitar actual (solo UI)
+              onRemoveCurrentAt={(idx) => {
+                const f = invoiceXmlUI[idx];
+                if (!f?.name) return;
+                setForm((p) => ({
+                  ...p,
+                  removedInvoiceXmlNames: Array.from(
+                    new Set([...(p.removedInvoiceXmlNames || []), f.name])
+                  ),
+                }));
+              }}
               maxMb={maxMb}
             />
           </div>

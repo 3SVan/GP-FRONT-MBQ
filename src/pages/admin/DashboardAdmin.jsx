@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
+import { UsersAPI } from "../../api/users.api";
 import { AnalyticsAPI } from "../../api/analytics.api";
 import { NotificationsAPI } from "../../api/notifications.api";
 import logo from "../../assets/logo-relleno.png";
@@ -28,6 +29,7 @@ import {
   DollarSign,
   RefreshCw,
   RotateCcw,
+  CalendarClock,
   CreditCard,
 } from "lucide-react";
 
@@ -44,6 +46,7 @@ import HistorialActividad from "./HistorialActividad.jsx";
 import VerificacionR from "./sat/VerificacionR.jsx";
 
 // ADMIN → PAGOS
+import PlanesPago from "./pagos/planesPago/PlanesPago.jsx";
 import GestionPagos from "./pagos/GestionPagos.jsx";
 import HistorialPagos from "./pagos/HistorialPagos.jsx";
 
@@ -103,6 +106,34 @@ function DashboardAdmin() {
   // ✅ Notificaciones reales
   const [notifications, setNotifications] = useState([]);
 
+    // ✅ Usuario logueado (para mostrar nombre)
+  const [currentUser, setCurrentUser] = useState(null);
+
+  function pickUserDisplayName(u) {
+    if (!u) return "";
+    const x = typeof u?.user === "object" && u.user ? u.user : u;
+
+    const name =
+      x?.fullName ??
+      x?.nombreCompleto ??
+      x?.name ??
+      x?.nombre ??
+      x?.username ??
+      x?.email ??
+      "";
+
+    return typeof name === "string" ? name : "";
+  }
+
+  function getInitials(name) {
+    const n = String(name || "").trim();
+    if (!n) return "A";
+    const parts = n.split(/\s+/).filter(Boolean);
+    const a = (parts[0]?.[0] || "").toUpperCase();
+    const b = (parts[1]?.[0] || "").toUpperCase();
+    return (a + b) || a || "A";
+  }
+
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.readAt).length,
     [notifications]
@@ -143,9 +174,10 @@ function DashboardAdmin() {
     (async () => {
       try {
         setLoadingDashboard(true);
-        const [statsRes, notifsRes] = await Promise.all([
+        const [statsRes, notifsRes, me] = await Promise.all([
           AnalyticsAPI.getAdminDashboard(),
           NotificationsAPI.listMy(),
+          UsersAPI.me(),
         ]);
 
         if (!alive) return;
@@ -156,6 +188,7 @@ function DashboardAdmin() {
 
         setDashboardStats(stats);
         setNotifications(Array.isArray(notifs) ? notifs : []);
+        setCurrentUser(me);
       } catch (err) {
         console.error(err);
         showAlert("error", "Dashboard", "No se pudieron cargar los datos del dashboard.");
@@ -223,6 +256,11 @@ function DashboardAdmin() {
       icon: <FileSearch className="w-5 h-5" />,
     },
     {
+      id: "planes-pago",
+      title: "Planes de Pago",
+      icon: <CalendarClock className="w-5 h-5" />,
+    },
+    {
       id: "gestion-pagos",
       title: "Gestión de Pagos",
       icon: <CreditCard className="w-5 h-5" />,
@@ -269,6 +307,7 @@ function DashboardAdmin() {
     "verificacion-rapida": { component: VerificacionR, title: "Verificación Rápida", props: {} },
 
     // Gestión de Pagos
+    "planes-pago": { component: PlanesPago, title: "Planes de Pago", props: {} },
     "gestion-pagos": { component: GestionPagos, title: "Gestión de Pagos", props: {} },
 
     // Otros
@@ -611,11 +650,16 @@ function DashboardAdmin() {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
               >
-                <div className="text-right">
+                <div className="text-right leading-tight">
                   <span className="text-sm font-medium text-darkBlue block">Administrador</span>
+
+                  <span className="text-xs text-gray-600 block max-w-[180px] truncate">
+                    {pickUserDisplayName(currentUser) || "—"}
+                  </span>
                 </div>
+
                 <div className="w-10 h-10 bg-midBlue text-white rounded-full flex items-center justify-center font-semibold shadow-lg">
-                  A
+                  {getInitials(pickUserDisplayName(currentUser))}
                 </div>
               </button>
 

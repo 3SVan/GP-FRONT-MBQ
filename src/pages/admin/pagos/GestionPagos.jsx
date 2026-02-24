@@ -1,3 +1,4 @@
+// src/pages/admin/pagos/GestionPagos.jsx
 import React, { useState } from "react";
 import { DollarSign, Search, Calendar, Edit, Trash2, Plus, CreditCard, Receipt, User } from "lucide-react";
 
