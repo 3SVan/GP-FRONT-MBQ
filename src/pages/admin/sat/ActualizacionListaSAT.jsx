@@ -1,51 +1,75 @@
 import React, { useState } from "react";
 import { Upload, FileSpreadsheet } from "lucide-react";
+import { SatAPI } from "../../../api/sat.api";
 
 function ActualizacionListaSAT({ showAlert }) {
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [archivoAntiguo, setArchivoAntiguo] = useState("base_datos_original.xlsx");
   const [subiendo, setSubiendo] = useState(false);
 
-  const manejarSeleccionArchivo = (e) => {
-    const archivo = e.target.files[0];
-    if (archivo) {
-      // Validar que sea un archivo Excel
-      const extensionesValidas = ['.xlsx', '.xls'];
-      const extension = archivo.name.substring(archivo.name.lastIndexOf('.')).toLowerCase();
-      
-      if (!extensionesValidas.includes(extension)) {
-        showAlert('error', 'Formato no válido', 'Solo se aceptan archivos Excel (.xlsx, .xls)');
-        setArchivoSeleccionado(null);
-        e.target.value = ""; // Limpiar input
-        return;
-      }
-      
-      setArchivoSeleccionado(archivo);
-    }
-  };
+const manejarSeleccionArchivo = (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
 
-  const subirArchivo = () => {
+  const extensionesValidas = [".xlsx", ".xls"];
+  const extension = archivo.name.substring(archivo.name.lastIndexOf(".")).toLowerCase();
+
+  if (!extensionesValidas.includes(extension)) {
+    showAlert("error", "Formato no válido", "Solo se aceptan archivos Excel (.xlsx, .xls)");
+    setArchivoSeleccionado(null);
+    e.target.value = "";
+    return;
+  }
+
+  const maxMb = 20;
+  if (archivo.size > maxMb * 1024 * 1024) {
+    showAlert("error", "Archivo muy grande", `Máximo ${maxMb}MB`);
+    setArchivoSeleccionado(null);
+    e.target.value = "";
+    return;
+  }
+
+  setArchivoSeleccionado(archivo);
+};
+
+  const subirArchivo = async () => {
     if (!archivoSeleccionado) {
-      showAlert('warning', 'Sin archivo', 'Por favor, selecciona un archivo Excel primero');
+      showAlert("warning", "Sin archivo", "Por favor, selecciona un archivo Excel primero");
       return;
     }
-    
+
     setSubiendo(true);
-    
-    setTimeout(() => {
-      setSubiendo(false);
-      
-      // Mostrar notificación exitosa
-      showAlert('success', 'Archivo subido exitosamente', 
-        `Archivo "${archivoSeleccionado.name}" procesado correctamente.\nBase de datos actualizada.`);
-      
+    try {
+      const { data } = await SatAPI.importBlacklist(archivoSeleccionado);
+
+      // ✅ Mensaje bonito con stats del backend
+      const stats =
+        data?.ok
+          ? [
+            `Archivo: "${archivoSeleccionado.name}"`,
+            `Total leídos: ${data.totalParsed ?? "N/D"}`,
+            `Insertados: ${data.inserted ?? "N/D"}`,
+            `Únicos: ${data.uniqueRfcs ?? "N/D"}`,
+            `Duplicados en archivo: ${data.duplicatesInFile ?? "N/D"}`,
+          ].join("\n")
+          : `Archivo "${archivoSeleccionado.name}" procesado correctamente.\nBase de datos actualizada.`;
+
+      showAlert("success", "Actualización SAT completada", stats);
+
+      // UI: setear “archivo actual”
       setArchivoAntiguo(archivoSeleccionado.name);
       setArchivoSeleccionado(null);
-      
-      // Limpiar input
-      const fileInput = document.getElementById('excel-file');
+
+      // limpiar input
+      const fileInput = document.getElementById("excel-file");
       if (fileInput) fileInput.value = "";
-    }, 1500);
+    } catch (err) {
+      const msg = err?.response?.data?.message || "No se pudo importar la lista SAT";
+      const detail = err?.response?.data?.detail;
+      showAlert("error", "Error al importar", detail ? `${msg}\n${detail}` : msg);
+    } finally {
+      setSubiendo(false);
+    }
   };
 
   return (
@@ -62,7 +86,7 @@ function ActualizacionListaSAT({ showAlert }) {
           {/* Sección de carga de archivos */}
           <div className="mb-8 bg-lightBlue border border-midBlue rounded-xl p-6">
             <h2 className="text-xl font-bold text-darkBlue mb-4">Cargar Archivo Excel</h2>
-            
+
             <div className="mb-4">
               <p className="text-darkBlue mb-2">
                 <strong>Archivo actual:</strong> {archivoAntiguo}
@@ -72,7 +96,7 @@ function ActualizacionListaSAT({ showAlert }) {
             <div className="border border-midBlue rounded-lg p-8 bg-white">
               <div className="flex flex-col items-center gap-6">
                 <FileSpreadsheet className="w-20 h-20 text-midBlue" />
-                
+
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <label className="cursor-pointer flex items-center gap-2 px-6 py-3 bg-midBlue text-white rounded-lg hover:bg-darkBlue transition font-medium">
                     <Upload className="w-5 h-5" />
@@ -85,15 +109,14 @@ function ActualizacionListaSAT({ showAlert }) {
                       className="hidden"
                     />
                   </label>
-                  
+
                   <button
                     onClick={subirArchivo}
                     disabled={!archivoSeleccionado || subiendo}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-lg transition font-medium ${
-                      !archivoSeleccionado || subiendo
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg transition font-medium ${!archivoSeleccionado || subiendo
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
+                      }`}
                   >
                     {subiendo ? (
                       <>
@@ -108,7 +131,7 @@ function ActualizacionListaSAT({ showAlert }) {
                     )}
                   </button>
                 </div>
-                
+
                 {archivoSeleccionado && (
                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-green-700 font-medium">
@@ -118,7 +141,7 @@ function ActualizacionListaSAT({ showAlert }) {
                   </div>
                 )}
               </div>
-              
+
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-500">
                   Formato aceptado: Excel (.xlsx, .xls)
