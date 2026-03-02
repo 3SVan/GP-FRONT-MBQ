@@ -30,7 +30,7 @@ import ExpedientesDigitales from "./pages/admin/expedientes/ExpedientesDigitales
    APPROVER
 ======================= */
 import DashboardApro from "./pages/approver/DashboardApro.jsx";
-import Aprobacion from "./pages/approver/Aprobacion.jsx";
+import Aprobacion from "./pages/approver/Documents.jsx";
 import Reportes from "./pages/approver/Reportes.jsx";
 import SolicitudesAcceso from "./pages/approver/SolicitudesAcceso.jsx";
 
@@ -53,6 +53,7 @@ import Graficas from "./pages/shared/Graficas.jsx";
    DEV / TEST
 ======================= */
 import TestApi from "./components/TestApi.jsx";
+import Documents from "./pages/approver/Documents.jsx";
 
 function App() {
   return (
@@ -83,7 +84,7 @@ function App() {
 
       {/* APPROVER */}
       <Route path="/approver" element={<DashboardApro />} />
-      <Route path="/approver/aprobaciones" element={<Aprobacion />} />
+      <Route path="/approver/documentos" element={<Documents />} />
       <Route path="/approver/reportes" element={<Reportes />} />
       <Route path="/approver/solicitudes-acceso" element={<SolicitudesAcceso />} />
 

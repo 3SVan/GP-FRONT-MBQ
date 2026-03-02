@@ -4,242 +4,36 @@ import {
   X,
   FileText,
   Download,
-  Eye,
-  AlertTriangle,
-  Clock,
-  CheckCircle2,
-  XCircle,
   FileCode2,
   ArrowLeft,
   Info,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
-/* =========================
-   Helpers (UI only)
-========================= */
-function safeUpper(s) {
-  return String(s || "").trim().toUpperCase();
-}
+import MiniModal from "./components/MiniModal.jsx";
+import StatusBadge from "./components/StatusBadge.jsx";
+import UrgencyChip from "./components/UrgencyChip.jsx";
+import EvidenceCard from "./components/EvidenceCard.jsx";
+import Chip from "./components/Chip.jsx";
 
-function parseDate(d) {
-  if (!d) return null;
-  const dt = new Date(d);
-  return Number.isNaN(dt.getTime()) ? null : dt;
-}
-
-function formatDate(d) {
-  const dt = parseDate(d);
-  if (!dt) return "—";
-  try {
-    return dt.toLocaleDateString("es-MX");
-  } catch {
-    return "—";
-  }
-}
-
-function formatMoney(n) {
-  const num = Number(n || 0);
-  try {
-    return num.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-  } catch {
-    return `$${num}`;
-  }
-}
-
-function daysDiff(from, to) {
-  if (!from || !to) return null;
-  const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-  return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function getUrgency(cierreDate, thresholdDays = 2) {
-  const cierre = parseDate(cierreDate);
-  if (!cierre) return { kind: "NONE", label: "—" };
-  const today = new Date();
-  const d = daysDiff(today, cierre);
-
-  if (d < 0) return { kind: "OVERDUE", label: "Vencida", days: d };
-  if (d <= thresholdDays) return { kind: "SOON", label: "Por vencer", days: d };
-  return { kind: "ONTIME", label: "En tiempo", days: d };
-}
-
-function StatusBadge({ status }) {
-  const s = safeUpper(status);
-  const styles = {
-    PENDIENTE: "bg-gray-100 text-gray-600 border-gray-200",
-    ENVIADA: "bg-blue-100 text-blue-700 border-blue-200",
-    APROBADA: "bg-green-100 text-green-700 border-green-200",
-    RECHAZADA: "bg-red-100 text-red-700 border-red-200",
-    PAGADA: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  };
-  const cls = styles[s] || "bg-gray-100 text-gray-600 border-gray-200";
-
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${cls}`}>
-      <CheckCircle2 className="w-3.5 h-3.5" />
-      {s || "—"}
-    </span>
-  );
-}
-
-function UrgencyChip({ cierre, thresholdDays = 2 }) {
-  const u = getUrgency(cierre, thresholdDays);
-
-  if (u.kind === "NONE") {
-    return (
-      <span className="inline-flex rounded-full border px-3 py-1 text-xs font-semibold bg-gray-50 text-gray-500">
-        —
-      </span>
-    );
-  }
-
-  if (u.kind === "OVERDUE") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold bg-red-100 text-red-700 border-red-200">
-        <AlertTriangle className="w-3.5 h-3.5" />
-        {u.label}
-      </span>
-    );
-  }
-
-  if (u.kind === "SOON") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold bg-orange-100 text-orange-700 border-orange-200">
-        <Clock className="w-3.5 h-3.5" />
-        {u.label}
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-600 border-gray-200">
-      <Clock className="w-3.5 h-3.5" />
-      {u.label}
-    </span>
-  );
-}
-
-// Modal interno (visor/confirm) solo UI
-function MiniModal({ isOpen, title, onClose, children, maxW = "max-w-4xl" }) {
-  if (!isOpen) return null;
-  return (
-    <>
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-[60] transition-opacity backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div
-          className={`bg-white rounded-xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-95 hover:scale-100`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="bg-gradient-to-r from-midBlue to-darkBlue px-6 py-4 flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-white">{title}</h3>
-            <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition">
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
-          <div className="p-0 overflow-y-auto max-h-[80vh]">{children}</div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function EvidenceCard({ title, icon, hasFile, fileName, onView, onDownload, missingText }) {
-  return (
-    <div className="rounded-2xl border border-lightBlue bg-white shadow-sm p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-lightBlue flex items-center justify-center text-midBlue">{icon}</div>
-          <div>
-            <p className="font-semibold text-darkBlue">{title}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{hasFile ? (fileName || "Archivo") : missingText}</p>
-          </div>
-        </div>
-
-        {hasFile ? (
-          <span className="inline-flex rounded-full border px-3 py-1 text-xs font-semibold bg-green-50 text-green-700 border-green-200">
-            Disponible
-          </span>
-        ) : (
-          <span className="inline-flex rounded-full border px-3 py-1 text-xs font-semibold bg-gray-50 text-gray-500 border-gray-200">
-            No disponible
-          </span>
-        )}
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          disabled={!hasFile}
-          onClick={onView}
-          className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium transition ${
-            hasFile ? "bg-midBlue text-white hover:opacity-90" : "bg-gray-100 text-gray-400 cursor-not-allowed"
-          }`}
-        >
-          <Eye className="w-4 h-4" />
-          Ver
-        </button>
-
-        <button
-          disabled={!hasFile}
-          onClick={onDownload}
-          className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium transition border ${
-            hasFile
-              ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white"
-              : "border-gray-200 text-gray-400 cursor-not-allowed"
-          }`}
-        >
-          <Download className="w-4 h-4" />
-          Descargar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Chip({ active, children, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1 rounded-full border text-xs font-semibold transition ${
-        active
-          ? "bg-midBlue text-white border-midBlue"
-          : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-lightBlue"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-const MOCK_XML = `<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante Version="4.0" Serie="A" Folio="123" Fecha="2026-02-23T12:00:00"
-  SubTotal="1000.00" Moneda="MXN" Total="1160.00" TipoDeComprobante="I"
-  xmlns:cfdi="http://www.sat.gob.mx/cfd/4">
-  <cfdi:Emisor Rfc="AAA010101AAA" Nombre="Proveedor Demo" RegimenFiscal="601"/>
-  <cfdi:Receptor Rfc="BBB010101BBB" Nombre="Empresa Demo" DomicilioFiscalReceptor="72000" RegimenFiscalReceptor="601" UsoCFDI="G03"/>
-  <cfdi:Conceptos>
-    <cfdi:Concepto ClaveProdServ="84111506" Cantidad="1" ClaveUnidad="ACT" Descripcion="Servicio" ValorUnitario="1000.00" Importe="1000.00"/>
-  </cfdi:Conceptos>
-</cfdi:Comprobante>`;
+import { safeUpper, formatDate, formatMoney } from "./utils/format.js";
+import { getUrgency } from "./utils/urgency.js";
+import { MOCK_XML } from "./utils/mockXml.js";
 
 export default function RevisionParcialidad({ parcialidad, onClose, showAlert, onDecision }) {
   const p = parcialidad || {};
 
-  // comentario aprobador (se guarda también en rechazos)
   const [approverComment, setApproverComment] = useState(p.approverComment || "");
 
-  // modal aprobar
   const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
 
-  // ✅ NUEVOS MODALES
+  // ✅ nuevos modales de rechazo
   const [rejectGeneralOpen, setRejectGeneralOpen] = useState(false);
   const [rejectInvoiceOpen, setRejectInvoiceOpen] = useState(false);
 
-  // Rechazo general (motivo + chips opcionales)
+  // Rechazo general
   const [generalReason, setGeneralReason] = useState("");
   const [generalQuick, setGeneralQuick] = useState({
     noCoincide: false,
@@ -248,7 +42,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
     faltaXml: false,
   });
 
-  // Rechazo por error factura (motivo + checklist)
+  // Rechazo factura
   const [invoiceReason, setInvoiceReason] = useState("");
   const [invoiceChecklist, setInvoiceChecklist] = useState({
     rfcIncorrecto: false,
@@ -264,12 +58,8 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
 
   const status = safeUpper(p.status);
   const decided = status === "APROBADA" || status === "RECHAZADA" || status === "PAGADA";
-
   const urgency = useMemo(() => getUrgency(p.closeAt), [p.closeAt]);
 
-  // =========================
-  // Build reasons (UI)
-  // =========================
   const generalMergedReason = useMemo(() => {
     const picks = [];
     if (generalQuick.noCoincide) picks.push("Datos no coinciden");
@@ -298,9 +88,6 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
   const canRejectGeneral = generalMergedReason.trim().length > 0;
   const canRejectInvoice = invoiceMergedReason.trim().length > 0;
 
-  // =========================
-  // Actions (UI only)
-  // =========================
   const handleApprove = () => {
     onDecision?.({
       id: p.id,
@@ -343,7 +130,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
 
   return (
     <div className="bg-beige p-6">
-      {/* Header + breadcrumb */}
+      {/* Header */}
       <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6">
         <div className="flex flex-col gap-3">
           <p className="text-xs text-gray-500">
@@ -358,7 +145,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
               </h2>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StatusBadge status={p.status} />
+                <StatusBadge status={p.status} icon={CheckCircle2} />
                 <UrgencyChip cierre={p.closeAt} />
                 {urgency.kind !== "NONE" && (
                   <span className="text-xs text-gray-500">
@@ -383,7 +170,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
 
       {/* Layout */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left evidences */}
+        {/* Left */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6">
             <div className="flex items-center gap-2">
@@ -439,9 +226,8 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
           </div>
         </div>
 
-        {/* Right data + actions */}
+        {/* Right */}
         <div className="lg:col-span-1 space-y-4">
-          {/* Datos card */}
           <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6">
             <h3 className="font-semibold text-darkBlue">Datos de la parcialidad</h3>
 
@@ -497,7 +283,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
             </div>
           </div>
 
-          {/* Sticky actions */}
+          {/* Actions */}
           <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6 lg:sticky lg:top-6">
             <h3 className="font-semibold text-darkBlue">Acciones</h3>
             <p className="text-xs text-gray-500 mt-1">Dictamina la parcialidad después de revisar evidencias.</p>
@@ -514,7 +300,6 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
                 Aprobar
               </button>
 
-              {/* ✅ Nuevo: dos opciones de rechazo */}
               <button
                 disabled={decided}
                 onClick={() => setRejectGeneralOpen(true)}
@@ -551,9 +336,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
         </div>
       </div>
 
-      {/* ========================= */}
-      {/* Modal Confirm Approve */}
-      {/* ========================= */}
+      {/* Confirm Approve */}
       <MiniModal
         isOpen={confirmApproveOpen}
         title={`Confirmar aprobación — ${p.partialLabel || ""}`}
@@ -583,20 +366,12 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
         </div>
       </MiniModal>
 
-      {/* ========================= */}
-      {/* Modal 1: Rechazo General */}
-      {/* ========================= */}
-      <MiniModal
-        isOpen={rejectGeneralOpen}
-        title="Rechazar parcialidad"
-        onClose={() => setRejectGeneralOpen(false)}
-        maxW="max-w-2xl"
-      >
+      {/* Rechazo General */}
+      <MiniModal isOpen={rejectGeneralOpen} title="Rechazar parcialidad" onClose={() => setRejectGeneralOpen(false)} maxW="max-w-2xl">
         <div className="p-6">
           <p className="text-darkBlue font-semibold">Motivo (obligatorio)</p>
           <p className="text-xs text-gray-500 mt-1">Puedes usar motivos rápidos o escribir detalle.</p>
 
-          {/* chips opcionales */}
           <div className="mt-4 flex flex-wrap gap-2">
             <Chip active={generalQuick.noCoincide} onClick={() => setGeneralQuick((s) => ({ ...s, noCoincide: !s.noCoincide }))}>
               Datos no coinciden
@@ -619,11 +394,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
             placeholder="Escribe el motivo del rechazo…"
           />
 
-          {!canRejectGeneral && (
-            <p className="mt-2 text-xs text-red-600">
-              Debes capturar un motivo (texto o chips).
-            </p>
-          )}
+          {!canRejectGeneral && <p className="mt-2 text-xs text-red-600">Debes capturar un motivo (texto o chips).</p>}
 
           <div className="mt-5 flex gap-3 justify-end">
             <button
@@ -644,16 +415,13 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
             </button>
           </div>
 
-          {/* Nota UI: efectos */}
           <div className="mt-4 text-xs text-gray-500">
             Efecto UI (mock): status=RECHAZADA, rejectionType=GENERAL, se guarda approverComment.
           </div>
         </div>
       </MiniModal>
 
-      {/* ================================= */}
-      {/* Modal 2: Rechazo por error factura */}
-      {/* ================================= */}
+      {/* Rechazo Factura */}
       <MiniModal
         isOpen={rejectInvoiceOpen}
         title="Rechazar por error en la factura"
@@ -661,7 +429,6 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
         maxW="max-w-2xl"
       >
         <div className="p-6">
-          {/* warning visible */}
           <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 flex gap-3">
             <div className="text-yellow-700">
               <AlertTriangle className="w-5 h-5" />
@@ -673,7 +440,6 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
 
           <p className="mt-4 text-darkBlue font-semibold">Motivo del error en factura (obligatorio)</p>
 
-          {/* checklist opcional */}
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex items-center gap-2 text-sm text-darkBlue">
               <input
@@ -699,9 +465,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
               <input
                 type="checkbox"
                 checked={invoiceChecklist.montoConceptoIncorrecto}
-                onChange={(e) =>
-                  setInvoiceChecklist((s) => ({ ...s, montoConceptoIncorrecto: e.target.checked }))
-                }
+                onChange={(e) => setInvoiceChecklist((s) => ({ ...s, montoConceptoIncorrecto: e.target.checked }))}
                 className="accent-midBlue"
               />
               Monto/Concepto incorrecto
@@ -735,11 +499,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
             placeholder="Describe el error en la factura…"
           />
 
-          {!canRejectInvoice && (
-            <p className="mt-2 text-xs text-red-600">
-              Debes capturar un motivo (texto o checklist).
-            </p>
-          )}
+          {!canRejectInvoice && <p className="mt-2 text-xs text-red-600">Debes capturar un motivo (texto o checklist).</p>}
 
           <div className="mt-5 flex gap-3 justify-end">
             <button
@@ -766,22 +526,15 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
         </div>
       </MiniModal>
 
-      {/* PDF Viewer (mock) */}
-      <MiniModal
-        isOpen={pdfModalOpen}
-        title={`Factura PDF — ${p.partialLabel || ""}`}
-        onClose={() => setPdfModalOpen(false)}
-        maxW="max-w-6xl"
-      >
+      {/* PDF Viewer */}
+      <MiniModal isOpen={pdfModalOpen} title={`Factura PDF — ${p.partialLabel || ""}`} onClose={() => setPdfModalOpen(false)} maxW="max-w-6xl">
         <div className="p-4 bg-beige">
           <div className="flex items-center justify-end gap-3 mb-3">
             <button
               onClick={() => fakeDownload(p.pdfName || "Factura.pdf")}
               disabled={!p.pdfUrl}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition border ${
-                p.pdfUrl
-                  ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white"
-                  : "border-gray-200 text-gray-400 cursor-not-allowed"
+                p.pdfUrl ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white" : "border-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
               <Download className="w-4 h-4" />
@@ -803,22 +556,15 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
         </div>
       </MiniModal>
 
-      {/* XML Viewer (mock “tipo código”) */}
-      <MiniModal
-        isOpen={xmlModalOpen}
-        title={`Factura XML — ${p.partialLabel || ""}`}
-        onClose={() => setXmlModalOpen(false)}
-        maxW="max-w-6xl"
-      >
+      {/* XML Viewer */}
+      <MiniModal isOpen={xmlModalOpen} title={`Factura XML — ${p.partialLabel || ""}`} onClose={() => setXmlModalOpen(false)} maxW="max-w-6xl">
         <div className="p-4 bg-beige">
           <div className="flex items-center justify-end gap-3 mb-3">
             <button
               onClick={() => fakeDownload(p.xmlName || "Factura.xml")}
               disabled={!p.xmlUrl}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition border ${
-                p.xmlUrl
-                  ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white"
-                  : "border-gray-200 text-gray-400 cursor-not-allowed"
+                p.xmlUrl ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white" : "border-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
               <Download className="w-4 h-4" />

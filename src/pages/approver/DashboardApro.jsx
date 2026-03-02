@@ -1,27 +1,20 @@
 // src/pages/approver/DashboardApro.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   User,
-  FileText,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   BarChart,
   LogOut,
-  X,
-  AlertCircle,
-  CheckCircle2,
-  Info,
   FileCheck,
   Receipt,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
-import { UsersAPI } from "../../api/users.api";
 
-// Importar componentes
-import Aprobacion from "./Aprobacion.jsx";
+import Documents from "./Documents.jsx";
 import Parcialidades from "./Parcialidades.jsx";
 import Reportes from "./Reportes.jsx";
 import Graficas from "../shared/Graficas.jsx";
@@ -30,11 +23,18 @@ import DatosAprobador from "./DatosAprobador.jsx";
 
 import logo from "../../assets/logo-relleno.png";
 
+import DashboardAlert from "./components/DashboardAlert.jsx";
+import DashboardModal from "./components/DashboardModal.jsx";
+import { useDocumentReviews } from "./hooks/useDocumentReview.js";
+import { useCurrentUser } from "./hooks/useCurrentUser.js";
+import { pickUserDisplayName, getInitials } from "./utils/userDisplay.js";
+
 function DashboardApro() {
   const navigate = useNavigate();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [currentModal, setCurrentModal] = useState("");
 
@@ -47,45 +47,30 @@ function DashboardApro() {
     onConfirm: null,
   });
 
-  // ✅ AHORA VIENE DEL BACK (misma variable: aprobaciones)
-  const [aprobaciones, setAprobaciones] = useState([]);
+  // ✅ Alert central (igual que el tuyo)
+  const showAlert = useCallback((type, title, message, showConfirm = false, onConfirm = null) => {
+    setAlertConfig({ type, title, message, showConfirm, onConfirm });
+    setAlertOpen(true);
 
-    // ✅ Usuario logueado (para mostrar nombre debajo de "Aprobador")
-  const [currentUser, setCurrentUser] = useState(null);
+    if ((type === "success" || type === "info") && !showConfirm) {
+      setTimeout(() => setAlertOpen(false), 4000);
+    }
+  }, []);
 
-  function pickUserDisplayName(u) {
-    if (!u) return "";
+  // ✅ Revisión de Documentos: ahora viene de hook (pero sigue “siendo del dashboard”)
+  const {
+    aprobaciones,
+    setAprobaciones,
+    approveReview,
+    rejectReview,
+    fetchFilesForReview,
+  } = useDocumentReviews({ showAlert });
 
-    // A veces el backend regresa { user: {...} }
-    const x = typeof u?.user === "object" && u.user ? u.user : u;
+  // ✅ Usuario actual
+  const { currentUser } = useCurrentUser();
 
-    const name =
-      x?.fullName ??
-      x?.nombreCompleto ??
-      x?.name ??
-      x?.nombre ??
-      x?.username ??
-      x?.email ??
-      "";
+  const handleAprobacionChange = (nuevasAprobaciones) => setAprobaciones(nuevasAprobaciones);
 
-    return typeof name === "string" ? name : "";
-  }
-
-  function getInitials(name) {
-    const n = String(name || "").trim();
-    if (!n) return "AP";
-    const parts = n.split(/\s+/).filter(Boolean);
-    const a = (parts[0]?.[0] || "").toUpperCase();
-    const b = (parts[1]?.[0] || "").toUpperCase();
-    return (a + b) || a || "AP";
-  }
-
-  // Función para manejar cambios en las aprobaciones
-  const handleAprobacionChange = (nuevasAprobaciones) => {
-    setAprobaciones(nuevasAprobaciones);
-  };
-
-  // ✅ Logout real (cookie HttpOnly)
   const handleLogout = async () => {
     try {
       setUserMenuOpen(false);
@@ -97,318 +82,81 @@ function DashboardApro() {
     }
   };
 
-  // MENÚ PARA APROBADOR
   const menuItems = [
-    {
-      id: "datos-aprobador",
-      title: "Datos del Aprobador",
-      icon: <User className="w-5 h-5" />,
-    },
-    {
-      id: "revision-documentos",
-      title: "Revisión de Documentos",
-      icon: <ClipboardList className="w-5 h-5" />,
-    },
-    {
-      id: "aprobacion-pagos",
-      title: "Aprobación de Pagos",
-      icon: <FileCheck className="w-5 h-5" />,
-    },
-    {
-      id: "parcialidades",
-      title: "Parcialidades",
-      icon: <Receipt className="w-5 h-5" />,
-    },
-    {
-      id: "reportes",
-      title: "Reportes",
-      icon: <BarChart className="w-5 h-5" />,
-    },
+    { id: "datos-aprobador", title: "Datos del Aprobador", icon: <User className="w-5 h-5" /> },
+    { id: "revision-documentos", title: "Revisión de Documentos", icon: <ClipboardList className="w-5 h-5" /> },
+    { id: "aprobacion-pagos", title: "Aprobación de Pagos", icon: <FileCheck className="w-5 h-5" /> },
+    { id: "parcialidades", title: "Parcialidades", icon: <Receipt className="w-5 h-5" /> },
+    { id: "reportes", title: "Reportes", icon: <BarChart className="w-5 h-5" /> },
   ];
 
-  // SISTEMA DE MAPEO DE COMPONENTES
   const modalComponents = {
-    // ✅ Datos del Aprobador
-    "datos-aprobador": {
-      component: DatosAprobador,
-      title: "Datos del Aprobador",
-      props: {},
-    },
+    "datos-aprobador": { component: DatosAprobador, title: "Datos del Aprobador", props: {} },
 
-    // Revisión de Documentos
+    // ✅ aquí vive la revisión por “estado” y la tabla realmente la pinta Documents.jsx
     "revision-documentos": {
-      component: Aprobacion,
+      component: Documents,
       title: "Revisión de Documentos",
       props: {
-        aprobaciones,
-        onAprobacionChange: handleAprobacionChange,
+      aprobaciones,
+      onAprobacionChange: handleAprobacionChange,
+      showAlert,
+
+      // ✅ Ojito
+      onOpenFiles: async (row) => {
+        try {
+          const files = await fetchFilesForReview(row.id);
+
+          // ✅ IMPORTANTÍSIMO: regresar el arreglo
+          const arr = Array.isArray(files)
+            ? files
+            : Array.isArray(files?.files)
+            ? files.files
+            : Array.isArray(files?.data?.files)
+            ? files.data.files
+            : Array.isArray(files?.data)
+            ? files.data
+            : [];
+
+          // console.log("Archivos de", row.id, arr);
+
+          // opcional
+          // showAlert?.("info", "Documentos del proveedor", `Se encontraron ${arr.length} archivo${arr.length === 1 ? "" : "s"}.`);
+
+          return arr; // ✅ ESTO TE FALTABA
+        } catch (e) {
+          console.error(e);
+          showAlert?.("error", "Error", "No se pudieron cargar los archivos.");
+          return []; // ✅ para que Documents no truene
+        }
+      },
+
+      // ✅ Aprobar / Rechazar conectados al back
+      onApprove: async (row, comment) => {
+        await approveReview(row.id, comment);
+      },
+      onReject: async (row, comment) => {
+        await rejectReview(row.id, comment);
       },
     },
+  },
 
-    // Aprobación de Pagos
-    "aprobacion-pagos": {
-      component: AprobaciondePagos,
-      title: "Aprobación de Pagos",
-      props: {},
-    },
-
-    // Parcialidades
-    "parcialidades": {
-      component: Parcialidades,
-      title: "Parcialidades",
-      props: {},
-    },
-
-    // Reportes
-    "reportes": {
-      component: Reportes,
-      title: "Reportes Generales",
-      props: {},
-    },
+    "aprobacion-pagos": { component: AprobaciondePagos, title: "Aprobación de Pagos", props: {} },
+    "parcialidades": { component: Parcialidades, title: "Parcialidades", props: {} },
+    "reportes": { component: Reportes, title: "Reportes Generales", props: {} },
   };
 
-  // ✅ Función para mostrar alertas centradas
-  const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
-    setAlertConfig({ type, title, message, showConfirm, onConfirm });
-    setAlertOpen(true);
-
-    if ((type === "success" || type === "info") && !showConfirm) {
-      setTimeout(() => setAlertOpen(false), 4000);
-    }
-  };
-
-  // =========================================================
-  // ✅ CONEXIÓN REAL AL BACK PARA LLENAR LA TABLA (SIN UI)
-  // =========================================================
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
-  const ENDPOINT = "/document-reviews";
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}${ENDPOINT}`, {
-          method: "GET",
-          credentials: "include", // ✅ cookie HttpOnly
-          headers: { "Content-Type": "application/json" },
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status} ${text}`);
-        }
-
-        const data = await res.json();
-
-        // puede venir como [] o {items: []}
-        const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
-
-        // ✅ Mapeo al formato que tu tabla YA usa
-        const mapped = arr.map((d) => ({
-          id: d.id,
-
-          // nombre proveedor
-          proveedorNombre: d.proveedorNombre ?? d.providerName ?? d.provider?.name ?? "—",
-
-          // solicitud
-          solicitud: d.solicitud ?? d.requestType ?? d.type ?? d.documentType ?? "—",
-
-          // estado (tu UI usa "Pendiente/Aprobado/Rechazado")
-          estado: d.estado ?? d.status ?? "Pendiente",
-
-          // fecha (si viene ISO, tu componente Aprobacion puede formatearlo)
-          fecha: d.fecha ?? d.createdAt ?? d.updatedAt ?? "",
-
-          // comentario
-          comentario: d.comentario ?? d.comment ?? d.reason ?? "",
-
-          // Si tu Aprobacion.jsx usa el archivo/URL, puedes descomentar:
-          // documentoUrl: d.documentoUrl ?? d.fileUrl ?? d.documentUrl ?? null,
-          // documentoNombre: d.documentoNombre ?? d.fileName ?? null,
-        }));
-
-        if (mounted) setAprobaciones(mapped);
-      } catch (e) {
-        if (!mounted) return;
-        console.error("Error cargando aprobaciones:", e);
-        showAlert("error", "Error", "No se pudieron cargar los documentos");
-        setAprobaciones([]);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []); // <- no tocamos nada más del diseño
-  // =========================================================
-
-  // ✅ Traer usuario actual (cookie HttpOnly)
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const me = await UsersAPI.me(); // ✅ mismo endpoint que DatosAprobador
-        if (mounted) setCurrentUser(me);
-      } catch (e) {
-        console.warn("No se pudo cargar el usuario actual:", e?.message || e);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Función para abrir modal
   const openModal = (sectionId) => {
     setCurrentModal(sectionId);
     setModalOpen(true);
   };
 
-  // Función para cerrar modal
   const closeModal = () => {
     setModalOpen(false);
     setCurrentModal("");
   };
 
-  // ✅ Alert con la MISMA animación del anterior (scale-95 hover:scale-100)
-  const Alert = ({ isOpen, onClose, type, title, message, showConfirm = false, onConfirm }) => {
-    if (!isOpen) return null;
-
-    const alertStyles = {
-      success: {
-        bg: "bg-green-50",
-        border: "border-green-200",
-        icon: <CheckCircle2 className="w-6 h-6 text-green-600" />,
-        button: "bg-green-600 hover:bg-green-700",
-        text: "text-green-800",
-      },
-      error: {
-        bg: "bg-red-50",
-        border: "border-red-200",
-        icon: <AlertCircle className="w-6 h-6 text-red-600" />,
-        button: "bg-red-600 hover:bg-red-700",
-        text: "text-red-800",
-      },
-      warning: {
-        bg: "bg-yellow-50",
-        border: "border-yellow-200",
-        icon: <AlertCircle className="w-6 h-6 text-yellow-600" />,
-        button: "bg-yellow-600 hover:bg-yellow-700",
-        text: "text-yellow-800",
-      },
-      info: {
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        icon: <Info className="w-6 h-6 text-blue-600" />,
-        button: "bg-blue-600 hover:bg-blue-700",
-        text: "text-blue-800",
-      },
-    };
-
-    const style = alertStyles[type] || alertStyles.info;
-
-    return (
-      <>
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity backdrop-blur-sm" />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className={`rounded-xl shadow-2xl border-2 ${style.bg} ${style.border} w-full max-w-md transform transition-all duration-300 scale-95 hover:scale-100`}
-          >
-            <div className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">{style.icon}</div>
-                <div className="flex-1">
-                  <h3 className={`text-lg font-semibold ${style.text} mb-2`}>{title}</h3>
-                  <p className="text-gray-700 whitespace-pre-line">{message}</p>
-
-                  {showConfirm ? (
-                    <div className="flex gap-3 mt-4">
-                      <button
-                        onClick={onConfirm}
-                        className={`px-6 py-2 text-white rounded-lg transition ${style.button} font-medium`}
-                      >
-                        Confirmar
-                      </button>
-                      <button
-                        onClick={onClose}
-                        className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={onClose}
-                      className={`mt-4 px-6 py-2 text-white rounded-lg transition ${style.button} font-medium`}
-                    >
-                      Aceptar
-                    </button>
-                  )}
-                </div>
-
-                {!showConfirm && (
-                  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition flex-shrink-0">
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  };
-
-  // ✅ Modal con la MISMA animación del anterior (scale-95 hover:scale-100)
-  const Modal = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
-
-    const modalConfig = modalComponents[currentModal];
-
-    const renderModalContent = () => {
-      if (modalConfig && modalConfig.component) {
-        const ModalComponent = modalConfig.component;
-        return <ModalComponent {...(modalConfig.props || {})} onClose={onClose} showAlert={showAlert} />;
-      }
-
-      return (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 bg-lightBlue rounded-full flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-midBlue" />
-          </div>
-          <p className="text-midBlue text-lg">{modalConfig?.title || "Contenido no disponible"}</p>
-          <p className="text-darkBlue mt-2">Esta funcionalidad estará disponible próximamente</p>
-        </div>
-      );
-    };
-
-    return (
-      <>
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity backdrop-blur-sm" onClick={onClose} />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-95 hover:scale-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-gradient-to-r from-midBlue to-darkBlue px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-white">{modalConfig?.title || currentModal}</h2>
-              <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition">
-                <X className="w-5 h-5 text-white" />
-              </button>
-            </div>
-
-            <div className="p-0 overflow-y-auto max-h-[80vh]">{renderModalContent()}</div>
-          </div>
-        </div>
-      </>
-    );
-  };
-
-  // CONTENIDO PRINCIPAL
-  const renderContent = () => <Graficas showAlert={showAlert} />;
+  const displayName = pickUserDisplayName(currentUser);
 
   return (
     <div className="min-h-screen flex bg-beige">
@@ -425,6 +173,7 @@ function DashboardApro() {
               <span className="font-semibold text-darkBlue">Sistema de Aprobaciones</span>
             </div>
           )}
+
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-lightBlue transition">
             {sidebarOpen ? (
               <ChevronLeft className="w-5 h-5 text-darkBlue" />
@@ -459,63 +208,63 @@ function DashboardApro() {
         </nav>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-darkBlue">Dashboard de Aprobaciones</h1>
-          </div>
+          <h1 className="text-2xl font-bold text-darkBlue">Dashboard de Aprobaciones</h1>
 
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
-              >
-                <div className="text-right leading-tight">
-                  <span className="text-sm font-medium text-darkBlue block">Aprobador</span>
+          <div className="relative">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
+            >
+              <div className="text-right leading-tight">
+                <span className="text-sm font-medium text-darkBlue block">Aprobador</span>
+                <span className="text-xs text-gray-600 block">{displayName || "—"}</span>
+              </div>
 
-                  {/* ✅ Nombre debajo */}
-                  <span className="text-xs text-gray-600 block">
-                    {pickUserDisplayName(currentUser) || "—"}
-                  </span>
-                </div>
+              <div className="w-10 h-10 bg-midBlue text-white rounded-full flex items-center justify-center font-semibold shadow-lg">
+                {getInitials(displayName)}
+              </div>
+            </button>
 
-                <div className="w-10 h-10 bg-midBlue text-white rounded-full flex items-center justify-center font-semibold shadow-lg">
-                  {getInitials(pickUserDisplayName(currentUser))}
-                </div>
-              </button>
-
-              {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-lightBlue py-2 z-50">
-                  <button
-                    onClick={() =>
-                      showAlert("warning", "Cerrar sesión", "¿Seguro que deseas salir?", true, () => {
-                        setAlertOpen(false);
-                        handleLogout();
-                      })
-                    }
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Salir</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-lightBlue py-2 z-50">
+                <button
+                  onClick={() =>
+                    showAlert("warning", "Cerrar sesión", "¿Seguro que deseas salir?", true, () => {
+                      setAlertOpen(false);
+                      handleLogout();
+                    })
+                  }
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Salir</span>
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
         <section className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">{renderContent()}</div>
+          <div className="max-w-7xl mx-auto">
+            <Graficas showAlert={showAlert} />
+          </div>
         </section>
       </main>
 
       {/* MODAL */}
-      <Modal isOpen={modalOpen} onClose={closeModal} />
+      <DashboardModal
+        isOpen={modalOpen}
+        onClose={closeModal}
+        currentModal={currentModal}
+        modalComponents={modalComponents}
+        showAlert={showAlert}
+      />
 
-      {/* ALERTAS */}
-      <Alert
+      {/* ALERT */}
+      <DashboardAlert
         isOpen={alertOpen}
         onClose={() => setAlertOpen(false)}
         type={alertConfig.type}

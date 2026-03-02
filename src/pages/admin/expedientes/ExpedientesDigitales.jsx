@@ -14,7 +14,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import AprobacionDocumentos from "./AprobacionDocumentos.jsx";
-import Aprobacion from "../../approver/Aprobacion.jsx";
+import Aprobacion from "../../approver/Documents.jsx";
 import { DigitalFilesAPI } from "../../../api/digitalFiles.api";
 
 function ExpedientesDigitales() {
