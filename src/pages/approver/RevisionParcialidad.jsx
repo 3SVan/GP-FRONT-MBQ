@@ -1,7 +1,6 @@
 // src/pages/approver/RevisionParcialidad.jsx
 import React, { useMemo, useState } from "react";
 import {
-  X,
   FileText,
   Download,
   FileCode2,
@@ -22,7 +21,12 @@ import { safeUpper, formatDate, formatMoney } from "./utils/format.js";
 import { getUrgency } from "./utils/urgency.js";
 import { MOCK_XML } from "./utils/mockXml.js";
 
-export default function RevisionParcialidad({ parcialidad, onClose, showAlert, onDecision }) {
+export default function RevisionParcialidad({
+  parcialidad,
+  onClose,
+  showAlert,
+  onDecision,
+}) {
   const p = parcialidad || {};
 
   const [approverComment, setApproverComment] = useState(p.approverComment || "");
@@ -37,9 +41,10 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
   const [generalReason, setGeneralReason] = useState("");
   const [generalQuick, setGeneralQuick] = useState({
     noCoincide: false,
-    incompleto: false,
+    noCorresponde: false,
     ilegible: false,
-    faltaXml: false,
+    alterado: false,
+    otro: false, // ✅ NUEVO
   });
 
   // Rechazo factura
@@ -50,6 +55,7 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
     montoConceptoIncorrecto: false,
     facturaDuplicada: false,
     facturaCancelada: false,
+    otro: false, // ✅ NUEVO
   });
 
   // visores
@@ -60,16 +66,40 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
   const decided = status === "APROBADA" || status === "RECHAZADA" || status === "PAGADA";
   const urgency = useMemo(() => getUrgency(p.closeAt), [p.closeAt]);
 
+  // -----------------------------
+  // ✅ Helpers de "Otro"
+  // -----------------------------
+  const hasGeneralNonOtherPick = useMemo(() => {
+    return !!(
+      generalQuick.noCoincide ||
+      generalQuick.noCorresponde ||
+      generalQuick.ilegible ||
+      generalQuick.alterado
+    );
+  }, [generalQuick]);
+
+  const hasInvoiceNonOtherPick = useMemo(() => {
+    return !!(
+      invoiceChecklist.rfcIncorrecto ||
+      invoiceChecklist.uuidNoCorresponde ||
+      invoiceChecklist.montoConceptoIncorrecto ||
+      invoiceChecklist.facturaDuplicada ||
+      invoiceChecklist.facturaCancelada
+    );
+  }, [invoiceChecklist]);
+
   const generalMergedReason = useMemo(() => {
     const picks = [];
     if (generalQuick.noCoincide) picks.push("Datos no coinciden");
-    if (generalQuick.incompleto) picks.push("Información incompleta");
+    if (generalQuick.noCorresponde) picks.push("Documento no corresponde");
     if (generalQuick.ilegible) picks.push("Archivo ilegible");
-    if (generalQuick.faltaXml) picks.push("Falta XML");
+    if (generalQuick.alterado) picks.push("Documento alterado");
 
-    const base = generalReason.trim();
-    const head = picks.length ? `${picks.join(" • ")}${base ? "\n\n" : ""}` : "";
-    return `${head}${base}`.trim();
+    const otherText = generalQuick.otro ? generalReason.trim() : "";
+    const head = picks.length ? picks.join(" • ") : "";
+    const joiner = head && otherText ? "\n\n" : "";
+
+    return `${head}${joiner}${otherText}`.trim();
   }, [generalQuick, generalReason]);
 
   const invoiceMergedReason = useMemo(() => {
@@ -80,13 +110,16 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
     if (invoiceChecklist.facturaDuplicada) picks.push("Factura duplicada");
     if (invoiceChecklist.facturaCancelada) picks.push("Factura cancelada/no vigente");
 
-    const base = invoiceReason.trim();
-    const head = picks.length ? `${picks.join(" • ")}${base ? "\n\n" : ""}` : "";
-    return `${head}${base}`.trim();
+    const otherText = invoiceChecklist.otro ? invoiceReason.trim() : "";
+    const head = picks.length ? picks.join(" • ") : "";
+    const joiner = head && otherText ? "\n\n" : "";
+
+    return `${head}${joiner}${otherText}`.trim();
   }, [invoiceChecklist, invoiceReason]);
 
-  const canRejectGeneral = generalMergedReason.trim().length > 0;
-  const canRejectInvoice = invoiceMergedReason.trim().length > 0;
+  // ✅ Reglas: si NO eliges "Otro", NO aparece textarea y NO cuenta su texto
+  const canRejectGeneral = hasGeneralNonOtherPick || (generalQuick.otro && generalReason.trim().length > 0);
+  const canRejectInvoice = hasInvoiceNonOtherPick || (invoiceChecklist.otro && invoiceReason.trim().length > 0);
 
   const handleApprove = () => {
     onDecision?.({
@@ -134,7 +167,8 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
       <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6">
         <div className="flex flex-col gap-3">
           <p className="text-xs text-gray-500">
-            Aprobador / Parcialidades / <span className="text-darkBlue font-semibold">Revisar</span>
+            Aprobador / Parcialidades /{" "}
+            <span className="text-darkBlue font-semibold">Revisar</span>
           </p>
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -286,14 +320,18 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
           {/* Actions */}
           <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6 lg:sticky lg:top-6">
             <h3 className="font-semibold text-darkBlue">Acciones</h3>
-            <p className="text-xs text-gray-500 mt-1">Dictamina la parcialidad después de revisar evidencias.</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Dictamina la parcialidad después de revisar evidencias.
+            </p>
 
             <div className="mt-4 grid grid-cols-1 gap-3">
               <button
                 disabled={decided}
                 onClick={() => setConfirmApproveOpen(true)}
                 className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium transition ${
-                  decided ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-green-600 text-white hover:bg-green-700"
+                  decided
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-green-600 text-white hover:bg-green-700"
                 }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
@@ -304,7 +342,9 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
                 disabled={decided}
                 onClick={() => setRejectGeneralOpen(true)}
                 className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium transition ${
-                  decided ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-red-600 text-white hover:bg-red-700"
+                  decided
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-red-600 text-white hover:bg-red-700"
                 }`}
               >
                 <XCircle className="w-4 h-4" />
@@ -367,34 +407,75 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
       </MiniModal>
 
       {/* Rechazo General */}
-      <MiniModal isOpen={rejectGeneralOpen} title="Rechazar parcialidad" onClose={() => setRejectGeneralOpen(false)} maxW="max-w-2xl">
+      <MiniModal
+        isOpen={rejectGeneralOpen}
+        title="Rechazar parcialidad"
+        onClose={() => setRejectGeneralOpen(false)}
+        maxW="max-w-2xl"
+      >
         <div className="p-6">
           <p className="text-darkBlue font-semibold">Motivo (obligatorio)</p>
-          <p className="text-xs text-gray-500 mt-1">Puedes usar motivos rápidos o escribir detalle.</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Puedes usar motivos rápidos o seleccionar <b>Otro</b> para escribir detalle.
+          </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <Chip active={generalQuick.noCoincide} onClick={() => setGeneralQuick((s) => ({ ...s, noCoincide: !s.noCoincide }))}>
+            <Chip
+              active={generalQuick.noCoincide}
+              onClick={() => setGeneralQuick((s) => ({ ...s, noCoincide: !s.noCoincide }))}
+            >
               Datos no coinciden
             </Chip>
-            <Chip active={generalQuick.incompleto} onClick={() => setGeneralQuick((s) => ({ ...s, incompleto: !s.incompleto }))}>
-              Información incompleta
+            <Chip
+              active={generalQuick.noCorresponde}
+              onClick={() => setGeneralQuick((s) => ({ ...s, noCorresponde: !s.noCorresponde }))}
+            >
+              Documento no corresponde
             </Chip>
-            <Chip active={generalQuick.ilegible} onClick={() => setGeneralQuick((s) => ({ ...s, ilegible: !s.ilegible }))}>
+            <Chip
+              active={generalQuick.ilegible}
+              onClick={() => setGeneralQuick((s) => ({ ...s, ilegible: !s.ilegible }))}
+            >
               Archivo ilegible
             </Chip>
-            <Chip active={generalQuick.faltaXml} onClick={() => setGeneralQuick((s) => ({ ...s, faltaXml: !s.faltaXml }))}>
-              Falta XML
+            <Chip
+              active={generalQuick.alterado}
+              onClick={() => setGeneralQuick((s) => ({ ...s, alterado: !s.alterado }))}
+            >
+              Documento alterado
+            </Chip>
+
+            {/* ✅ NUEVO: Otro */}
+            <Chip
+              active={generalQuick.otro}
+              onClick={() => {
+                setGeneralQuick((s) => {
+                  const next = { ...s, otro: !s.otro };
+                  return next;
+                });
+                // si se apaga "Otro", limpiamos texto
+                if (generalQuick.otro) setGeneralReason("");
+              }}
+            >
+              Otro
             </Chip>
           </div>
 
-          <textarea
-            value={generalReason}
-            onChange={(e) => setGeneralReason(e.target.value)}
-            className="mt-4 w-full min-h-[140px] rounded-xl border border-lightBlue px-4 py-3 text-sm text-darkBlue outline-none focus:ring-2 focus:ring-midBlue bg-white"
-            placeholder="Escribe el motivo del rechazo…"
-          />
+          {/* ✅ Textarea solo si "Otro" */}
+          {generalQuick.otro && (
+            <textarea
+              value={generalReason}
+              onChange={(e) => setGeneralReason(e.target.value)}
+              className="mt-4 w-full min-h-[140px] rounded-xl border border-lightBlue px-4 py-3 text-sm text-darkBlue outline-none focus:ring-2 focus:ring-midBlue bg-white"
+              placeholder="Escribe el motivo del rechazo…"
+            />
+          )}
 
-          {!canRejectGeneral && <p className="mt-2 text-xs text-red-600">Debes capturar un motivo (texto o chips).</p>}
+          {!canRejectGeneral && (
+            <p className="mt-2 text-xs text-red-600">
+              Debes seleccionar al menos un motivo (chips) o elegir <b>Otro</b> y escribir el detalle.
+            </p>
+          )}
 
           <div className="mt-5 flex gap-3 justify-end">
             <button
@@ -408,15 +489,13 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
               disabled={!canRejectGeneral}
               onClick={confirmRejectGeneral}
               className={`px-4 py-2 rounded-xl font-medium transition ${
-                canRejectGeneral ? "bg-red-600 text-white hover:bg-red-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                canRejectGeneral
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
               }`}
             >
               Confirmar rechazo
             </button>
-          </div>
-
-          <div className="mt-4 text-xs text-gray-500">
-            Efecto UI (mock): status=RECHAZADA, rejectionType=GENERAL, se guarda approverComment.
           </div>
         </div>
       </MiniModal>
@@ -438,7 +517,9 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
             </div>
           </div>
 
-          <p className="mt-4 text-darkBlue font-semibold">Motivo del error en factura (obligatorio)</p>
+          <p className="mt-4 text-darkBlue font-semibold">
+            Motivo del error en factura (obligatorio)
+          </p>
 
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex items-center gap-2 text-sm text-darkBlue">
@@ -490,16 +571,38 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
               />
               Factura cancelada/no vigente
             </label>
+
+            {/* ✅ NUEVO: Otro */}
+            <label className="flex items-center gap-2 text-sm text-darkBlue sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={invoiceChecklist.otro}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setInvoiceChecklist((s) => ({ ...s, otro: checked }));
+                  if (!checked) setInvoiceReason(""); // limpia cuando se desmarca
+                }}
+                className="accent-midBlue"
+              />
+              Otro
+            </label>
           </div>
 
-          <textarea
-            value={invoiceReason}
-            onChange={(e) => setInvoiceReason(e.target.value)}
-            className="mt-4 w-full min-h-[140px] rounded-xl border border-lightBlue px-4 py-3 text-sm text-darkBlue outline-none focus:ring-2 focus:ring-midBlue bg-white"
-            placeholder="Describe el error en la factura…"
-          />
+          {/* ✅ Textarea solo si "Otro" */}
+          {invoiceChecklist.otro && (
+            <textarea
+              value={invoiceReason}
+              onChange={(e) => setInvoiceReason(e.target.value)}
+              className="mt-4 w-full min-h-[140px] rounded-xl border border-lightBlue px-4 py-3 text-sm text-darkBlue outline-none focus:ring-2 focus:ring-midBlue bg-white"
+              placeholder="Describe el error en la factura…"
+            />
+          )}
 
-          {!canRejectInvoice && <p className="mt-2 text-xs text-red-600">Debes capturar un motivo (texto o checklist).</p>}
+          {!canRejectInvoice && (
+            <p className="mt-2 text-xs text-red-600">
+              Debes seleccionar al menos una opción o elegir <b>Otro</b> y escribir el detalle.
+            </p>
+          )}
 
           <div className="mt-5 flex gap-3 justify-end">
             <button
@@ -513,28 +616,33 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
               disabled={!canRejectInvoice}
               onClick={confirmRejectInvoice}
               className={`px-4 py-2 rounded-xl font-medium transition ${
-                canRejectInvoice ? "bg-red-600 text-white hover:bg-red-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                canRejectInvoice
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
               }`}
             >
               Confirmar rechazo por factura
             </button>
           </div>
-
-          <div className="mt-4 text-xs text-gray-500">
-            Efecto UI (mock): status=RECHAZADA, rejectionType=INVOICE_ERROR, se guarda approverComment.
-          </div>
         </div>
       </MiniModal>
 
       {/* PDF Viewer */}
-      <MiniModal isOpen={pdfModalOpen} title={`Factura PDF — ${p.partialLabel || ""}`} onClose={() => setPdfModalOpen(false)} maxW="max-w-6xl">
+      <MiniModal
+        isOpen={pdfModalOpen}
+        title={`Factura PDF — ${p.partialLabel || ""}`}
+        onClose={() => setPdfModalOpen(false)}
+        maxW="max-w-6xl"
+      >
         <div className="p-4 bg-beige">
           <div className="flex items-center justify-end gap-3 mb-3">
             <button
               onClick={() => fakeDownload(p.pdfName || "Factura.pdf")}
               disabled={!p.pdfUrl}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition border ${
-                p.pdfUrl ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white" : "border-gray-200 text-gray-400 cursor-not-allowed"
+                p.pdfUrl
+                  ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white"
+                  : "border-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
               <Download className="w-4 h-4" />
@@ -557,14 +665,21 @@ export default function RevisionParcialidad({ parcialidad, onClose, showAlert, o
       </MiniModal>
 
       {/* XML Viewer */}
-      <MiniModal isOpen={xmlModalOpen} title={`Factura XML — ${p.partialLabel || ""}`} onClose={() => setXmlModalOpen(false)} maxW="max-w-6xl">
+      <MiniModal
+        isOpen={xmlModalOpen}
+        title={`Factura XML — ${p.partialLabel || ""}`}
+        onClose={() => setXmlModalOpen(false)}
+        maxW="max-w-6xl"
+      >
         <div className="p-4 bg-beige">
           <div className="flex items-center justify-end gap-3 mb-3">
             <button
               onClick={() => fakeDownload(p.xmlName || "Factura.xml")}
               disabled={!p.xmlUrl}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition border ${
-                p.xmlUrl ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white" : "border-gray-200 text-gray-400 cursor-not-allowed"
+                p.xmlUrl
+                  ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white"
+                  : "border-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
               <Download className="w-4 h-4" />

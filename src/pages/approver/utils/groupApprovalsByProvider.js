@@ -11,10 +11,19 @@ function uniq(arr) {
 }
 
 function pickEstadoResumen(estados = []) {
-  // prioridad: Pendiente > Rechazado > Aprobado
-  if (estados.includes("Pendiente")) return "Pendiente";
-  if (estados.includes("Rechazado")) return "Rechazado";
-  if (estados.includes("Aprobado")) return "Aprobado";
+  const list = Array.isArray(estados) ? estados.filter(Boolean) : [];
+
+  const hasPendiente = list.includes("Pendiente");
+  if (hasPendiente) return "Pendiente";
+
+  // ✅ ya no hay pendientes → estado FINAL
+  const hasRechazado = list.includes("Rechazado");
+  if (hasRechazado) return "Rechazado";
+
+  const allAprobado = list.length > 0 && list.every((s) => s === "Aprobado");
+  if (allAprobado) return "Aprobado";
+
+  // fallback
   return "Pendiente";
 }
 

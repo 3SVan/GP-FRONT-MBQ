@@ -1,6 +1,6 @@
 // src/pages/approver/components/DocumentReviewTable.jsx
 import React from "react";
-import { Eye, Download, Check, X } from "lucide-react";
+import { Download } from "lucide-react";
 
 function StatusPill({ status }) {
   const s = String(status || "").toUpperCase();
@@ -20,7 +20,7 @@ function StatusPill({ status }) {
   );
 }
 
-export default function DocumentReviewTable({ rows = [], onView, onDownload, onApprove, onReject }) {
+export default function DocumentReviewTable({ rows = [], onDownload }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
@@ -32,8 +32,6 @@ export default function DocumentReviewTable({ rows = [], onView, onDownload, onA
             <th className="px-6 py-3 font-semibold">Estado</th>
             <th className="px-6 py-3 font-semibold">Fecha</th>
             <th className="px-6 py-3 font-semibold">Documento</th>
-            <th className="px-6 py-3 font-semibold">Comentario</th>
-            <th className="px-6 py-3 font-semibold">Acciones</th>
           </tr>
         </thead>
 
@@ -60,44 +58,14 @@ export default function DocumentReviewTable({ rows = [], onView, onDownload, onA
                 <button
                   onClick={() => onDownload?.(r)}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-white ${
-                    String(r.fileType || "").toUpperCase() === "PDF" ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                    String(r.fileType || "").toUpperCase() === "PDF"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-green-600 hover:bg-green-700"
                   }`}
                 >
                   <Download className="w-4 h-4" />
                   Documento ({r.fileType || "—"})
                 </button>
-              </td>
-
-              <td className="px-6 py-4 text-slate-400 italic">
-                {r.comment || "Sin comentarios"}
-              </td>
-
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => onView?.(r)}
-                    className="p-2 rounded-lg border border-slate-200 hover:bg-slate-100"
-                    title="Ver"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => onApprove?.(r)}
-                    className="p-2 rounded-lg border border-green-200 text-green-700 hover:bg-green-50"
-                    title="Aprobar"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => onReject?.(r)}
-                    className="p-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
-                    title="Rechazar"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
               </td>
             </tr>
           ))}

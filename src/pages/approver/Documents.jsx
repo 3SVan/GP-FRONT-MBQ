@@ -1,9 +1,8 @@
 // src/pages/approver/Documents.jsx
 import React, { useMemo, useState } from "react";
-import { Search, Check, X, Clock, Eye } from "lucide-react";
+import { Search, Clock, Eye } from "lucide-react";
 import { getSolicitudText } from "./utils/aprobacionDocs.js";
 
-import CommentModal from "./components/CommentModal.jsx";
 import ProviderFilesModal from "./components/ProviderFilesModal.jsx";
 import { groupApprovalsByProvider } from "./utils/groupApprovalsByProvider.js";
 import { dedupFiles } from "./utils/groupFilesBySolicitud.js";
@@ -13,17 +12,9 @@ function Documents({
   onAprobacionChange,
   showAlert,
   onOpenFiles, // (aprobacion) => MUST return files[]
-  onApprove, // (aprobacion, comment) => back
-  onReject, // (aprobacion, comment) => back
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstatus, setFiltroEstatus] = useState("");
-
-  // Modal comentario
-  const [modalComentario, setModalComentario] = useState(false);
-  const [accionTipo, setAccionTipo] = useState(null); // "aprobar" | "rechazar"
-  const [aprobacionSeleccionada, setAprobacionSeleccionada] = useState(null);
-  const [comentario, setComentario] = useState("");
 
   // Modal archivos por proveedor
   const [modalArchivos, setModalArchivos] = useState(false);
@@ -52,10 +43,6 @@ function Documents({
 
   const getEstadoIcono = (estado) => {
     switch (estado) {
-      case "Aprobado":
-        return <Check className="w-3 h-3" />;
-      case "Rechazado":
-        return <X className="w-3 h-3" />;
       case "Pendiente":
       default:
         return <Clock className="w-3 h-3" />;
@@ -70,7 +57,9 @@ function Documents({
 
     return aprobacionesSafe.filter((a) => {
       const proveedor = String(a.proveedorNombre ?? "").toLowerCase();
-      const solicitud = String(getSolicitudText(a.solicitud) ?? "").toLowerCase();
+      const solicitud = String(
+        getSolicitudText(a.solicitud) ?? "",
+      ).toLowerCase();
 
       const coincideBusqueda =
         !q ||
@@ -97,63 +86,6 @@ function Documents({
     return groupApprovalsByProvider(aprobacionesFiltradas, getProveedorKey);
   }, [aprobacionesFiltradas]);
 
-  // ===== acciones aprobar/rechazar =====
-  const abrirModalComentario = (tipo, aprobacion) => {
-    setAccionTipo(tipo);
-    setAprobacionSeleccionada(aprobacion);
-    setComentario("");
-    setModalComentario(true);
-  };
-
-  const cerrarModalComentario = () => {
-    setModalComentario(false);
-    setAccionTipo(null);
-    setAprobacionSeleccionada(null);
-    setComentario("");
-  };
-
-  const confirmarAccion = async () => {
-    if (!aprobacionSeleccionada || !accionTipo) return;
-
-    if (accionTipo === "rechazar" && !comentario.trim()) {
-      showAlert?.(
-        "error",
-        "Comentario requerido",
-        "Escribe el motivo del rechazo.",
-      );
-      return;
-    }
-
-    try {
-      if (accionTipo === "aprobar") {
-        await onApprove?.(aprobacionSeleccionada, comentario.trim());
-      } else {
-        await onReject?.(aprobacionSeleccionada, comentario.trim());
-      }
-
-      // fallback local si no hay handlers
-      if (!onApprove || !onReject) {
-        const nuevas = aprobacionesSafe.map((a) =>
-          a.id === aprobacionSeleccionada.id
-            ? {
-                ...a,
-                estado: accionTipo === "aprobar" ? "Aprobado" : "Rechazado",
-                fecha: new Date().toISOString().split("T")[0],
-                comentario:
-                  accionTipo === "rechazar" ? comentario.trim() : a.comentario,
-              }
-            : a,
-        );
-        onAprobacionChange?.(nuevas);
-      }
-
-      cerrarModalComentario();
-    } catch (e) {
-      console.error(e);
-      showAlert?.("error", "Error", "No se pudo completar la acción.");
-    }
-  };
-
   // ===== abrir archivos por proveedor =====
   const abrirArchivosProveedor = async (grupo) => {
     try {
@@ -169,7 +101,6 @@ function Documents({
         if (!u) return u;
         const s = String(u);
 
-        // si por alguna razón viene /download-file, lo normalizamos a /download
         return s.replace(
           /\/api\/document-reviews\/(\d+)\/download-file$/i,
           "/api/document-reviews/$1/download",
@@ -192,7 +123,6 @@ function Documents({
                     : [];
 
             return arr.map((f) => {
-              // intenta encontrar cualquier campo de url que ya venga del back
               const rawDownload =
                 f.downloadUrl ||
                 f.download_url ||
@@ -213,14 +143,11 @@ function Documents({
 
               const isAbs = (u) => /^https?:\/\//i.test(String(u || ""));
 
-              // ✅ si viene una url absoluta, se usa tal cual
-              // ✅ si viene "/api/...." se arma con API_BASE en el modal
-              // ✅ si viene "bucket/path" raro, fallback a endpoint genérico
               const normalize = (u) => {
                 if (!u) return null;
                 const s = String(u);
-                if (isAbs(s)) return s; // absoluta
-                if (s.startsWith("/")) return s; // relativa a tu API_BASE (modal la completa)
+                if (isAbs(s)) return s;
+                if (s.startsWith("/")) return s;
                 return `/api/document-reviews/files/download?path=${encodeURIComponent(
                   s,
                 )}`;
@@ -236,9 +163,7 @@ function Documents({
                   f.filename ||
                   f.originalName ||
                   "Archivo",
-                // ✅ descargar SIEMPRE por endpoint attachment
                 downloadUrl: normalize(forceDownloadEndpoint(rawDownload)),
-                // ✅ ver por url de vista si existe, si no usa el rawView
                 viewUrl: normalize(rawView),
               };
             });
@@ -324,12 +249,6 @@ function Documents({
                 <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
                   Documentos
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Comentario
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Acciones
-                </th>
               </tr>
             </thead>
 
@@ -355,51 +274,51 @@ function Documents({
 
                   {/* Solicitudes */}
                   <td className="px-6 py-5">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {(g.solicitudes || []).slice(0, 2).map((s) => (
-                          <span
-                            key={s}
-                            className="inline-flex items-center rounded-full border border-lightBlue bg-white px-3 py-1 text-[11px] font-medium text-darkBlue shadow-sm"
-                          >
-                            {s}
-                          </span>
-                        ))}
+                    {(() => {
+                      const list = Array.isArray(g.solicitudes)
+                        ? g.solicitudes
+                        : [];
 
-                        {(g.solicitudes || []).length > 2 &&
-                          !solicitudesOpen[g.proveedorId] && (
+                      const MAX_VISIBLE = 8; // 👈 ajusta: cuántas muestras antes de "Ver todas"
+                      const isOpen = !!solicitudesOpen[g.proveedorId];
+                      const visible = isOpen
+                        ? list
+                        : list.slice(0, MAX_VISIBLE);
+                      const hiddenCount = Math.max(
+                        0,
+                        list.length - visible.length,
+                      );
+
+                      return (
+                        <div className="flex flex-wrap gap-2">
+                          {visible.map((s) => (
+                            <span
+                              key={s}
+                              className="inline-flex items-center rounded-full border border-lightBlue bg-white px-3 py-1 text-[11px] font-medium text-darkBlue shadow-sm hover:bg-beige transition"
+                              title={s}
+                            >
+                              {s}
+                            </span>
+                          ))}
+
+                          {/* contador bonito si está cerrado */}
+                          {!isOpen && hiddenCount > 0 && (
+                            <span className="inline-flex items-center rounded-full border border-lightBlue bg-white px-3 py-1 text-[11px] font-semibold text-midBlue shadow-sm">
+                              +{hiddenCount} más
+                            </span>
+                          )}
+
+                          {list.length > MAX_VISIBLE && (
                             <button
                               onClick={() => toggleSolicitudes(g.proveedorId)}
-                              className="inline-flex items-center rounded-full border border-lightBlue bg-gray-50 px-3 py-1 text-[11px] font-semibold text-midBlue hover:bg-gray-100 transition"
+                              className="mt-2 text-[11px] font-semibold text-midBlue hover:text-darkBlue transition"
                             >
-                              +{g.solicitudes.length - 2} más
+                              {isOpen ? "Ocultar" : "Ver todas"}
                             </button>
                           )}
-                      </div>
-
-                      {solicitudesOpen[g.proveedorId] &&
-                        (g.solicitudes || []).length > 2 && (
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap gap-2">
-                              {(g.solicitudes || []).slice(2).map((s) => (
-                                <span
-                                  key={s}
-                                  className="inline-flex items-center rounded-full border border-lightBlue bg-white px-3 py-1 text-[11px] font-medium text-darkBlue shadow-sm"
-                                >
-                                  {s}
-                                </span>
-                              ))}
-                            </div>
-
-                            <button
-                              onClick={() => toggleSolicitudes(g.proveedorId)}
-                              className="text-[11px] font-semibold text-midBlue hover:text-darkBlue transition"
-                            >
-                              Ocultar
-                            </button>
-                          </div>
-                        )}
-                    </div>
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   {/* Estado */}
@@ -439,60 +358,6 @@ function Documents({
                       </button>
                     </div>
                   </td>
-
-                  {/* Comentario */}
-                  <td className="px-6 py-5 text-sm text-midBlue max-w-xs">
-                    {g.comentario ? (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="text-red-700 text-xs">{g.comentario}</p>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 italic text-xs">
-                        Sin comentarios
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Acciones */}
-                  <td className="px-6 py-5">
-                    {(() => {
-                      const pendingItem = (g.items || []).find(
-                        (it) => it.estado === "Pendiente",
-                      );
-
-                      if (!pendingItem) {
-                        return (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold bg-gray-50 border border-lightBlue text-midBlue">
-                            Resuelto
-                          </span>
-                        );
-                      }
-
-                      return (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() =>
-                              abrirModalComentario("aprobar", pendingItem)
-                            }
-                            className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition shadow-sm"
-                            title="Aprobar"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              abrirModalComentario("rechazar", pendingItem)
-                            }
-                            className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition shadow-sm"
-                            title="Rechazar"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      );
-                    })()}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -514,17 +379,6 @@ function Documents({
         )}
       </div>
 
-      {/* Modal comentario */}
-      <CommentModal
-        open={modalComentario}
-        onClose={cerrarModalComentario}
-        accionTipo={accionTipo}
-        aprobacionSeleccionada={aprobacionSeleccionada}
-        comentario={comentario}
-        setComentario={setComentario}
-        onConfirm={confirmarAccion}
-      />
-
       {/* Modal archivos */}
       <ProviderFilesModal
         open={modalArchivos}
@@ -533,11 +387,7 @@ function Documents({
         loading={archivosLoading}
         files={archivos}
         showAlert={showAlert}
-        onAfterSave={async () => {
-          // ✅ opcional: recargar archivos del mismo grupo después de guardar
-          // si quieres, re-llamas abrirArchivosProveedor(grupoSeleccionado)
-          // (pero ojo: abrirArchivosProveedor espera el "grupo" g, aquí tienes grupoSeleccionado)
-        }}
+        onAfterSave={async () => {}}
       />
     </div>
   );

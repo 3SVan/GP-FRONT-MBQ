@@ -1,5 +1,4 @@
 // src/pages/approver/components/ProviderFilesModal.jsx
-// src/pages/approver/components/ProviderFilesModal.jsx
 import React, { useMemo, useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import {
@@ -72,8 +71,7 @@ function statusPill(statusRaw) {
 
   if (s === "APPROVED")
     return `${base} bg-green-50 text-green-700 border-green-200`;
-  if (s === "REJECTED")
-    return `${base} bg-red-50 text-red-700 border-red-200`;
+  if (s === "REJECTED") return `${base} bg-red-50 text-red-700 border-red-200`;
   if (s === "PENDING")
     return `${base} bg-yellow-50 text-yellow-800 border-yellow-200`;
 
@@ -117,7 +115,7 @@ async function apiApproveDoc(documentId) {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({}),
-    }
+    },
   );
 
   const data = await r.json().catch(() => ({}));
@@ -133,7 +131,7 @@ async function apiRejectDoc(documentId, reason) {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ reason }),
-    }
+    },
   );
 
   const data = await r.json().catch(() => ({}));
@@ -234,6 +232,12 @@ export default function ProviderFilesModal({
     const id = fileKey(f);
     if (!id) return;
 
+    const current = normalizeStatus(
+      localStatusById[id] || f.status || f.__estadoSolicitud || "",
+    );
+
+    if (current === "APPROVED" || current === "REJECTED") return;
+
     if (rejectEditingId === id) setRejectEditingId(null);
 
     setLocalStatusById((p) => ({ ...p, [id]: "APPROVED" }));
@@ -242,13 +246,19 @@ export default function ProviderFilesModal({
     pushToast(
       "success",
       "Marcado como aprobado",
-      'Se guardará cuando presiones "Guardar cambios".'
+      'Se guardará cuando presiones "Guardar cambios".',
     );
   };
 
   const startRejectInline = (f) => {
     const id = fileKey(f);
     if (!id) return;
+
+    const current = normalizeStatus(
+      localStatusById[id] || f.status || f.__estadoSolicitud || "",
+    );
+
+    if (current === "APPROVED" || current === "REJECTED") return;
 
     setRejectEditingId(id);
     setRejectDraftById((p) => ({ ...p, [id]: p[id] || "" }));
@@ -267,7 +277,7 @@ export default function ProviderFilesModal({
       pushToast(
         "error",
         "Motivo requerido",
-        "Escribe un motivo (mín. 3 caracteres)."
+        "Escribe un motivo (mín. 3 caracteres).",
       );
       return;
     }
@@ -279,7 +289,7 @@ export default function ProviderFilesModal({
     pushToast(
       "info",
       "Marcado como rechazado",
-      'Se guardará cuando presiones "Guardar cambios".'
+      'Se guardará cuando presiones "Guardar cambios".',
     );
   };
 
@@ -303,7 +313,7 @@ export default function ProviderFilesModal({
         "success",
         "Cambios guardados",
         `Se guardaron ${entries.length} cambio(s) correctamente.`,
-        2200
+        2200,
       );
 
       setPendingChanges({});
@@ -314,7 +324,7 @@ export default function ProviderFilesModal({
         "error",
         "Error al guardar",
         e?.message || "No se pudieron guardar los cambios.",
-        2600
+        2600,
       );
     } finally {
       setSaving(false);
@@ -325,8 +335,7 @@ export default function ProviderFilesModal({
   const toastBoxClass = (type) => {
     const base =
       "pointer-events-auto rounded-2xl border px-4 py-3 shadow-lg backdrop-blur";
-    if (type === "success")
-      return `${base} bg-green-50/95 border-green-200`;
+    if (type === "success") return `${base} bg-green-50/95 border-green-200`;
     if (type === "error") return `${base} bg-red-50/95 border-red-200`;
     return `${base} bg-blue-50/95 border-blue-200`;
   };
@@ -356,7 +365,9 @@ export default function ProviderFilesModal({
           {toast && (
             <div className="absolute top-4 right-4 z-20">
               <div className={toastBoxClass(toast.type)}>
-                <p className={`text-sm font-semibold ${toastTitleClass(toast.type)}`}>
+                <p
+                  className={`text-sm font-semibold ${toastTitleClass(toast.type)}`}
+                >
                   {toast.title}
                 </p>
                 {toast.msg ? (
@@ -377,7 +388,10 @@ export default function ProviderFilesModal({
               </p>
             </div>
 
-            <button onClick={onClose} className="text-midBlue hover:text-darkBlue">
+            <button
+              onClick={onClose}
+              className="text-midBlue hover:text-darkBlue"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -438,26 +452,31 @@ export default function ProviderFilesModal({
                               const Icon = pickIcon(f);
                               const id = fileKey(f);
 
-                              const originalStatus = f.status || f.__estadoSolicitud || "";
-                              const shownStatus = localStatusById[id] || originalStatus;
-                              const normalizedShown = normalizeStatus(shownStatus);
+                              const originalStatus =
+                                f.status || f.__estadoSolicitud || "";
+                              const shownStatus =
+                                localStatusById[id] || originalStatus;
+                              const normalizedShown =
+                                normalizeStatus(shownStatus);
 
                               const docTitle = f?.name || "Documento";
                               const sizeLabel = formatBytes(f.size || f.bytes);
 
                               const customName = buildCustomFileName(
                                 f,
-                                grupoSeleccionado?.proveedorNombre
+                                grupoSeleccionado?.proveedorNombre,
                               );
 
                               const changed = !!pendingChanges[id];
                               const isEditingReject = rejectEditingId === id;
 
                               // ✅ Deshabilitar solo el botón correspondiente
-                              const disableApprove =
-                                saving || normalizedShown === "APPROVED";
-                              const disableReject =
-                                saving || normalizedShown === "REJECTED";
+                              const isFinal =
+                                normalizedShown === "APPROVED" ||
+                                normalizedShown === "REJECTED";
+
+                              const disableApprove = saving || isFinal;
+                              const disableReject = saving || isFinal;
 
                               return (
                                 <div
@@ -500,9 +519,17 @@ export default function ProviderFilesModal({
                                       </div>
                                     </div>
 
-                                    <span className={statusPill(shownStatus)}>
-                                      {statusLabel(shownStatus)}
-                                    </span>
+                                    <div className="flex flex-col items-center">
+                                      <span className={statusPill(shownStatus)}>
+                                        {statusLabel(shownStatus)}
+                                      </span>
+
+                                      {isFinal && (
+                                        <span className="mt-1 text-[10px] text-midBlue font-semibold tracking-wide">
+                                          Dictaminado
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
 
                                   {/* ✅ Reject inline editor (sin overlays) */}
@@ -584,10 +611,13 @@ export default function ProviderFilesModal({
                                       </button>
 
                                       <button
-                                        onClick={() => downloadUrl(f.downloadUrl, customName)}
+                                        onClick={() =>
+                                          downloadUrl(f.downloadUrl, customName)
+                                        }
                                         className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-darkBlue text-white hover:opacity-90 transition text-xs font-semibold"
                                       >
-                                        <Download className="w-4 h-4" /> Descargar
+                                        <Download className="w-4 h-4" />{" "}
+                                        Descargar
                                       </button>
                                     </div>
                                   </div>
@@ -633,6 +663,6 @@ export default function ProviderFilesModal({
         </div>
       </div>
     </>,
-    document.body
+    document.body,
   );
 }
