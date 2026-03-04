@@ -7,7 +7,6 @@ import {
   ClipboardList,
   BarChart,
   LogOut,
-  FileCheck,
   Receipt,
 } from "lucide-react";
 
@@ -18,7 +17,6 @@ import Documents from "./Documents.jsx";
 import Parcialidades from "./Parcialidades.jsx";
 import Reportes from "./Reportes.jsx";
 import Graficas from "../shared/Graficas.jsx";
-import AprobaciondePagos from "../admin/pagos/AprobaciondePagos.jsx";
 import DatosAprobador from "./DatosAprobador.jsx";
 
 import logo from "../../assets/logo-relleno.png";
@@ -48,14 +46,17 @@ function DashboardApro() {
   });
 
   // ✅ Alert central (igual que el tuyo)
-  const showAlert = useCallback((type, title, message, showConfirm = false, onConfirm = null) => {
-    setAlertConfig({ type, title, message, showConfirm, onConfirm });
-    setAlertOpen(true);
+  const showAlert = useCallback(
+    (type, title, message, showConfirm = false, onConfirm = null) => {
+      setAlertConfig({ type, title, message, showConfirm, onConfirm });
+      setAlertOpen(true);
 
-    if ((type === "success" || type === "info") && !showConfirm) {
-      setTimeout(() => setAlertOpen(false), 4000);
-    }
-  }, []);
+      if ((type === "success" || type === "info") && !showConfirm) {
+        setTimeout(() => setAlertOpen(false), 4000);
+      }
+    },
+    [],
+  );
 
   // ✅ Revisión de Documentos: ahora viene de hook (pero sigue “siendo del dashboard”)
   const {
@@ -69,7 +70,8 @@ function DashboardApro() {
   // ✅ Usuario actual
   const { currentUser } = useCurrentUser();
 
-  const handleAprobacionChange = (nuevasAprobaciones) => setAprobaciones(nuevasAprobaciones);
+  const handleAprobacionChange = (nuevasAprobaciones) =>
+    setAprobaciones(nuevasAprobaciones);
 
   const handleLogout = async () => {
     try {
@@ -83,67 +85,85 @@ function DashboardApro() {
   };
 
   const menuItems = [
-    { id: "datos-aprobador", title: "Datos del Aprobador", icon: <User className="w-5 h-5" /> },
-    { id: "revision-documentos", title: "Revisión de Documentos", icon: <ClipboardList className="w-5 h-5" /> },
-    { id: "aprobacion-pagos", title: "Aprobación de Pagos", icon: <FileCheck className="w-5 h-5" /> },
-    { id: "parcialidades", title: "Parcialidades", icon: <Receipt className="w-5 h-5" /> },
-    { id: "reportes", title: "Reportes", icon: <BarChart className="w-5 h-5" /> },
+    {
+      id: "datos-aprobador",
+      title: "Datos del Aprobador",
+      icon: <User className="w-5 h-5" />,
+    },
+    {
+      id: "revision-documentos",
+      title: "Revisión de Documentos",
+      icon: <ClipboardList className="w-5 h-5" />,
+    },
+    {
+      id: "parcialidades",
+      title: "Parcialidades",
+      icon: <Receipt className="w-5 h-5" />,
+    },
+    {
+      id: "reportes",
+      title: "Reportes",
+      icon: <BarChart className="w-5 h-5" />,
+    },
   ];
 
   const modalComponents = {
-    "datos-aprobador": { component: DatosAprobador, title: "Datos del Aprobador", props: {} },
+    "datos-aprobador": {
+      component: DatosAprobador,
+      title: "Datos del Aprobador",
+      props: {},
+    },
 
-    // ✅ aquí vive la revisión por “estado” y la tabla realmente la pinta Documents.jsx
     "revision-documentos": {
       component: Documents,
       title: "Revisión de Documentos",
       props: {
-      aprobaciones,
-      onAprobacionChange: handleAprobacionChange,
-      showAlert,
+        aprobaciones,
+        onAprobacionChange: handleAprobacionChange,
+        showAlert,
 
-      // ✅ Ojito
-      onOpenFiles: async (row) => {
-        try {
-          const files = await fetchFilesForReview(row.id);
+        onOpenFiles: async (row) => {
+          try {
+            const files = await fetchFilesForReview(row.id);
 
-          // ✅ IMPORTANTÍSIMO: regresar el arreglo
-          const arr = Array.isArray(files)
-            ? files
-            : Array.isArray(files?.files)
-            ? files.files
-            : Array.isArray(files?.data?.files)
-            ? files.data.files
-            : Array.isArray(files?.data)
-            ? files.data
-            : [];
+            const arr = Array.isArray(files)
+              ? files
+              : Array.isArray(files?.files)
+                ? files.files
+                : Array.isArray(files?.data?.files)
+                  ? files.data.files
+                  : Array.isArray(files?.data)
+                    ? files.data
+                    : [];
 
-          // console.log("Archivos de", row.id, arr);
+            return arr;
+          } catch (e) {
+            console.error(e);
+            showAlert?.(
+              "error",
+              "Error",
+              "No se pudieron cargar los archivos.",
+            );
+            return [];
+          }
+        },
 
-          // opcional
-          // showAlert?.("info", "Documentos del proveedor", `Se encontraron ${arr.length} archivo${arr.length === 1 ? "" : "s"}.`);
+        onApprove: async (row, comment) => {
+          await approveReview(row.id, comment);
+        },
 
-          return arr; // ✅ ESTO TE FALTABA
-        } catch (e) {
-          console.error(e);
-          showAlert?.("error", "Error", "No se pudieron cargar los archivos.");
-          return []; // ✅ para que Documents no truene
-        }
-      },
-
-      // ✅ Aprobar / Rechazar conectados al back
-      onApprove: async (row, comment) => {
-        await approveReview(row.id, comment);
-      },
-      onReject: async (row, comment) => {
-        await rejectReview(row.id, comment);
+        onReject: async (row, comment) => {
+          await rejectReview(row.id, comment);
+        },
       },
     },
-  },
 
-    "aprobacion-pagos": { component: AprobaciondePagos, title: "Aprobación de Pagos", props: {} },
-    "parcialidades": { component: Parcialidades, title: "Parcialidades", props: {} },
-    "reportes": { component: Reportes, title: "Reportes Generales", props: {} },
+    parcialidades: {
+      component: Parcialidades,
+      title: "Parcialidades",
+      props: {},
+    },
+    reportes: { component: Reportes, title: "Reportes Generales", props: {} },
   };
 
   const openModal = (sectionId) => {
@@ -170,11 +190,16 @@ function DashboardApro() {
           {sidebarOpen && (
             <div className="flex items-center gap-3">
               <img src={logo} alt="Logo" className="h-8 object-contain" />
-              <span className="font-semibold text-darkBlue">Sistema de Aprobaciones</span>
+              <span className="font-semibold text-darkBlue">
+                Sistema de Aprobaciones
+              </span>
             </div>
           )}
 
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-lightBlue transition">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-lightBlue transition"
+          >
             {sidebarOpen ? (
               <ChevronLeft className="w-5 h-5 text-darkBlue" />
             ) : (
@@ -196,12 +221,16 @@ function DashboardApro() {
               >
                 <div
                   className={`p-1.5 rounded-lg ${
-                    currentModal === item.id ? "bg-midBlue text-white" : "bg-lightBlue text-darkBlue"
+                    currentModal === item.id
+                      ? "bg-midBlue text-white"
+                      : "bg-lightBlue text-darkBlue"
                   }`}
                 >
                   {item.icon}
                 </div>
-                {sidebarOpen && <span className="text-sm font-medium">{item.title}</span>}
+                {sidebarOpen && (
+                  <span className="text-sm font-medium">{item.title}</span>
+                )}
               </button>
             </div>
           ))}
@@ -211,7 +240,9 @@ function DashboardApro() {
       {/* MAIN */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-darkBlue">Dashboard de Aprobaciones</h1>
+          <h1 className="text-2xl font-bold text-darkBlue">
+            Dashboard de Aprobaciones
+          </h1>
 
           <div className="relative">
             <button
@@ -219,8 +250,12 @@ function DashboardApro() {
               className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
             >
               <div className="text-right leading-tight">
-                <span className="text-sm font-medium text-darkBlue block">Aprobador</span>
-                <span className="text-xs text-gray-600 block">{displayName || "—"}</span>
+                <span className="text-sm font-medium text-darkBlue block">
+                  Aprobador
+                </span>
+                <span className="text-xs text-gray-600 block">
+                  {displayName || "—"}
+                </span>
               </div>
 
               <div className="w-10 h-10 bg-midBlue text-white rounded-full flex items-center justify-center font-semibold shadow-lg">
@@ -232,10 +267,16 @@ function DashboardApro() {
               <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-lightBlue py-2 z-50">
                 <button
                   onClick={() =>
-                    showAlert("warning", "Cerrar sesión", "¿Seguro que deseas salir?", true, () => {
-                      setAlertOpen(false);
-                      handleLogout();
-                    })
+                    showAlert(
+                      "warning",
+                      "Cerrar sesión",
+                      "¿Seguro que deseas salir?",
+                      true,
+                      () => {
+                        setAlertOpen(false);
+                        handleLogout();
+                      },
+                    )
                   }
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
                 >
@@ -275,7 +316,12 @@ function DashboardApro() {
       />
 
       {/* Overlay para cerrar menú usuario */}
-      {userMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />}
+      {userMenuOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setUserMenuOpen(false)}
+        />
+      )}
     </div>
   );
 }

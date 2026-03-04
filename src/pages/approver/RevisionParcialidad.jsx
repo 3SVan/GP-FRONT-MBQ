@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  Landmark, // ✅ NUEVO icono para Método
 } from "lucide-react";
 
 import MiniModal from "./components/MiniModal.jsx";
@@ -21,6 +22,20 @@ import { safeUpper, formatDate, formatMoney } from "./utils/format.js";
 import { getUrgency } from "./utils/urgency.js";
 import { MOCK_XML } from "./utils/mockXml.js";
 
+/* =========================
+   UI helpers (mismo estilo)
+========================= */
+
+// ✅ Método fijo (Transferencia) con color diferente a estados (morado)
+function MethodBadge({ label = "Transferencia" }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
+      <Landmark className="w-3.5 h-3.5" />
+      {label}
+    </span>
+  );
+}
+
 export default function RevisionParcialidad({
   parcialidad,
   onClose,
@@ -29,7 +44,9 @@ export default function RevisionParcialidad({
 }) {
   const p = parcialidad || {};
 
-  const [approverComment, setApproverComment] = useState(p.approverComment || "");
+  const [approverComment, setApproverComment] = useState(
+    p.approverComment || "",
+  );
 
   const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
 
@@ -44,7 +61,7 @@ export default function RevisionParcialidad({
     noCorresponde: false,
     ilegible: false,
     alterado: false,
-    otro: false, // ✅ NUEVO
+    otro: false,
   });
 
   // Rechazo factura
@@ -55,7 +72,7 @@ export default function RevisionParcialidad({
     montoConceptoIncorrecto: false,
     facturaDuplicada: false,
     facturaCancelada: false,
-    otro: false, // ✅ NUEVO
+    otro: false,
   });
 
   // visores
@@ -63,8 +80,15 @@ export default function RevisionParcialidad({
   const [xmlModalOpen, setXmlModalOpen] = useState(false);
 
   const status = safeUpper(p.status);
-  const decided = status === "APROBADA" || status === "RECHAZADA" || status === "PAGADA";
+  const decided =
+    status === "APROBADA" || status === "RECHAZADA" || status === "PAGADA";
   const urgency = useMemo(() => getUrgency(p.closeAt), [p.closeAt]);
+
+  // ✅ Método (por ahora fijo, pero si llega desde parent también lo toma)
+  const paymentMethodLabel = useMemo(() => {
+    const m = String(p.paymentMethod || "").trim();
+    return m || "Transferencia";
+  }, [p.paymentMethod]);
 
   // -----------------------------
   // ✅ Helpers de "Otro"
@@ -106,9 +130,11 @@ export default function RevisionParcialidad({
     const picks = [];
     if (invoiceChecklist.rfcIncorrecto) picks.push("RFC incorrecto");
     if (invoiceChecklist.uuidNoCorresponde) picks.push("UUID no corresponde");
-    if (invoiceChecklist.montoConceptoIncorrecto) picks.push("Monto/Concepto incorrecto");
+    if (invoiceChecklist.montoConceptoIncorrecto)
+      picks.push("Monto/Concepto incorrecto");
     if (invoiceChecklist.facturaDuplicada) picks.push("Factura duplicada");
-    if (invoiceChecklist.facturaCancelada) picks.push("Factura cancelada/no vigente");
+    if (invoiceChecklist.facturaCancelada)
+      picks.push("Factura cancelada/no vigente");
 
     const otherText = invoiceChecklist.otro ? invoiceReason.trim() : "";
     const head = picks.length ? picks.join(" • ") : "";
@@ -117,9 +143,12 @@ export default function RevisionParcialidad({
     return `${head}${joiner}${otherText}`.trim();
   }, [invoiceChecklist, invoiceReason]);
 
-  // ✅ Reglas: si NO eliges "Otro", NO aparece textarea y NO cuenta su texto
-  const canRejectGeneral = hasGeneralNonOtherPick || (generalQuick.otro && generalReason.trim().length > 0);
-  const canRejectInvoice = hasInvoiceNonOtherPick || (invoiceChecklist.otro && invoiceReason.trim().length > 0);
+  const canRejectGeneral =
+    hasGeneralNonOtherPick ||
+    (generalQuick.otro && generalReason.trim().length > 0);
+  const canRejectInvoice =
+    hasInvoiceNonOtherPick ||
+    (invoiceChecklist.otro && invoiceReason.trim().length > 0);
 
   const handleApprove = () => {
     onDecision?.({
@@ -129,7 +158,11 @@ export default function RevisionParcialidad({
       rejectionReason: "",
       rejectionType: "",
     });
-    showAlert?.("success", "Parcialidad aprobada", "Cambió a APROBADA (mock UI).");
+    showAlert?.(
+      "success",
+      "Parcialidad aprobada",
+      "Cambió a APROBADA (mock UI).",
+    );
     setConfirmApproveOpen(false);
   };
 
@@ -153,7 +186,11 @@ export default function RevisionParcialidad({
       rejectionReason: invoiceMergedReason,
       rejectionType: "INVOICE_ERROR",
     });
-    showAlert?.("success", "Rechazo registrado", "Tipo: INVOICE_ERROR (mock UI).");
+    showAlert?.(
+      "success",
+      "Rechazo registrado",
+      "Tipo: INVOICE_ERROR (mock UI).",
+    );
     setRejectInvoiceOpen(false);
   };
 
@@ -175,19 +212,26 @@ export default function RevisionParcialidad({
             <div>
               <h2 className="text-2xl font-bold text-darkBlue">
                 Revisión de parcialidad{" "}
-                <span className="text-midBlue">{p.partialLabel || `#${p.id || "—"}`}</span>
+                <span className="text-midBlue">
+                  {p.partialLabel || `#${p.id || "—"}`}
+                </span>
               </h2>
 
+              {/* ✅ Chips de estado + urgencia + método */}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <StatusBadge status={p.status} icon={CheckCircle2} />
                 <UrgencyChip cierre={p.closeAt} />
+
+                {/* ✅ NUEVO: Método (morado, diferente a estados) */}
+                <MethodBadge label={paymentMethodLabel} />
+
                 {urgency.kind !== "NONE" && (
                   <span className="text-xs text-gray-500">
                     {urgency.kind === "OVERDUE"
                       ? "Cierre vencido"
                       : urgency.kind === "SOON"
-                      ? "Cierre próximo"
-                      : "Dentro de tiempo"}
+                        ? "Cierre próximo"
+                        : "Dentro de tiempo"}
                   </span>
                 )}
               </div>
@@ -196,7 +240,8 @@ export default function RevisionParcialidad({
 
           {decided && (
             <div className="mt-2 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-              Esta parcialidad ya fue dictaminada. Las acciones están deshabilitadas.
+              Esta parcialidad ya fue dictaminada. Las acciones están
+              deshabilitadas.
             </div>
           )}
         </div>
@@ -239,16 +284,20 @@ export default function RevisionParcialidad({
                 <Info className="w-5 h-5" />
               </div>
               <div className="text-sm text-blue-800">
-                Visores y descargas aquí son <b>mock</b>. En integración real se conectan al bucket/back.
+                Visores y descargas aquí son <b>mock</b>. En integración real se
+                conectan al bucket/back.
               </div>
             </div>
           </div>
 
           {/* Comentarios */}
           <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6">
-            <h3 className="font-semibold text-darkBlue">Comentarios del aprobador</h3>
+            <h3 className="font-semibold text-darkBlue">
+              Comentarios del aprobador
+            </h3>
             <p className="text-xs text-gray-500 mt-1">
-              Este comentario se mostrará al proveedor (especialmente si se rechaza).
+              Este comentario se mostrará al proveedor (especialmente si se
+              rechaza).
             </p>
 
             <textarea
@@ -263,55 +312,85 @@ export default function RevisionParcialidad({
         {/* Right */}
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-white rounded-2xl border border-lightBlue shadow-sm p-6">
-            <h3 className="font-semibold text-darkBlue">Datos de la parcialidad</h3>
+            <h3 className="font-semibold text-darkBlue">
+              Datos de la parcialidad
+            </h3>
 
             <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Proveedor</span>
-                <span className="text-darkBlue font-medium text-right">{p.providerName || "—"}</span>
+                <span className="text-darkBlue font-medium text-right">
+                  {p.providerName || "—"}
+                </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">OC</span>
-                <span className="text-darkBlue font-medium text-right">{p.ocNumber || "—"}</span>
+                <span className="text-darkBlue font-medium text-right">
+                  {p.ocNumber || "—"}
+                </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Parcialidad</span>
-                <span className="text-darkBlue font-medium text-right">{p.partialLabel || "—"}</span>
+                <span className="text-darkBlue font-medium text-right">
+                  {p.partialLabel || "—"}
+                </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Monto</span>
-                <span className="text-darkBlue font-semibold text-right">{formatMoney(p.amount)}</span>
+                <span className="text-darkBlue font-semibold text-right">
+                  {formatMoney(p.amount)}
+                </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Fecha programada</span>
-                <span className="text-darkBlue font-medium text-right">{formatDate(p.scheduledAt)}</span>
+                <span className="text-darkBlue font-medium text-right">
+                  {formatDate(p.scheduledAt)}
+                </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Fecha cierre</span>
-                <span className="text-darkBlue font-medium text-right">{formatDate(p.closeAt)}</span>
+                <span className="text-darkBlue font-medium text-right">
+                  {formatDate(p.closeAt)}
+                </span>
+              </div>
+
+              {/* ✅ NUEVO: Método aquí también */}
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-500">Método</span>
+                <span className="text-darkBlue font-medium text-right">
+                  {paymentMethodLabel}
+                </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Estado</span>
-                <span className="text-darkBlue font-medium text-right">{safeUpper(p.status) || "—"}</span>
+                <span className="text-darkBlue font-medium text-right">
+                  {safeUpper(p.status) || "—"}
+                </span>
               </div>
 
               {!!p.rejectionType && (
                 <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3">
-                  <p className="text-xs font-semibold text-red-700 mb-1">Tipo de rechazo</p>
+                  <p className="text-xs font-semibold text-red-700 mb-1">
+                    Tipo de rechazo
+                  </p>
                   <p className="text-xs text-red-800">{p.rejectionType}</p>
                 </div>
               )}
 
               {!!p.rejectionReason && (
                 <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3">
-                  <p className="text-xs font-semibold text-red-700 mb-1">Motivo</p>
-                  <p className="text-xs text-red-800 whitespace-pre-line">{p.rejectionReason}</p>
+                  <p className="text-xs font-semibold text-red-700 mb-1">
+                    Motivo
+                  </p>
+                  <p className="text-xs text-red-800 whitespace-pre-line">
+                    {p.rejectionReason}
+                  </p>
                 </div>
               )}
             </div>
@@ -384,7 +463,9 @@ export default function RevisionParcialidad({
         maxW="max-w-md"
       >
         <div className="p-6">
-          <p className="text-darkBlue font-semibold">¿Confirmas aprobar esta parcialidad?</p>
+          <p className="text-darkBlue font-semibold">
+            ¿Confirmas aprobar esta parcialidad?
+          </p>
           <p className="text-sm text-gray-600 mt-2">
             Al confirmar, el estado cambiará a <b>APROBADA</b> (mock UI).
           </p>
@@ -416,44 +497,51 @@ export default function RevisionParcialidad({
         <div className="p-6">
           <p className="text-darkBlue font-semibold">Motivo (obligatorio)</p>
           <p className="text-xs text-gray-500 mt-1">
-            Puedes usar motivos rápidos o seleccionar <b>Otro</b> para escribir detalle.
+            Puedes usar motivos rápidos o seleccionar <b>Otro</b> para escribir
+            detalle.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
             <Chip
               active={generalQuick.noCoincide}
-              onClick={() => setGeneralQuick((s) => ({ ...s, noCoincide: !s.noCoincide }))}
+              onClick={() =>
+                setGeneralQuick((s) => ({ ...s, noCoincide: !s.noCoincide }))
+              }
             >
               Datos no coinciden
             </Chip>
             <Chip
               active={generalQuick.noCorresponde}
-              onClick={() => setGeneralQuick((s) => ({ ...s, noCorresponde: !s.noCorresponde }))}
+              onClick={() =>
+                setGeneralQuick((s) => ({
+                  ...s,
+                  noCorresponde: !s.noCorresponde,
+                }))
+              }
             >
               Documento no corresponde
             </Chip>
             <Chip
               active={generalQuick.ilegible}
-              onClick={() => setGeneralQuick((s) => ({ ...s, ilegible: !s.ilegible }))}
+              onClick={() =>
+                setGeneralQuick((s) => ({ ...s, ilegible: !s.ilegible }))
+              }
             >
               Archivo ilegible
             </Chip>
             <Chip
               active={generalQuick.alterado}
-              onClick={() => setGeneralQuick((s) => ({ ...s, alterado: !s.alterado }))}
+              onClick={() =>
+                setGeneralQuick((s) => ({ ...s, alterado: !s.alterado }))
+              }
             >
               Documento alterado
             </Chip>
 
-            {/* ✅ NUEVO: Otro */}
             <Chip
               active={generalQuick.otro}
               onClick={() => {
-                setGeneralQuick((s) => {
-                  const next = { ...s, otro: !s.otro };
-                  return next;
-                });
-                // si se apaga "Otro", limpiamos texto
+                setGeneralQuick((s) => ({ ...s, otro: !s.otro }));
                 if (generalQuick.otro) setGeneralReason("");
               }}
             >
@@ -461,7 +549,6 @@ export default function RevisionParcialidad({
             </Chip>
           </div>
 
-          {/* ✅ Textarea solo si "Otro" */}
           {generalQuick.otro && (
             <textarea
               value={generalReason}
@@ -473,7 +560,8 @@ export default function RevisionParcialidad({
 
           {!canRejectGeneral && (
             <p className="mt-2 text-xs text-red-600">
-              Debes seleccionar al menos un motivo (chips) o elegir <b>Otro</b> y escribir el detalle.
+              Debes seleccionar al menos un motivo (chips) o elegir <b>Otro</b>{" "}
+              y escribir el detalle.
             </p>
           )}
 
@@ -513,7 +601,8 @@ export default function RevisionParcialidad({
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div className="text-sm text-yellow-800">
-              Este tipo de rechazo solicitará al proveedor: <b>acuse de cancelación SAT</b> + nuevas facturas (PDF/XML).
+              Este tipo de rechazo solicitará al proveedor:{" "}
+              <b>acuse de cancelación SAT</b> + nuevas facturas (PDF/XML).
             </div>
           </div>
 
@@ -526,7 +615,12 @@ export default function RevisionParcialidad({
               <input
                 type="checkbox"
                 checked={invoiceChecklist.rfcIncorrecto}
-                onChange={(e) => setInvoiceChecklist((s) => ({ ...s, rfcIncorrecto: e.target.checked }))}
+                onChange={(e) =>
+                  setInvoiceChecklist((s) => ({
+                    ...s,
+                    rfcIncorrecto: e.target.checked,
+                  }))
+                }
                 className="accent-midBlue"
               />
               RFC incorrecto
@@ -536,7 +630,12 @@ export default function RevisionParcialidad({
               <input
                 type="checkbox"
                 checked={invoiceChecklist.uuidNoCorresponde}
-                onChange={(e) => setInvoiceChecklist((s) => ({ ...s, uuidNoCorresponde: e.target.checked }))}
+                onChange={(e) =>
+                  setInvoiceChecklist((s) => ({
+                    ...s,
+                    uuidNoCorresponde: e.target.checked,
+                  }))
+                }
                 className="accent-midBlue"
               />
               UUID no corresponde
@@ -546,7 +645,12 @@ export default function RevisionParcialidad({
               <input
                 type="checkbox"
                 checked={invoiceChecklist.montoConceptoIncorrecto}
-                onChange={(e) => setInvoiceChecklist((s) => ({ ...s, montoConceptoIncorrecto: e.target.checked }))}
+                onChange={(e) =>
+                  setInvoiceChecklist((s) => ({
+                    ...s,
+                    montoConceptoIncorrecto: e.target.checked,
+                  }))
+                }
                 className="accent-midBlue"
               />
               Monto/Concepto incorrecto
@@ -556,7 +660,12 @@ export default function RevisionParcialidad({
               <input
                 type="checkbox"
                 checked={invoiceChecklist.facturaDuplicada}
-                onChange={(e) => setInvoiceChecklist((s) => ({ ...s, facturaDuplicada: e.target.checked }))}
+                onChange={(e) =>
+                  setInvoiceChecklist((s) => ({
+                    ...s,
+                    facturaDuplicada: e.target.checked,
+                  }))
+                }
                 className="accent-midBlue"
               />
               Factura duplicada
@@ -566,13 +675,17 @@ export default function RevisionParcialidad({
               <input
                 type="checkbox"
                 checked={invoiceChecklist.facturaCancelada}
-                onChange={(e) => setInvoiceChecklist((s) => ({ ...s, facturaCancelada: e.target.checked }))}
+                onChange={(e) =>
+                  setInvoiceChecklist((s) => ({
+                    ...s,
+                    facturaCancelada: e.target.checked,
+                  }))
+                }
                 className="accent-midBlue"
               />
               Factura cancelada/no vigente
             </label>
 
-            {/* ✅ NUEVO: Otro */}
             <label className="flex items-center gap-2 text-sm text-darkBlue sm:col-span-2">
               <input
                 type="checkbox"
@@ -580,7 +693,7 @@ export default function RevisionParcialidad({
                 onChange={(e) => {
                   const checked = e.target.checked;
                   setInvoiceChecklist((s) => ({ ...s, otro: checked }));
-                  if (!checked) setInvoiceReason(""); // limpia cuando se desmarca
+                  if (!checked) setInvoiceReason("");
                 }}
                 className="accent-midBlue"
               />
@@ -588,7 +701,6 @@ export default function RevisionParcialidad({
             </label>
           </div>
 
-          {/* ✅ Textarea solo si "Otro" */}
           {invoiceChecklist.otro && (
             <textarea
               value={invoiceReason}
@@ -600,7 +712,8 @@ export default function RevisionParcialidad({
 
           {!canRejectInvoice && (
             <p className="mt-2 text-xs text-red-600">
-              Debes seleccionar al menos una opción o elegir <b>Otro</b> y escribir el detalle.
+              Debes seleccionar al menos una opción o elegir <b>Otro</b> y
+              escribir el detalle.
             </p>
           )}
 
@@ -654,11 +767,17 @@ export default function RevisionParcialidad({
             {p.pdfUrl ? (
               <div className="h-[75vh] flex flex-col items-center justify-center text-center p-10">
                 <FileText className="w-12 h-12 text-midBlue" />
-                <p className="mt-3 font-semibold text-darkBlue">Visor PDF (mock)</p>
-                <p className="text-sm text-gray-500 mt-1">Aquí se mostraría el PDF real.</p>
+                <p className="mt-3 font-semibold text-darkBlue">
+                  Visor PDF (mock)
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Aquí se mostraría el PDF real.
+                </p>
               </div>
             ) : (
-              <div className="p-10 text-center text-gray-500">No hay PDF para mostrar.</div>
+              <div className="p-10 text-center text-gray-500">
+                No hay PDF para mostrar.
+              </div>
             )}
           </div>
         </div>
@@ -693,7 +812,9 @@ export default function RevisionParcialidad({
                 {MOCK_XML}
               </pre>
             ) : (
-              <div className="p-10 text-center text-gray-500">No hay XML para mostrar.</div>
+              <div className="p-10 text-center text-gray-500">
+                No hay XML para mostrar.
+              </div>
             )}
           </div>
         </div>
