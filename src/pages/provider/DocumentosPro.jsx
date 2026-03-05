@@ -392,6 +392,11 @@ const DocumentosPro = () => {
                 <h3 className="text-lg font-semibold text-darkBlue mb-4">
                   Documentos para {tipoPersona === "fisica" ? "Persona Física" : "Persona Moral"}
                 </h3>
+                <h6 className="text-sm text-midBlue mb-4">
+                  {isLocked
+                    ? "Ya has enviado todos los documentos requeridos. Este apartado está bloqueado."
+                    : "Selecciona solo archivos PDF válidos para cada documento. Puedes actualizar o remover archivos antes de enviar."}
+                </h6>
 
                 {(loadingTypes || loadingMe) ? (
                   <div className="text-sm text-midBlue">Cargando documentos...</div>
