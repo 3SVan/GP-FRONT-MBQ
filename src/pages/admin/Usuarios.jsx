@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AdminAPI } from "../../api/admin.api";
 
-// components (feature folder: users/)
+// components
 import UsersHeader from "./users/components/UsersHeader";
 import UsersToolbar from "./users/components/UsersToolbar";
 import UsersTable from "./users/components/UsersTable";
@@ -20,23 +20,18 @@ import { getEstatusColor, getRolColor } from "./users/utils/uiColors";
 
 const ensureArray = (v) => (Array.isArray(v) ? v : []);
 
-// ✅ TEMP: permitir gmail mientras no hay dominio oficial
 const isAllowedEmail = (email = "") =>
   email.endsWith("@mbqinc.com") || email.endsWith("@gmail.com");
 
-// ✅ UI -> BACK (schema zod)
-// role: 'aprobador' | 'administrador' | 'proveedor'
 const uiRoleToBack = (rolUI) => {
   if (rolUI === "Administrador") return "ADMIN";
   if (rolUI === "Proveedor") return "PROVIDER";
-  return "APPROVER"; // Aprobador
+  return "APPROVER";
 };
 
-// ✅ BACK/DB -> UI (para que el select “matchee” con options)
 const backRoleToUi = (rol = "") => {
   const r = String(rol).trim();
 
-  // Admin
   if (
     r === "ADMIN" ||
     r === "ADMINISTRADOR" ||
@@ -46,16 +41,13 @@ const backRoleToUi = (rol = "") => {
     return "Administrador";
   }
 
-  // Provider
   if (r === "PROVIDER" || r === "proveedor" || r === "Proveedor") {
     return "Proveedor";
   }
 
-  // Default approver
   return "Aprobador";
 };
 
-// department: enum (RH, FINANZAS, etc.)
 const uiDeptToBack = (depUI) => {
   const map = {
     "Recursos Humanos": "RH",
@@ -86,24 +78,20 @@ export default function Usuarios() {
     "Dirección General",
   ];
 
-  // hooks
   const { alertOpen, alertConfig, showAlert, closeAlert } = useAlert();
   const { usuarios, loadingUsers, fetchUsers } = useAdminUsers();
   const { solicitudes, loadingNotifications, fetchSolicitudes, markAllRead } =
     useAdminAccessRequests();
 
-  // filtros
   const [busqueda, setBusqueda] = useState("");
   const [filtroDepartamento, setFiltroDepartamento] = useState("");
   const [filtroRol, setFiltroRol] = useState("");
   const [filtroEstatus, setFiltroEstatus] = useState("");
 
-  // modales
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [usuarioEditando, setUsuarioEditando] = useState(null);
 
-  // nuevo usuario
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: "",
     email: "",
@@ -113,9 +101,6 @@ export default function Usuarios() {
   });
   const [errorEmail, setErrorEmail] = useState("");
 
-  // =======================
-  // Fetch inicial + debounce filtros (server)
-  // =======================
   useEffect(() => {
     fetchUsers().catch((err) => {
       console.error(err);
@@ -123,6 +108,15 @@ export default function Usuarios() {
         "error",
         "Error",
         err?.message || "No se pudieron cargar usuarios"
+      );
+    });
+
+    fetchSolicitudes().catch((err) => {
+      console.error(err);
+      showAlert(
+        "error",
+        "Error",
+        err?.message || "No se pudieron cargar solicitudes"
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,13 +145,13 @@ export default function Usuarios() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, filtroDepartamento, filtroRol, filtroEstatus]);
 
-  // =======================
-  // Solicitudes (approve/reject)
-  // =======================
   const handleApproveSolicitud = async (notif) => {
     try {
       const id = notif?._raw?.id ?? notif?.id;
-      await AdminAPI.decideAccessRequest(id, { decision: "APPROVED" });
+
+      await AdminAPI.decideAccessRequest(id, {
+        decision: "APPROVED",
+      });
 
       showAlert("success", "Aprobado", "La solicitud fue aprobada.");
       await fetchSolicitudes();
@@ -171,9 +165,10 @@ export default function Usuarios() {
   const handleRejectSolicitud = async (notif) => {
     try {
       const id = notif?._raw?.id ?? notif?.id;
+
       await AdminAPI.decideAccessRequest(id, {
         decision: "REJECTED",
-        reason: "Rechazado",
+        notes: "Rechazado",
       });
 
       showAlert("info", "Rechazado", "La solicitud fue rechazada.");
@@ -184,9 +179,6 @@ export default function Usuarios() {
     }
   };
 
-  // =======================
-  // Filtro local (UI)
-  // =======================
   const usuariosFiltrados = useMemo(() => {
     const safe = ensureArray(usuarios);
 
@@ -201,7 +193,10 @@ export default function Usuarios() {
       const coincideEstatus = !filtroEstatus || u.estatus === filtroEstatus;
 
       return (
-        coincideBusqueda && coincideDepartamento && coincideRol && coincideEstatus
+        coincideBusqueda &&
+        coincideDepartamento &&
+        coincideRol &&
+        coincideEstatus
       );
     });
   }, [usuarios, busqueda, filtroDepartamento, filtroRol, filtroEstatus]);
@@ -222,9 +217,6 @@ export default function Usuarios() {
 
   const estatus = ["Activo", "Inactivo"];
 
-  // =======================
-  // CRUD Handlers
-  // =======================
   const handleEliminarUsuario = (id) => {
     const usuario = ensureArray(usuarios).find((u) => u.id === id);
 
@@ -259,7 +251,6 @@ export default function Usuarios() {
     const usuario = ensureArray(usuarios).find((u) => u.id === id);
 
     if (usuario && isAllowedEmail(usuario.email || "")) {
-      // ✅ IMPORTANTÍSIMO: normalizamos rol para que el select funcione
       setUsuarioEditando({
         ...usuario,
         rol: backRoleToUi(usuario.rol),
@@ -284,9 +275,6 @@ export default function Usuarios() {
     );
   };
 
-  // =======================
-  // Forms
-  // =======================
   const handleNuevoUsuarioChange = (e) => {
     const { name, value } = e.target;
     setNuevoUsuario((prev) => ({ ...prev, [name]: value }));
@@ -358,15 +346,9 @@ export default function Usuarios() {
       const payload = {
         fullName: usuarioEditando.nombre,
         department: uiDeptToBack(usuarioEditando.departamento),
-        role: uiRoleToBack(usuarioEditando.rol), // ✅ ahora sí cambia rol
+        role: uiRoleToBack(usuarioEditando.rol),
         isActive: usuarioEditando.estatus === "Activo",
       };
-
-      // Debug opcional
-      // console.log("ROL UI:", usuarioEditando.rol);
-      // console.log("ROL BACK:", payload.role);
-      // console.log("EDIT rol (UI):", usuarioEditando.rol);
-      // console.log("EDIT role (payload):", uiRoleToBack(usuarioEditando.rol));
 
       await AdminAPI.updateUser(usuarioEditando.id, payload);
 
@@ -397,7 +379,6 @@ export default function Usuarios() {
 
   return (
     <div className="p-6 bg-beige min-h-screen">
-      {/* Header + Campana */}
       <UsersHeader
         title="Gestión de Usuarios"
         subtitle="Administra los usuarios del sistema"
@@ -409,7 +390,6 @@ export default function Usuarios() {
         onMarkAllRead={markAllRead}
       />
 
-      {/* Toolbar */}
       <UsersToolbar
         busqueda={busqueda}
         onChangeBusqueda={setBusqueda}
@@ -426,7 +406,6 @@ export default function Usuarios() {
         onOpenCreate={() => setModalAbierto(true)}
       />
 
-      {/* Tabla */}
       <UsersTable
         loading={loadingUsers}
         usuariosFiltrados={usuariosFiltrados}
@@ -437,7 +416,6 @@ export default function Usuarios() {
         getEstatusColor={getEstatusColor}
       />
 
-      {/* Modal Nuevo */}
       <UserModalCreate
         open={modalAbierto}
         onClose={() => setModalAbierto(false)}
@@ -448,7 +426,6 @@ export default function Usuarios() {
         areasDisponibles={areasDisponibles}
       />
 
-      {/* Modal Editar */}
       <UserModalEdit
         open={modalEditarAbierto}
         onClose={() => {
@@ -461,7 +438,6 @@ export default function Usuarios() {
         areasDisponibles={areasDisponibles}
       />
 
-      {/* Alert */}
       <AlertModal open={alertOpen} config={alertConfig} onClose={closeAlert} />
     </div>
   );

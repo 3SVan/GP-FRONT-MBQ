@@ -1,20 +1,24 @@
 // src/pages/admin/users/components/NotificationsBell.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Bell, X, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Bell,
+  X,
+  AlertTriangle,
+  CheckCircle2,
+  Mail,
+  Building2,
+  Clock3,
+} from "lucide-react";
 
 const ensureArray = (v) => (Array.isArray(v) ? v : []);
 
 function getStatus(n) {
   const raw = (n?.estado ?? n?.status ?? "PENDIENTE") + "";
   const up = raw.toUpperCase();
+
   if (["APROBADA", "APROBADO", "APPROVED"].includes(up)) return "APROBADA";
   if (["RECHAZADA", "RECHAZADO", "REJECTED"].includes(up)) return "RECHAZADA";
   return "PENDIENTE";
-}
-
-// ✅ Solo estas notis cuentan para la campana/pendientes (ajusta si tu type es otro)
-function isUserRequestNotif(n) {
-  return String(n?.type || "").toUpperCase() === "USER_REQUEST";
 }
 
 function ConfirmModal({
@@ -23,7 +27,7 @@ function ConfirmModal({
   description,
   confirmText = "Confirmar",
   cancelText = "Cancelar",
-  variant = "danger", // "danger" | "success"
+  variant = "danger", // danger | success
   loading = false,
   onCancel,
   onConfirm,
@@ -34,55 +38,76 @@ function ConfirmModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/30" onClick={onCancel} />
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-          <div
-            className={`p-4 border-b flex items-start gap-3 ${
-              isDanger ? "bg-red-50 border-red-100" : "bg-green-50 border-green-100"
-            }`}
-          >
-            <div
-              className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center ${
-                isDanger ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-              }`}
-            >
-              {isDanger ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-            </div>
+      <div
+        className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px]"
+        onClick={loading ? undefined : onCancel}
+      />
 
-            <div className="flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <h4 className="font-semibold text-gray-900">{title}</h4>
-                <button
-                  onClick={onCancel}
-                  className="p-1 rounded hover:bg-black/5 text-gray-500"
-                  aria-label="Cerrar"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4">
+            <div className="flex items-start gap-4">
+              <div
+                className={`shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center ${
+                  isDanger
+                    ? "bg-red-100 text-red-700"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
+                {isDanger ? (
+                  <AlertTriangle className="w-7 h-7" />
+                ) : (
+                  <CheckCircle2 className="w-7 h-7" />
+                )}
               </div>
-              <p className="text-sm text-gray-600 mt-1">{description}</p>
+
+              <div className="flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-2xl font-bold text-gray-900 leading-tight">
+                      {title}
+                    </h4>
+                    <p className="text-gray-600 text-base mt-2 leading-relaxed">
+                      {description}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={loading ? undefined : onCancel}
+                    className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition"
+                    aria-label="Cerrar"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="p-4 flex gap-2 justify-end">
-            <button
-              onClick={onCancel}
-              disabled={loading}
-              className="px-3 py-2 rounded-lg text-sm border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {cancelText}
-            </button>
+          {/* Footer */}
+          <div className="px-6 pb-6 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+              <button
+                onClick={onCancel}
+                disabled={loading}
+                className="px-5 py-3 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                {cancelText}
+              </button>
 
-            <button
-              onClick={onConfirm}
-              disabled={loading}
-              className={`px-3 py-2 rounded-lg text-sm text-white disabled:opacity-50 ${
-                isDanger ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
-              }`}
-            >
-              {loading ? "Procesando..." : confirmText}
-            </button>
+              <button
+                onClick={onConfirm}
+                disabled={loading}
+                className={`px-5 py-3 rounded-xl text-white font-semibold transition shadow-sm disabled:opacity-50 ${
+                  isDanger
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {loading ? "Procesando..." : confirmText}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -94,25 +119,18 @@ export default function NotificationsBell({
   solicitudes = [],
   loading = false,
   onRefresh,
-
-  // ✅ Estas funciones hacen la lógica de aprobar/rechazar la solicitud (tu API de solicitudes)
   onApprove,
   onReject,
-
-  // opcional si sigues usando read
   onMarkAllRead,
-
-  // ✅ NUEVO: borrar noti (solo solicitudes)
-  onDeleteUserRequestNotif, // (notifId) => Promise<void>
+  onDeleteUserRequestNotif,
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [busyId, setBusyId] = useState(null);
 
-  // confirm modal state
   const [confirm, setConfirm] = useState({
     open: false,
-    action: null, // "approve" | "reject"
+    action: null, // approve | reject
     notif: null,
   });
 
@@ -120,9 +138,8 @@ export default function NotificationsBell({
     setItems(ensureArray(solicitudes));
   }, [solicitudes]);
 
-  // ✅ SOLO cuenta pendientes de solicitudes
   const pendientesUserRequests = useMemo(() => {
-    return ensureArray(items).filter((n) => isUserRequestNotif(n) && getStatus(n) === "PENDIENTE");
+    return ensureArray(items).filter((n) => getStatus(n) === "PENDIENTE");
   }, [items]);
 
   const countPendientes = pendientesUserRequests.length;
@@ -130,6 +147,7 @@ export default function NotificationsBell({
   const toggle = async () => {
     const next = !open;
     setOpen(next);
+
     if (next && typeof onRefresh === "function") {
       await onRefresh();
     }
@@ -143,7 +161,10 @@ export default function NotificationsBell({
     setConfirm({ open: true, action, notif });
   };
 
-  const closeConfirm = () => setConfirm({ open: false, action: null, notif: null });
+  const closeConfirm = () => {
+    if (busyId) return;
+    setConfirm({ open: false, action: null, notif: null });
+  };
 
   const doAction = async () => {
     const notif = confirm.notif;
@@ -153,22 +174,19 @@ export default function NotificationsBell({
     try {
       setBusyId(notif.id);
 
-      // 1) Ejecuta approve/reject (tu lógica real)
       if (action === "approve" && typeof onApprove === "function") {
         await onApprove(notif);
       }
+
       if (action === "reject" && typeof onReject === "function") {
         await onReject(notif);
       }
 
-      // 2) Borra la notificación del backend (SOLO solicitudes)
       if (typeof onDeleteUserRequestNotif === "function") {
         await onDeleteUserRequestNotif(notif.id);
       }
 
-      // 3) Quita del UI
       removeItemLocal(notif.id);
-
       closeConfirm();
     } finally {
       setBusyId(null);
@@ -181,20 +199,24 @@ export default function NotificationsBell({
         onClick={toggle}
         className={`relative p-2 transition-all duration-300 ${
           countPendientes > 0
-            ? "text-red-500 hover:text-red-600 transform hover:scale-110"
+            ? "text-blue-600 hover:text-blue-700"
             : "text-gray-400 hover:text-gray-600"
         }`}
         aria-label="Notificaciones"
       >
         <div className="relative">
-          <Bell className={`w-7 h-7 transition-all duration-300 ${countPendientes > 0 ? "animate-bounce" : ""}`} />
+          <Bell
+            className={`w-7 h-7 transition-all duration-300 ${
+              countPendientes > 0 ? "animate-bounce" : ""
+            }`}
+          />
           {countPendientes > 0 && (
-            <div className="absolute inset-0 bg-red-400 rounded-full opacity-20 animate-ping" />
+            <div className="absolute inset-0 bg-blue-400 rounded-full opacity-20 animate-ping" />
           )}
         </div>
 
         {countPendientes > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white shadow-lg animate-pulse">
+          <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white shadow-lg animate-pulse">
             {countPendientes}
           </span>
         )}
@@ -204,83 +226,108 @@ export default function NotificationsBell({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <div>
-                <h3 className="font-semibold text-gray-800">Solicitudes de Usuarios</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {countPendientes > 0
-                    ? `${countPendientes} pendiente(s) por atender`
-                    : "No hay solicitudes pendientes"}
-                </p>
+          <div className="absolute right-0 top-12 w-[460px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+              <div className="flex justify-between items-start gap-3">
+                <div>
+                  <h3 className="font-bold text-gray-900 text-lg">
+                    Solicitudes de Usuarios
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {countPendientes > 0
+                      ? `${countPendientes} pendiente(s) por atender`
+                      : "No hay solicitudes pendientes"}
+                  </p>
+                </div>
+
+                {typeof onMarkAllRead === "function" && (
+                  <button
+                    onClick={() => onMarkAllRead()}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition"
+                  >
+                    Marcar leídas
+                  </button>
+                )}
               </div>
-
-              {typeof onMarkAllRead === "function" && (
-                <button
-                  onClick={() => onMarkAllRead()}
-                  className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
-                >
-                  Marcar leídas
-                </button>
-              )}
             </div>
 
-            <div className="max-h-96 overflow-y-auto">
+            {/* Body */}
+            <div className="max-h-[430px] overflow-y-auto bg-gray-50/60">
               {loading ? (
-                <div className="p-4 text-center text-gray-500">Cargando...</div>
+                <div className="p-5 text-center text-gray-500">Cargando...</div>
               ) : pendientesUserRequests.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">No hay solicitudes pendientes</div>
+                <div className="p-8 text-center text-gray-500">
+                  No hay solicitudes pendientes
+                </div>
               ) : (
-                pendientesUserRequests.map((notif) => {
-                  const isBusy = busyId === notif.id;
+                <div className="p-3 space-y-3">
+                  {pendientesUserRequests.map((notif) => {
+                    const isBusy = busyId === notif.id;
 
-                  return (
-                    <div
-                      key={notif.id}
-                      className="p-4 border-b border-gray-100 bg-red-50 border-l-4 border-l-red-500"
-                    >
-                      <div className="text-xs text-gray-500 mb-2">{notif.createdAt ?? notif.fecha}</div>
-                      <p className="font-medium text-sm mb-2 text-gray-800">{notif.title ?? notif.nombre}</p>
+                    return (
+                      <div
+                        key={notif.id}
+                        className="rounded-2xl border border-blue-100 bg-white shadow-sm hover:shadow-md transition overflow-hidden"
+                      >
+                        <div className="h-1.5 bg-gradient-to-r from-blue-500 to-sky-400" />
 
-                      <div className="text-xs text-gray-600 space-y-1">
-                        <div>
-                          <strong>Email:</strong> {notif.data?.email ?? notif.email}
-                        </div>
-                        <div>
-                          <strong>Área:</strong> {notif.data?.area ?? notif.area}
+                        <div className="p-4">
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                            <Clock3 className="w-4 h-4 text-blue-500" />
+                            <span>{notif.createdAt ?? notif.fecha}</span>
+                          </div>
+
+                          <h4 className="text-[17px] font-semibold text-gray-900 leading-snug mb-3">
+                            {notif.title ?? notif.nombre ?? "Solicitud de acceso"}
+                          </h4>
+
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-start gap-2 text-gray-700">
+                              <Mail className="w-4 h-4 mt-0.5 text-blue-500" />
+                              <div>
+                                <span className="font-medium">Email:</span>{" "}
+                                <span>{notif.data?.email ?? notif.email ?? "-"}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-2 text-gray-700">
+                              <Building2 className="w-4 h-4 mt-0.5 text-blue-500" />
+                              <div>
+                                <span className="font-medium">Área:</span>{" "}
+                                <span>{notif.data?.area ?? notif.area ?? "Sin área asignada"}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 mt-4">
+                            <button
+                              className="px-4 py-2.5 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isBusy}
+                              onClick={() => openConfirm("approve", notif)}
+                            >
+                              Aprobar
+                            </button>
+
+                            <button
+                              className="px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={isBusy}
+                              onClick={() => openConfirm("reject", notif)}
+                            >
+                              Rechazar
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          className="px-3 py-1.5 rounded bg-green-600 text-white text-xs hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={isBusy}
-                          onClick={() => openConfirm("approve", notif)}
-                        >
-                          Aprobar
-                        </button>
-
-                        <button
-                          className="px-3 py-1.5 rounded bg-red-600 text-white text-xs hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={isBusy}
-                          onClick={() => openConfirm("reject", notif)}
-                        >
-                          Rechazar
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               )}
             </div>
-
-            {/* Quitar "eliminar todas" porque dijiste que al aprobar/rechazar se borra sola.
-                Si quieres "Eliminar todas pendientes", lo agrego pero NO lo recomiendo. */}
           </div>
         </>
       )}
 
-      {/* CONFIRM MODAL */}
       <ConfirmModal
         open={confirm.open}
         variant={confirm.action === "reject" ? "danger" : "success"}

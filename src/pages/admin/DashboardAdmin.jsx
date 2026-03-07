@@ -5,6 +5,7 @@ import { AuthAPI } from "../../api/auth.api";
 import { UsersAPI } from "../../api/users.api";
 import { AnalyticsAPI } from "../../api/analytics.api";
 import { NotificationsAPI } from "../../api/notifications.api";
+import { AdminAPI } from "../../api/admin.api";
 import logo from "../../assets/logo-relleno.png";
 
 import {
@@ -59,9 +60,12 @@ import Graficas from "../shared/Graficas.jsx";
 /** Helpers */
 function normalizeNotifType(t) {
   const s = String(t || "").toLowerCase();
-  if (s.includes("success") || s.includes("ok") || s.includes("approved")) return "success";
-  if (s.includes("warn") || s.includes("pending") || s.includes("alert")) return "warning";
-  if (s.includes("error") || s.includes("fail") || s.includes("reject")) return "error";
+  if (s.includes("success") || s.includes("ok") || s.includes("approved"))
+    return "success";
+  if (s.includes("warn") || s.includes("pending") || s.includes("alert"))
+    return "warning";
+  if (s.includes("error") || s.includes("fail") || s.includes("reject"))
+    return "error";
   return "info";
 }
 
@@ -78,6 +82,25 @@ function formatRelativeTime(dateInput) {
   if (diffH < 24) return `Hace ${diffH} hora${diffH === 1 ? "" : "s"}`;
   const diffD = Math.floor(diffH / 24);
   return `Hace ${diffD} día${diffD === 1 ? "" : "s"}`;
+}
+
+function mapAccessRequestToNotification(req) {
+  const id = req?.id ?? req?.requestId ?? `access-${req?.email ?? Date.now()}`;
+  const fullName = req?.fullName ?? req?.name ?? "Usuario";
+  const email = req?.email ?? "Sin correo";
+  const area = req?.department ?? req?.area ?? "Sin área asignada";
+
+  return {
+    id: `access-request-${id}`,
+    source: "access_request",
+    sourceId: id,
+    type: "info",
+    title: `Nueva solicitud de usuario - ${fullName}`,
+    message: `El usuario ${fullName} solicitó acceso al sistema.\nCorreo: ${email}\nÁrea: ${area}`,
+    createdAt: req?.createdAt ?? new Date().toISOString(),
+    readAt: null,
+    data: req,
+  };
 }
 
 function DashboardAdmin() {
@@ -106,7 +129,7 @@ function DashboardAdmin() {
   // ✅ Notificaciones reales
   const [notifications, setNotifications] = useState([]);
 
-    // ✅ Usuario logueado (para mostrar nombre)
+  // ✅ Usuario logueado (para mostrar nombre)
   const [currentUser, setCurrentUser] = useState(null);
 
   function pickUserDisplayName(u) {
@@ -131,16 +154,22 @@ function DashboardAdmin() {
     const parts = n.split(/\s+/).filter(Boolean);
     const a = (parts[0]?.[0] || "").toUpperCase();
     const b = (parts[1]?.[0] || "").toUpperCase();
-    return (a + b) || a || "A";
+    return a + b || a || "A";
   }
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.readAt).length,
-    [notifications]
+    [notifications],
   );
 
   // ✅ ALERT helper (sin cambiar tu UI)
-  const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
+  const showAlert = (
+    type,
+    title,
+    message,
+    showConfirm = false,
+    onConfirm = null,
+  ) => {
     setAlertConfig({ type, title, message, showConfirm, onConfirm });
     setAlertOpen(true);
 
@@ -174,9 +203,10 @@ function DashboardAdmin() {
     (async () => {
       try {
         setLoadingDashboard(true);
-        const [statsRes, notifsRes, me] = await Promise.all([
+        const [statsRes, notifsRes, accessReqsRes, me] = await Promise.all([
           AnalyticsAPI.getAdminDashboard(),
           NotificationsAPI.listMy(),
+          AdminAPI.listAccessRequests({ status: "PENDING" }),
           UsersAPI.me(),
         ]);
 
@@ -186,12 +216,36 @@ function DashboardAdmin() {
         const stats = statsRes?.data ?? statsRes ?? null;
         const notifs = notifsRes?.data ?? notifsRes ?? [];
 
+        const rawAccessRequests = Array.isArray(accessReqsRes?.data)
+          ? accessReqsRes.data
+          : Array.isArray(accessReqsRes?.data?.data)
+            ? accessReqsRes.data.data
+            : Array.isArray(accessReqsRes)
+              ? accessReqsRes
+              : [];
+
+        const accessRequestNotifications = rawAccessRequests.map(
+          mapAccessRequestToNotification,
+        );
+
+        // Unimos solicitudes + notificaciones normales
+        const mergedNotifications = [
+          ...accessRequestNotifications,
+          ...(Array.isArray(notifs) ? notifs : []),
+        ].sort(
+          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+        );
+
         setDashboardStats(stats);
-        setNotifications(Array.isArray(notifs) ? notifs : []);
+        setNotifications(mergedNotifications);
         setCurrentUser(me);
       } catch (err) {
         console.error(err);
-        showAlert("error", "Dashboard", "No se pudieron cargar los datos del dashboard.");
+        showAlert(
+          "error",
+          "Dashboard",
+          "No se pudieron cargar los datos del dashboard.",
+        );
       } finally {
         if (alive) setLoadingDashboard(false);
       }
@@ -205,6 +259,21 @@ function DashboardAdmin() {
 
   const markAsRead = async (id) => {
     try {
+      const notif = notifications.find((n) => n.id === id);
+      if (!notif) return;
+
+      // Si viene de access-requests, solo la marcamos localmente
+      if (notif.source === "access_request") {
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === id
+              ? { ...n, readAt: n.readAt || new Date().toISOString() }
+              : n,
+          ),
+        );
+        return;
+      }
+
       const updatedRes = await NotificationsAPI.markRead(id);
       const updated = updatedRes?.data ?? updatedRes;
 
@@ -219,11 +288,18 @@ function DashboardAdmin() {
     try {
       await NotificationsAPI.markAllRead();
       setNotifications((prev) =>
-        prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() }))
+        prev.map((n) => ({
+          ...n,
+          readAt: n.readAt || new Date().toISOString(),
+        })),
       );
     } catch (err) {
       console.error(err);
-      showAlert("error", "Notificaciones", "No se pudieron marcar todas como leídas.");
+      showAlert(
+        "error",
+        "Notificaciones",
+        "No se pudieron marcar todas como leídas.",
+      );
     }
   };
 
@@ -234,9 +310,21 @@ function DashboardAdmin() {
       title: "Gestión de Proveedores",
       icon: <Users className="w-5 h-5" />,
       submenu: [
-        { id: "altas", title: "Altas", icon: <FileCheck className="w-4 h-4" /> },
-        { id: "bajas", title: "Bajas", icon: <FileMinus className="w-4 h-4" /> },
-        { id: "modificaciones", title: "Modificaciones", icon: <FileEdit className="w-4 h-4" /> },
+        {
+          id: "altas",
+          title: "Altas",
+          icon: <FileCheck className="w-4 h-4" />,
+        },
+        {
+          id: "bajas",
+          title: "Bajas",
+          icon: <FileMinus className="w-4 h-4" />,
+        },
+        {
+          id: "modificaciones",
+          title: "Modificaciones",
+          icon: <FileEdit className="w-4 h-4" />,
+        },
       ],
     },
     {
@@ -248,7 +336,13 @@ function DashboardAdmin() {
       id: "usuarios",
       title: "Usuarios",
       icon: <UserCog className="w-5 h-5" />,
-      submenu: [{ id: "administracion", title: "Administración", icon: <Settings className="w-4 h-4" /> }],
+      submenu: [
+        {
+          id: "administracion",
+          title: "Administración",
+          icon: <Settings className="w-4 h-4" />,
+        },
+      ],
     },
     {
       id: "verificacion-rapida",
@@ -289,8 +383,16 @@ function DashboardAdmin() {
 
   const modalComponents = {
     // Gestión de Proveedores
-    altas: { component: GestionProveedores, title: "Altas de Proveedores", props: { mode: "alta" } },
-    bajas: { component: GestionProveedores, title: "Bajas de Proveedores", props: { mode: "baja" } },
+    altas: {
+      component: GestionProveedores,
+      title: "Altas de Proveedores",
+      props: { mode: "alta" },
+    },
+    bajas: {
+      component: GestionProveedores,
+      title: "Bajas de Proveedores",
+      props: { mode: "baja" },
+    },
     modificaciones: {
       component: GestionProveedores,
       title: "Modificación de Proveedores",
@@ -298,23 +400,59 @@ function DashboardAdmin() {
     },
 
     // Expedientes Digitales
-    "expedientes-digitales": { component: ExpedientesDigitales, title: "Expedientes Digitales", props: {} },
+    "expedientes-digitales": {
+      component: ExpedientesDigitales,
+      title: "Expedientes Digitales",
+      props: {},
+    },
 
     // Usuarios
-    administracion: { component: Usuarios, title: "Administración de Usuarios", props: {} },
+    administracion: {
+      component: Usuarios,
+      title: "Administración de Usuarios",
+      props: {},
+    },
 
     // Verificación Rápida
-    "verificacion-rapida": { component: VerificacionR, title: "Verificación Rápida", props: {} },
+    "verificacion-rapida": {
+      component: VerificacionR,
+      title: "Verificación Rápida",
+      props: {},
+    },
 
     // Gestión de Pagos
-    "planes-pago": { component: PlanesPago, title: "Planes de Pago", props: {} },
-    "gestion-pagos": { component: GestionPagos, title: "Gestión de Pagos", props: {} },
+    "planes-pago": {
+      component: PlanesPago,
+      title: "Planes de Pago",
+      props: {},
+    },
+    "gestion-pagos": {
+      component: GestionPagos,
+      title: "Gestión de Pagos",
+      props: {},
+    },
 
     // Otros
-    "historial-actividad": { component: HistorialActividad, title: "Historial de Actividad", props: {} },
-    "historial-pagos": { component: HistorialPagos, title: "Historial de Pagos", props: {} },
-    "actualizacion-sat": { component: ActualizacionListaSAT, title: "Actualización Lista SAT", props: {} },
-    "reactivacion-proveedores": { component: ReactivacionProveedores, title: "Reactivación de Proveedores", props: {} },
+    "historial-actividad": {
+      component: HistorialActividad,
+      title: "Historial de Actividad",
+      props: {},
+    },
+    "historial-pagos": {
+      component: HistorialPagos,
+      title: "Historial de Pagos",
+      props: {},
+    },
+    "actualizacion-sat": {
+      component: ActualizacionListaSAT,
+      title: "Actualización Lista SAT",
+      props: {},
+    },
+    "reactivacion-proveedores": {
+      component: ReactivacionProveedores,
+      title: "Reactivación de Proveedores",
+      props: {},
+    },
   };
 
   const openModal = (sectionId) => {
@@ -328,7 +466,15 @@ function DashboardAdmin() {
   };
 
   // Alert component
-  const Alert = ({ isOpen, onClose, type, title, message, showConfirm = false, onConfirm }) => {
+  const Alert = ({
+    isOpen,
+    onClose,
+    type,
+    title,
+    message,
+    showConfirm = false,
+    onConfirm,
+  }) => {
     if (!isOpen) return null;
 
     const alertStyles = {
@@ -375,7 +521,9 @@ function DashboardAdmin() {
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">{style.icon}</div>
                 <div className="flex-1">
-                  <h3 className={`text-lg font-semibold ${style.text} mb-2`}>{title}</h3>
+                  <h3 className={`text-lg font-semibold ${style.text} mb-2`}>
+                    {title}
+                  </h3>
                   <p className="text-gray-700 whitespace-pre-line">{message}</p>
 
                   {showConfirm ? (
@@ -404,7 +552,10 @@ function DashboardAdmin() {
                 </div>
 
                 {!showConfirm && (
-                  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition flex-shrink-0">
+                  <button
+                    onClick={onClose}
+                    className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                  >
                     <X className="w-5 h-5" />
                   </button>
                 )}
@@ -425,7 +576,13 @@ function DashboardAdmin() {
     const renderModalContent = () => {
       if (modalConfig) {
         const ModalComponent = modalConfig.component;
-        return <ModalComponent {...modalConfig.props} onClose={onClose} showAlert={showAlert} />;
+        return (
+          <ModalComponent
+            {...modalConfig.props}
+            onClose={onClose}
+            showAlert={showAlert}
+          />
+        );
       }
 
       return (
@@ -440,7 +597,10 @@ function DashboardAdmin() {
 
     return (
       <>
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity backdrop-blur-sm" onClick={onClose} />
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity backdrop-blur-sm"
+          onClick={onClose}
+        />
 
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -448,13 +608,20 @@ function DashboardAdmin() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-midBlue to-darkBlue px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-white">{modalConfig?.title || currentModal}</h2>
-              <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition">
+              <h2 className="text-xl font-semibold text-white">
+                {modalConfig?.title || currentModal}
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition"
+              >
                 <X className="w-5 h-5 text-white" />
               </button>
             </div>
 
-            <div className="p-0 overflow-y-auto max-h-[80vh]">{renderModalContent()}</div>
+            <div className="p-0 overflow-y-auto max-h-[80vh]">
+              {renderModalContent()}
+            </div>
           </div>
         </div>
       </>
@@ -463,7 +630,13 @@ function DashboardAdmin() {
 
   // ✅ Contenido principal: Graficas recibe data real (si tu componente la usa)
   const renderContent = () => {
-    return <Graficas showAlert={showAlert} loading={loadingDashboard} stats={dashboardStats} />;
+    return (
+      <Graficas
+        showAlert={showAlert}
+        loading={loadingDashboard}
+        stats={dashboardStats}
+      />
+    );
   };
 
   return (
@@ -478,11 +651,20 @@ function DashboardAdmin() {
           {sidebarOpen && (
             <div className="flex items-center gap-3">
               <img src={logo} alt="Logo" className="h-8 object-contain" />
-              <span className="font-semibold text-darkBlue">Gestión de Proveedores</span>
+              <span className="font-semibold text-darkBlue">
+                Gestión de Proveedores
+              </span>
             </div>
           )}
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-lightBlue transition">
-            {sidebarOpen ? <ChevronLeft className="w-5 h-5 text-darkBlue" /> : <ChevronRight className="w-5 h-5 text-darkBlue" />}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-lightBlue transition"
+          >
+            {sidebarOpen ? (
+              <ChevronLeft className="w-5 h-5 text-darkBlue" />
+            ) : (
+              <ChevronRight className="w-5 h-5 text-darkBlue" />
+            )}
           </button>
         </div>
 
@@ -495,21 +677,25 @@ function DashboardAdmin() {
                   else openModal(item.id);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
-                  currentModal === item.id || item.submenu?.some((s) => s.id === currentModal)
+                  currentModal === item.id ||
+                  item.submenu?.some((s) => s.id === currentModal)
                     ? "bg-lightBlue text-darkBlue border border-midBlue"
                     : "text-darkBlue hover:bg-lightBlue"
                 }`}
               >
                 <div
                   className={`p-1.5 rounded-lg ${
-                    currentModal === item.id || item.submenu?.some((s) => s.id === currentModal)
+                    currentModal === item.id ||
+                    item.submenu?.some((s) => s.id === currentModal)
                       ? "bg-midBlue text-white"
                       : "bg-lightBlue text-darkBlue"
                   }`}
                 >
                   {item.icon}
                 </div>
-                {sidebarOpen && <span className="text-sm font-medium">{item.title}</span>}
+                {sidebarOpen && (
+                  <span className="text-sm font-medium">{item.title}</span>
+                )}
               </button>
 
               {/* SUBMENÚ */}
@@ -520,7 +706,9 @@ function DashboardAdmin() {
                       key={sub.id}
                       onClick={() => openModal(sub.id)}
                       className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm transition-colors ${
-                        currentModal === sub.id ? "text-midBlue font-medium" : "text-darkBlue hover:text-midBlue"
+                        currentModal === sub.id
+                          ? "text-midBlue font-medium"
+                          : "text-darkBlue hover:text-midBlue"
                       }`}
                     >
                       {sub.icon}
@@ -538,7 +726,9 @@ function DashboardAdmin() {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-darkBlue">Panel de Administración</h1>
+            <h1 className="text-2xl font-bold text-darkBlue">
+              Panel de Administración
+            </h1>
           </div>
 
           <div className="flex items-center gap-4">
@@ -559,12 +749,20 @@ function DashboardAdmin() {
               {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-xl border border-lightBlue z-50">
                   <div className="p-4 border-b border-lightBlue flex justify-between items-center">
-                    <h3 className="font-semibold text-darkBlue">Notificaciones</h3>
+                    <h3 className="font-semibold text-darkBlue">
+                      Notificaciones
+                    </h3>
                     <div className="flex items-center gap-2">
-                      <button onClick={markAllAsRead} className="text-sm text-midBlue hover:text-darkBlue transition">
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-sm text-midBlue hover:text-darkBlue transition"
+                      >
                         Marcar todas como leídas
                       </button>
-                      <button onClick={() => setNotificationsOpen(false)} className="p-1 hover:bg-lightBlue rounded">
+                      <button
+                        onClick={() => setNotificationsOpen(false)}
+                        className="p-1 hover:bg-lightBlue rounded"
+                      >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -589,10 +787,10 @@ function DashboardAdmin() {
                                   type === "success"
                                     ? "bg-green-100 text-green-600"
                                     : type === "warning"
-                                    ? "bg-yellow-100 text-yellow-600"
-                                    : type === "error"
-                                    ? "bg-red-100 text-red-600"
-                                    : "bg-blue-100 text-blue-600"
+                                      ? "bg-yellow-100 text-yellow-600"
+                                      : type === "error"
+                                        ? "bg-red-100 text-red-600"
+                                        : "bg-blue-100 text-blue-600"
                                 }`}
                               >
                                 {type === "success" ? (
@@ -608,14 +806,22 @@ function DashboardAdmin() {
 
                               <div className="flex-1">
                                 <div className="flex justify-between items-start">
-                                  <h4 className="font-medium text-darkBlue">{n.title}</h4>
-                                  {!isRead && <span className="w-2 h-2 bg-blue-500 rounded-full"></span>}
+                                  <h4 className="font-medium text-darkBlue">
+                                    {n.title}
+                                  </h4>
+                                  {!isRead && (
+                                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                  )}
                                 </div>
 
-                                <p className="text-sm text-gray-600 mt-1">{n.message}</p>
+                                <p className="text-sm text-gray-600 whitespace-pre-line">
+                                  {n.message}
+                                </p>
 
                                 <div className="flex justify-between items-center mt-2">
-                                  <span className="text-xs text-gray-500">{timeText}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {timeText}
+                                  </span>
                                   {!isRead && (
                                     <button
                                       onClick={(e) => {
@@ -651,7 +857,9 @@ function DashboardAdmin() {
                 className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
               >
                 <div className="text-right leading-tight">
-                  <span className="text-sm font-medium text-darkBlue block">Administrador</span>
+                  <span className="text-sm font-medium text-darkBlue block">
+                    Administrador
+                  </span>
 
                   <span className="text-xs text-gray-600 block max-w-[180px] truncate">
                     {pickUserDisplayName(currentUser) || "—"}
@@ -667,10 +875,16 @@ function DashboardAdmin() {
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-lightBlue py-2 z-50">
                   <button
                     onClick={() =>
-                      showAlert("warning", "Cerrar sesión", "¿Seguro que deseas salir?", true, () => {
-                        setAlertOpen(false);
-                        handleLogout();
-                      })
+                      showAlert(
+                        "warning",
+                        "Cerrar sesión",
+                        "¿Seguro que deseas salir?",
+                        true,
+                        () => {
+                          setAlertOpen(false);
+                          handleLogout();
+                        },
+                      )
                     }
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
                   >
