@@ -1,5 +1,5 @@
 // src/api/digitalFiles.api.js
-import { api } from "./client";
+import { api } from "./client.js";
 
 /**
  * Construye URL absoluta del backend
@@ -16,7 +16,6 @@ const buildUrl = (path) => {
 /**
  * ✅ Forzar descarga REAL (sin CORS)
  * OJO: Esto hace navegación al endpoint del backend, y el backend redirige a Supabase con ?download=...
- * El navegador descarga directo (como en tu screenshot).
  */
 const forceDownloadByNavigation = (path) => {
   const url = buildUrl(path);
@@ -24,7 +23,6 @@ const forceDownloadByNavigation = (path) => {
   const a = document.createElement("a");
   a.href = url;
   a.rel = "noopener noreferrer";
-  // sin target para que no abra pestaña nueva
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -40,11 +38,44 @@ const openInline = (path) => {
 
 export const DigitalFilesAPI = {
   // ======================
+  // LISTADOS ADMIN
+  // ======================
+
+  /**
+   * Lista proveedores para Expedientes Digitales (admin)
+   * params:
+   * - search
+   * - status => "Activo" | "Inactivo"
+   * - personType => "FISICA" | "MORAL"
+   */
+  async listProviders(params = {}) {
+    const { data } = await api.get("/digital-files/providers", { params });
+    return data;
+  },
+
+  /**
+   * Documentos del proveedor
+   */
+  async getProviderDocuments(providerId) {
+    const { data } = await api.get(`/digital-files/providers/${providerId}/documents`);
+    return data;
+  },
+
+  /**
+   * Órdenes de compra / facturas del proveedor
+   */
+  async getProviderPurchaseOrders(providerId) {
+    const { data } = await api.get(`/digital-files/providers/${providerId}/purchase-orders`);
+    return data;
+  },
+
+  // ======================
   // ORDEN DE COMPRA
   // ======================
   openPurchaseOrderPdf(orderId) {
     openInline(`/api/digital-files/purchase-orders/${orderId}/view`);
   },
+
   downloadPurchaseOrderPdf(orderId) {
     forceDownloadByNavigation(`/api/digital-files/purchase-orders/${orderId}/download`);
   },
@@ -55,6 +86,7 @@ export const DigitalFilesAPI = {
   openInvoicePdf(orderId) {
     openInline(`/api/digital-files/purchase-orders/${orderId}/invoice/view`);
   },
+
   downloadInvoicePdf(orderId) {
     forceDownloadByNavigation(`/api/digital-files/purchase-orders/${orderId}/invoice/download`);
   },
@@ -65,6 +97,7 @@ export const DigitalFilesAPI = {
   openInvoiceXml(orderId) {
     openInline(`/api/digital-files/purchase-orders/${orderId}/invoice/xml/view`);
   },
+
   downloadInvoiceXml(orderId) {
     forceDownloadByNavigation(`/api/digital-files/purchase-orders/${orderId}/invoice/xml/download`);
   },

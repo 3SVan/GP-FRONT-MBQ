@@ -5,6 +5,7 @@ import Badge from "./components/Badge.jsx";
 import ProgressPlan from "./components/ProgressPlan.jsx";
 import MarcarPagadaModal from "./components/MarcarPagadaModal.jsx";
 import EvidenciaViewerModal from "./components/EvidenciaViewerModal.jsx";
+import PaymentsAPI from "../../../../api/payments.api.js";
 
 function money(n) {
   const v = Number(n || 0);
@@ -58,8 +59,12 @@ export default function PlanesPagoDetail({ plan, onBack, onUpdatePlan, showAlert
     setMarkPaidOpen(true);
   };
 
-  const confirmPaid = (note) => {
-    if (!activePart) return;
+const confirmPaid = async (note) => {
+  if (!activePart) return;
+
+  try {
+    // activePart.id = id del Payment en BD (asumimos que sí)
+    await PaymentsAPI.markPaid(activePart.id, { note });
 
     const updated = {
       ...plan,
@@ -77,8 +82,12 @@ export default function PlanesPagoDetail({ plan, onBack, onUpdatePlan, showAlert
     onUpdatePlan?.(updated);
     setMarkPaidOpen(false);
     setActivePart(null);
+
     showAlert?.("success", "Pago registrado", "La parcialidad fue marcada como PAGADA.");
-  };
+  } catch (err) {
+    showAlert?.("error", "Error", err?.userMessage || "No se pudo marcar como pagada.");
+  }
+};
 
   const openEvidence = (p, type) => {
     const url = type === "PDF" ? p.pdfUrl : p.xmlUrl;

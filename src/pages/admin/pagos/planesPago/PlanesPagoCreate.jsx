@@ -32,7 +32,7 @@ export default function PlanesPagoCreate({
   const [nParts, setNParts] = useState(1);
   const [notes, setNotes] = useState("");
 
-  const [parts, setParts] = useState([]); // {amount, payDate, closeDate}
+  const [parts, setParts] = useState([]); // {index,totalParts,amount,payDate,closeDate}
   const [errors, setErrors] = useState({});
 
   const summary = useMemo(() => {
@@ -77,11 +77,16 @@ export default function PlanesPagoCreate({
       const closeDate = addDaysISO(payDate, 5);
 
       arr.push({
+        id: `tmp_${i}_${Date.now()}`,
         index: i,
         totalParts: n,
         amount: amount,
         payDate,
         closeDate,
+        status: "PENDIENTE",
+        pdfUrl: "",
+        xmlUrl: "",
+        comment: "",
       });
     }
 
@@ -91,30 +96,28 @@ export default function PlanesPagoCreate({
 
   const setPart = (idx, patch) => {
     setParts((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
-    setErrors((prev) => ({ ...prev, [`row_${idx}`]: null }));
   };
 
   const validate = () => {
     const e = {};
-    if (!ocSelected) e.oc = "Selecciona una OC";
-    if (!totalPlan || Number(totalPlan) <= 0) e.totalPlan = "Total inválido";
-    if (!parts.length) e.parts = "Genera el calendario de parcialidades";
 
+    if (!ocSelected) e.oc = "Selecciona una OC.";
+    const total = Number(totalPlan || 0);
+    if (!total || total <= 0) e.totalPlan = "Total inválido.";
+
+    if (!parts.length) e.parts = "Genera el calendario de parcialidades.";
+
+    // valida filas
     parts.forEach((p, i) => {
-      const rowErrors = {};
-      if (!p.amount || Number(p.amount) <= 0) rowErrors.amount = "Requerido";
-      if (!p.payDate) rowErrors.payDate = "Requerido";
-      if (!p.closeDate) rowErrors.closeDate = "Requerido";
-
-      // Regla opcional: cierre >= pago
-      if (p.payDate && p.closeDate && String(p.closeDate) < String(p.payDate)) {
-        rowErrors.closeDate = "Cierre no puede ser menor";
-      }
-
-      if (Object.keys(rowErrors).length) e[`row_${i}`] = rowErrors;
+      const row = {};
+      if (!p.amount || Number(p.amount) <= 0) row.amount = "Monto inválido";
+      if (!p.payDate) row.payDate = "Fecha requerida";
+      if (!p.closeDate) row.closeDate = "Fecha requerida";
+      if (Object.keys(row).length) e[`row_${i}`] = row;
     });
 
-    if (!summary.ok) e.sum = "La suma de parcialidades no cuadra con el total";
+    // valida suma
+    if (parts.length && !summary.ok) e.sum = `La suma no cuadra (dif: ${money(summary.diff)})`;
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -122,35 +125,35 @@ export default function PlanesPagoCreate({
 
   const save = () => {
     if (!validate()) {
-      showAlert?.("error", "Revisa el formulario", "Hay campos incompletos o inválidos.");
+      showAlert?.("error", "Error de validación", "Revisa los campos marcados.");
       return;
     }
 
-    const id = `PLAN-${String(Math.floor(Math.random() * 900) + 100)}`;
+    // ✅ IMPORTANTE: incluimos purchaseOrderId para que PlanesPago.jsx pueda crear en backend
     const plan = {
-      id,
+      id: String(ocSelected.id), // id estable del plan
+      purchaseOrderId: ocSelected.id,
       provider: ocSelected.provider,
       ocNumber: ocSelected.ocNumber,
-      totalPlan: Number(totalPlan),
+      totalPlan: Number(totalPlan || 0),
       status: "ABIERTO",
       createdAt: todayISO(),
       notes: notes || "",
-      partialities: parts.map((p, idx) => ({
-        id: `${id}-P${idx + 1}`,
-        index: idx + 1,
-        totalParts: parts.length,
-        amount: Number(p.amount),
+      partialities: parts.map((p) => ({
+        id: p.id,
+        index: p.index,
+        totalParts: p.totalParts,
+        amount: Number(p.amount || 0),
         payDate: p.payDate,
         closeDate: p.closeDate,
         status: "PENDIENTE",
-        comment: "",
         pdfUrl: "",
         xmlUrl: "",
+        comment: "",
       })),
     };
 
     onSavePlan?.(plan);
-    showAlert?.("success", "Plan creado", "El plan de pago se creó correctamente.");
   };
 
   return (
@@ -256,7 +259,7 @@ export default function PlanesPagoCreate({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Notas / reglas / cláusulas..."
+                placeholder="Notas / reglas / cláusulas."
               />
             </div>
 
@@ -289,7 +292,7 @@ export default function PlanesPagoCreate({
                   {parts.map((p, i) => {
                     const rowErr = errors[`row_${i}`] || {};
                     return (
-                      <tr key={i} className="hover:bg-gray-50">
+                      <tr key={p.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                           {p.index}/{p.totalParts}
                         </td>
@@ -338,7 +341,7 @@ export default function PlanesPagoCreate({
                   {parts.length === 0 && (
                     <tr>
                       <td colSpan={4} className="px-4 py-10 text-center text-sm text-gray-500">
-                        Genera el calendario para editar las parcialidades.
+                        Aún no hay calendario. Genera parcialidades.
                       </td>
                     </tr>
                   )}
