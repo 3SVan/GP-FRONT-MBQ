@@ -1,11 +1,12 @@
+// src/pages/admin/users/components/UsersHeader.jsx
 import React from "react";
 import NotificationsBell from "./NotificationsBell";
 
 export default function UsersHeader({
-  title = "Gestión de Usuarios",
-  subtitle = "Administra los usuarios del sistema",
-  solicitudes = [],
-  loadingNotifications = false,
+  title,
+  subtitle,
+  solicitudes,
+  loadingNotifications,
   onRefreshSolicitudes,
   onApproveSolicitud,
   onRejectSolicitud,

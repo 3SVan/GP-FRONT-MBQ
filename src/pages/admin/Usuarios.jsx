@@ -99,6 +99,7 @@ export default function Usuarios() {
     rol: "Aprobador",
     estatus: "Activo",
   });
+
   const [errorEmail, setErrorEmail] = useState("");
 
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function Usuarios() {
       showAlert(
         "error",
         "Error",
-        err?.message || "No se pudieron cargar usuarios"
+        err?.message || "No se pudieron cargar usuarios",
       );
     });
 
@@ -116,34 +117,11 @@ export default function Usuarios() {
       showAlert(
         "error",
         "Error",
-        err?.message || "No se pudieron cargar solicitudes"
+        err?.message || "No se pudieron cargar solicitudes",
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const params = {
-        search: busqueda || undefined,
-        department: filtroDepartamento || undefined,
-        role: filtroRol || undefined,
-        status: filtroEstatus || undefined,
-      };
-
-      fetchUsers(params).catch((err) => {
-        console.error(err);
-        showAlert(
-          "error",
-          "Error",
-          err?.message || "No se pudieron cargar usuarios"
-        );
-      });
-    }, 300);
-
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda, filtroDepartamento, filtroRol, filtroEstatus]);
 
   const handleApproveSolicitud = async (notif) => {
     try {
@@ -204,15 +182,23 @@ export default function Usuarios() {
   const departamentos = useMemo(
     () => [
       ...new Set(
-        ensureArray(usuarios).map((u) => u.departamento).filter(Boolean)
+        ensureArray(usuarios)
+          .map((u) => u.departamento)
+          .filter(Boolean),
       ),
     ],
-    [usuarios]
+    [usuarios],
   );
 
   const roles = useMemo(
-    () => [...new Set(ensureArray(usuarios).map((u) => u.rol).filter(Boolean))],
-    [usuarios]
+    () => [
+      ...new Set(
+        ensureArray(usuarios)
+          .map((u) => u.rol)
+          .filter(Boolean),
+      ),
+    ],
+    [usuarios],
   );
 
   const estatus = ["Activo", "Inactivo"];
@@ -232,7 +218,7 @@ export default function Usuarios() {
           showAlert(
             "success",
             "Usuario Eliminado",
-            "El usuario ha sido eliminado exitosamente."
+            "El usuario ha sido eliminado exitosamente.",
           );
           await fetchUsers();
         } catch (err) {
@@ -240,10 +226,10 @@ export default function Usuarios() {
           showAlert(
             "error",
             "Error",
-            err?.message || "No se pudo eliminar el usuario."
+            err?.message || "No se pudo eliminar el usuario.",
           );
         }
-      }
+      },
     );
   };
 
@@ -260,7 +246,7 @@ export default function Usuarios() {
       showAlert(
         "error",
         "Error de Edición",
-        "Solo se pueden modificar usuarios con correo @mbqinc.com o @gmail.com"
+        "Solo se pueden modificar usuarios con correo @mbqinc.com o @gmail.com",
       );
     }
   };
@@ -271,7 +257,7 @@ export default function Usuarios() {
     showAlert(
       "info",
       "Detalles del Usuario",
-      `Nombre: ${usuario?.nombre || ""}\nEmail: ${usuario?.email || ""}\nDepartamento: ${usuario?.departamento || ""}\nRol: ${usuario?.rol || ""}\nEstatus: ${usuario?.estatus || ""}`
+      `Nombre: ${usuario?.nombre || ""}\nEmail: ${usuario?.email || ""}\nDepartamento: ${usuario?.departamento || ""}\nRol: ${usuario?.rol || ""}\nEstatus: ${usuario?.estatus || ""}`,
     );
   };
 
@@ -321,7 +307,11 @@ export default function Usuarios() {
       });
       setErrorEmail("");
 
-      showAlert("success", "Usuario Creado", "El usuario fue creado correctamente.");
+      showAlert(
+        "success",
+        "Usuario Creado",
+        "El usuario fue creado correctamente.",
+      );
       await fetchUsers();
     } catch (err) {
       console.error(err);
@@ -334,7 +324,7 @@ export default function Usuarios() {
         data?.message ||
           data?.error ||
           err?.message ||
-          `No se pudo crear el usuario. (status: ${status ?? "N/A"})`
+          `No se pudo crear el usuario. (status: ${status ?? "N/A"})`,
       );
     }
   };
@@ -358,7 +348,7 @@ export default function Usuarios() {
       showAlert(
         "success",
         "Usuario Actualizado",
-        "Los datos del usuario han sido actualizados correctamente."
+        "Los datos del usuario han sido actualizados correctamente.",
       );
       await fetchUsers();
     } catch (err) {
@@ -372,7 +362,7 @@ export default function Usuarios() {
         data?.message ||
           data?.error ||
           err?.message ||
-          `No se pudo actualizar el usuario. (status: ${status ?? "N/A"})`
+          `No se pudo actualizar el usuario. (status: ${status ?? "N/A"})`,
       );
     }
   };

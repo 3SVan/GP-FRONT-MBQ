@@ -10,6 +10,7 @@ export default function useAdminAccessRequests() {
 
   const fetchSolicitudes = useCallback(async () => {
     setLoadingNotifications(true);
+
     try {
       const res = await AdminAPI.listAccessRequests({ status: "PENDING" });
 
@@ -19,30 +20,63 @@ export default function useAdminAccessRequests() {
         Array.isArray(res) ? res :
         [];
 
-      const mapped = raw.map((r) => ({
-        id: r.id ?? r.requestId ?? `${r.email}-${r.createdAt ?? Date.now()}`,
-        type: "USER_REQUEST",
-        status: r.status ?? "PENDING",
-        email: r.email ?? "",
-        nombre: r.fullName ?? r.name ?? "",
-        area: r.department ?? r.area ?? "",
-        fecha: r.createdAt
-          ? new Date(r.createdAt).toLocaleString()
-          : new Date().toLocaleString(),
-        createdAt: r.createdAt
-          ? new Date(r.createdAt).toLocaleString()
-          : new Date().toLocaleString(),
-        leida: false,
-        data: {
+      const mapped = raw.map((r) => {
+        const kind = String(r.kind ?? "").toUpperCase();
+        const personType = String(r.personType ?? "").toUpperCase();
+        const department = r.department ?? "";
+
+        const esProveedor = kind === "PROVIDER";
+
+        const rol = esProveedor ? "Proveedor" : "Usuario interno";
+
+        const detalleLabel = esProveedor ? "Tipo de persona" : "Área";
+
+        const detalleValue = esProveedor
+          ? personType === "FISICA"
+            ? "Persona Física"
+            : personType === "MORAL"
+              ? "Persona Moral"
+              : "Sin definir"
+          : (department || "Sin área asignada");
+
+        const nombreMostrar =
+          r.fullName?.trim() ||
+          r.companyName?.trim() ||
+          r.name?.trim() ||
+          "Sin nombre";
+
+        return {
+          id: r.id ?? r.requestId ?? `${r.email}-${r.createdAt ?? Date.now()}`,
+          type: "USER_REQUEST",
+          status: r.status ?? "PENDING",
+
           email: r.email ?? "",
-          area: r.department ?? r.area ?? "",
-        },
-        title:
-          r.fullName || r.name
-            ? `Solicitud de acceso: ${r.fullName ?? r.name}`
-            : "Solicitud de acceso",
-        _raw: r,
-      }));
+          nombre: nombreMostrar,
+          rol,
+          detalleLabel,
+          detalleValue,
+
+          fecha: r.createdAt
+            ? new Date(r.createdAt).toLocaleString()
+            : new Date().toLocaleString(),
+
+          createdAt: r.createdAt
+            ? new Date(r.createdAt).toLocaleString()
+            : new Date().toLocaleString(),
+
+          leida: false,
+
+          data: {
+            email: r.email ?? "",
+            rol,
+            detalleLabel,
+            detalleValue,
+          },
+
+          title: `Solicitud de acceso: ${nombreMostrar}`,
+          _raw: r,
+        };
+      });
 
       setSolicitudes(mapped);
     } catch (error) {

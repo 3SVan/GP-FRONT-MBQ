@@ -60,12 +60,15 @@ import Graficas from "../shared/Graficas.jsx";
 /** Helpers */
 function normalizeNotifType(t) {
   const s = String(t || "").toLowerCase();
-  if (s.includes("success") || s.includes("ok") || s.includes("approved"))
+  if (s.includes("success") || s.includes("ok") || s.includes("approved")) {
     return "success";
-  if (s.includes("warn") || s.includes("pending") || s.includes("alert"))
+  }
+  if (s.includes("warn") || s.includes("pending") || s.includes("alert")) {
     return "warning";
-  if (s.includes("error") || s.includes("fail") || s.includes("reject"))
+  }
+  if (s.includes("error") || s.includes("fail") || s.includes("reject")) {
     return "error";
+  }
   return "info";
 }
 
@@ -73,33 +76,63 @@ function formatRelativeTime(dateInput) {
   if (!dateInput) return "";
   const d = new Date(dateInput);
   if (Number.isNaN(d.getTime())) return "";
+
   const diffMs = Date.now() - d.getTime();
   const diffMin = Math.floor(diffMs / 60000);
 
   if (diffMin < 1) return "Hace unos segundos";
   if (diffMin < 60) return `Hace ${diffMin} minuto${diffMin === 1 ? "" : "s"}`;
+
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `Hace ${diffH} hora${diffH === 1 ? "" : "s"}`;
+
   const diffD = Math.floor(diffH / 24);
   return `Hace ${diffD} día${diffD === 1 ? "" : "s"}`;
 }
 
 function mapAccessRequestToNotification(req) {
   const id = req?.id ?? req?.requestId ?? `access-${req?.email ?? Date.now()}`;
-  const fullName = req?.fullName ?? req?.name ?? "Usuario";
+
+  const kind = String(req?.kind ?? "").toUpperCase();
+  const personType = String(req?.personType ?? "").toUpperCase();
+  const department = req?.department ?? "";
+
+  const esProveedor = kind === "PROVIDER";
+  const rol = esProveedor ? "Proveedor" : "Usuario interno";
+
+  const detalleLabel = esProveedor ? "Tipo de persona" : "Área";
+  const detalleValue = esProveedor
+    ? personType === "FISICA"
+      ? "Persona Física"
+      : personType === "MORAL"
+        ? "Persona Moral"
+        : "Sin definir"
+    : department || "Sin área asignada";
+
+  const nombreMostrar =
+    req?.fullName?.trim() || req?.companyName?.trim() || "Sin nombre";
+
   const email = req?.email ?? "Sin correo";
-  const area = req?.department ?? req?.area ?? "Sin área asignada";
 
   return {
     id: `access-request-${id}`,
     source: "access_request",
     sourceId: id,
     type: "info",
-    title: `Nueva solicitud de usuario - ${fullName}`,
-    message: `El usuario ${fullName} solicitó acceso al sistema.\nCorreo: ${email}\nÁrea: ${area}`,
+    title: `Solicitud de acceso: ${nombreMostrar}`,
+    message:
+      `Correo: ${email}\n` +
+      `Rol: ${rol}\n` +
+      `${detalleLabel}: ${detalleValue}`,
     createdAt: req?.createdAt ?? new Date().toISOString(),
     readAt: null,
-    data: req,
+    data: {
+      email,
+      rol,
+      detalleLabel,
+      detalleValue,
+      raw: req,
+    },
   };
 }
 
@@ -122,14 +155,9 @@ function DashboardAdmin() {
     onConfirm: null,
   });
 
-  // ✅ Datos reales
   const [dashboardStats, setDashboardStats] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
-
-  // ✅ Notificaciones reales
   const [notifications, setNotifications] = useState([]);
-
-  // ✅ Usuario logueado (para mostrar nombre)
   const [currentUser, setCurrentUser] = useState(null);
 
   function pickUserDisplayName(u) {
@@ -162,7 +190,6 @@ function DashboardAdmin() {
     [notifications],
   );
 
-  // ✅ ALERT helper (sin cambiar tu UI)
   const showAlert = (
     type,
     title,
@@ -180,29 +207,25 @@ function DashboardAdmin() {
     }
   };
 
-  // ✅ LOGOUT real: borra cookie en backend y manda al login
   const handleLogout = async () => {
     try {
-      // cierra menús visuales
       setUserMenuOpen(false);
       setNotificationsOpen(false);
-
       await AuthAPI.logout();
     } catch (err) {
-      // aunque falle, forzamos salida local para no “atorar” al usuario
       console.warn("Error al cerrar sesión:", err?.message || err);
     } finally {
       navigate("/login", { replace: true });
     }
   };
 
-  // ✅ Cargar dashboard + notificaciones desde BD
   useEffect(() => {
     let alive = true;
 
     (async () => {
       try {
         setLoadingDashboard(true);
+
         const [statsRes, notifsRes, accessReqsRes, me] = await Promise.all([
           AnalyticsAPI.getAdminDashboard(),
           NotificationsAPI.listMy(),
@@ -212,7 +235,6 @@ function DashboardAdmin() {
 
         if (!alive) return;
 
-        // Stats: tu API puede devolver data en .data o directo, por eso normalizo:
         const stats = statsRes?.data ?? statsRes ?? null;
         const notifs = notifsRes?.data ?? notifsRes ?? [];
 
@@ -228,7 +250,6 @@ function DashboardAdmin() {
           mapAccessRequestToNotification,
         );
 
-        // Unimos solicitudes + notificaciones normales
         const mergedNotifications = [
           ...accessRequestNotifications,
           ...(Array.isArray(notifs) ? notifs : []),
@@ -262,7 +283,6 @@ function DashboardAdmin() {
       const notif = notifications.find((n) => n.id === id);
       if (!notif) return;
 
-      // Si viene de access-requests, solo la marcamos localmente
       if (notif.source === "access_request") {
         setNotifications((prev) =>
           prev.map((n) =>
@@ -287,6 +307,7 @@ function DashboardAdmin() {
   const markAllAsRead = async () => {
     try {
       await NotificationsAPI.markAllRead();
+
       setNotifications((prev) =>
         prev.map((n) => ({
           ...n,
@@ -303,7 +324,21 @@ function DashboardAdmin() {
     }
   };
 
-  // MENÚ
+  const handleGeneralNotificationClick = async (notif) => {
+    if (!notif) return;
+
+    if (!notif.readAt) {
+      await markAsRead(notif.id);
+    }
+
+    setNotificationsOpen(false);
+    setUserMenuOpen(false);
+
+    if (notif.source === "access_request") {
+      openModal("administracion");
+    }
+  };
+
   const menuItems = [
     {
       id: "gestion-proveedores",
@@ -382,7 +417,6 @@ function DashboardAdmin() {
   ];
 
   const modalComponents = {
-    // Gestión de Proveedores
     altas: {
       component: GestionProveedores,
       title: "Altas de Proveedores",
@@ -398,29 +432,21 @@ function DashboardAdmin() {
       title: "Modificación de Proveedores",
       props: { mode: "modificacion" },
     },
-
-    // Expedientes Digitales
     "expedientes-digitales": {
       component: ExpedientesDigitales,
       title: "Expedientes Digitales",
       props: {},
     },
-
-    // Usuarios
     administracion: {
       component: Usuarios,
       title: "Administración de Usuarios",
       props: {},
     },
-
-    // Verificación Rápida
     "verificacion-rapida": {
       component: VerificacionR,
       title: "Verificación Rápida",
       props: {},
     },
-
-    // Gestión de Pagos
     "planes-pago": {
       component: PlanesPago,
       title: "Planes de Pago",
@@ -431,8 +457,6 @@ function DashboardAdmin() {
       title: "Gestión de Pagos",
       props: {},
     },
-
-    // Otros
     "historial-actividad": {
       component: HistorialActividad,
       title: "Historial de Actividad",
@@ -465,7 +489,6 @@ function DashboardAdmin() {
     setCurrentModal("");
   };
 
-  // Alert component
   const Alert = ({
     isOpen,
     onClose,
@@ -567,7 +590,6 @@ function DashboardAdmin() {
     );
   };
 
-  // Modal component
   const Modal = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
@@ -628,7 +650,6 @@ function DashboardAdmin() {
     );
   };
 
-  // ✅ Contenido principal: Graficas recibe data real (si tu componente la usa)
   const renderContent = () => {
     return (
       <Graficas
@@ -641,7 +662,6 @@ function DashboardAdmin() {
 
   return (
     <div className="min-h-screen flex bg-beige">
-      {/* SIDEBAR */}
       <aside
         className={`bg-white border-r border-lightBlue shadow-lg transition-all duration-300 flex flex-col ${
           sidebarOpen ? "w-64" : "w-20"
@@ -656,6 +676,7 @@ function DashboardAdmin() {
               </span>
             </div>
           )}
+
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-lg hover:bg-lightBlue transition"
@@ -693,12 +714,12 @@ function DashboardAdmin() {
                 >
                   {item.icon}
                 </div>
+
                 {sidebarOpen && (
                   <span className="text-sm font-medium">{item.title}</span>
                 )}
               </button>
 
-              {/* SUBMENÚ */}
               {sidebarOpen && item.submenu && (
                 <div className="ml-4 mt-2 space-y-1 border-l border-lightBlue pl-4">
                   {item.submenu.map((sub) => (
@@ -722,7 +743,6 @@ function DashboardAdmin() {
         </nav>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -732,7 +752,6 @@ function DashboardAdmin() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* NOTIFICACIONES */}
             <div className="relative">
               <button
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -778,8 +797,10 @@ function DashboardAdmin() {
                         return (
                           <div
                             key={n.id}
-                            className={`p-4 border-b border-lightBlue hover:bg-lightBlue transition ${!isRead ? "bg-blue-50" : ""}`}
-                            onClick={() => markAsRead(n.id)}
+                            className={`p-4 border-b border-lightBlue hover:bg-lightBlue transition cursor-pointer ${
+                              !isRead ? "bg-blue-50" : ""
+                            }`}
+                            onClick={() => handleGeneralNotificationClick(n)}
                           >
                             <div className="flex items-start gap-3">
                               <div
@@ -822,6 +843,7 @@ function DashboardAdmin() {
                                   <span className="text-xs text-gray-500">
                                     {timeText}
                                   </span>
+
                                   {!isRead && (
                                     <button
                                       onClick={(e) => {
@@ -850,7 +872,6 @@ function DashboardAdmin() {
               )}
             </div>
 
-            {/* MENÚ USUARIO */}
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -902,10 +923,8 @@ function DashboardAdmin() {
         </section>
       </main>
 
-      {/* MODAL */}
       <Modal isOpen={modalOpen} onClose={closeModal} />
 
-      {/* ALERTAS */}
       <Alert
         isOpen={alertOpen}
         onClose={() => setAlertOpen(false)}
@@ -916,7 +935,6 @@ function DashboardAdmin() {
         onConfirm={alertConfig.onConfirm}
       />
 
-      {/* Overlay para cerrar menús */}
       {(userMenuOpen || notificationsOpen) && (
         <div
           className="fixed inset-0 z-40"

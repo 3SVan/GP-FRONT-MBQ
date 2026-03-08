@@ -8,6 +8,8 @@ import {
   Mail,
   Building2,
   Clock3,
+  User,
+  Building,
 } from "lucide-react";
 
 const ensureArray = (v) => (Array.isArray(v) ? v : []);
@@ -27,7 +29,7 @@ function ConfirmModal({
   description,
   confirmText = "Confirmar",
   cancelText = "Cancelar",
-  variant = "danger", // danger | success
+  variant = "danger",
   loading = false,
   onCancel,
   onConfirm,
@@ -45,7 +47,6 @@ function ConfirmModal({
 
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
-          {/* Header */}
           <div className="px-6 pt-6 pb-4">
             <div className="flex items-start gap-4">
               <div
@@ -85,7 +86,6 @@ function ConfirmModal({
             </div>
           </div>
 
-          {/* Footer */}
           <div className="px-6 pb-6 pt-2">
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button
@@ -130,7 +130,7 @@ export default function NotificationsBell({
 
   const [confirm, setConfirm] = useState({
     open: false,
-    action: null, // approve | reject
+    action: null,
     notif: null,
   });
 
@@ -226,8 +226,10 @@ export default function NotificationsBell({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          <div className="absolute right-0 top-12 w-[460px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
-            {/* Header */}
+          <div
+            className="absolute right-0 top-12 w-[460px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
               <div className="flex justify-between items-start gap-3">
                 <div>
@@ -252,7 +254,6 @@ export default function NotificationsBell({
               </div>
             </div>
 
-            {/* Body */}
             <div className="max-h-[430px] overflow-y-auto bg-gray-50/60">
               {loading ? (
                 <div className="p-5 text-center text-gray-500">Cargando...</div>
@@ -268,7 +269,7 @@ export default function NotificationsBell({
                     return (
                       <div
                         key={notif.id}
-                        className="rounded-2xl border border-blue-100 bg-white shadow-sm hover:shadow-md transition overflow-hidden"
+                        className="rounded-2xl border border-blue-100 bg-white overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
                       >
                         <div className="h-1.5 bg-gradient-to-r from-blue-500 to-sky-400" />
 
@@ -279,23 +280,53 @@ export default function NotificationsBell({
                           </div>
 
                           <h4 className="text-[17px] font-semibold text-gray-900 leading-snug mb-3">
-                            {notif.title ?? notif.nombre ?? "Solicitud de acceso"}
+                            {notif.title ??
+                              notif.nombre ??
+                              "Solicitud de acceso"}
                           </h4>
 
-                          <div className="space-y-2 text-sm">
+                          <div className="space-y-2.5 text-sm">
                             <div className="flex items-start gap-2 text-gray-700">
                               <Mail className="w-4 h-4 mt-0.5 text-blue-500" />
                               <div>
-                                <span className="font-medium">Email:</span>{" "}
-                                <span>{notif.data?.email ?? notif.email ?? "-"}</span>
+                                <span className="font-medium">Correo:</span>{" "}
+                                <span>
+                                  {notif.data?.email ?? notif.email ?? "-"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-2 text-gray-700">
+                              {(notif.data?.rol ?? notif.rol) ===
+                              "Proveedor" ? (
+                                <Building className="w-4 h-4 mt-0.5 text-blue-500" />
+                              ) : (
+                                <User className="w-4 h-4 mt-0.5 text-blue-500" />
+                              )}
+                              <div>
+                                <span className="font-medium">Rol:</span>{" "}
+                                <span>
+                                  {notif.data?.rol ??
+                                    notif.rol ??
+                                    "Sin definir"}
+                                </span>
                               </div>
                             </div>
 
                             <div className="flex items-start gap-2 text-gray-700">
                               <Building2 className="w-4 h-4 mt-0.5 text-blue-500" />
                               <div>
-                                <span className="font-medium">Área:</span>{" "}
-                                <span>{notif.data?.area ?? notif.area ?? "Sin área asignada"}</span>
+                                <span className="font-medium">
+                                  {notif.data?.detalleLabel ??
+                                    notif.detalleLabel ??
+                                    "Área"}
+                                  :
+                                </span>{" "}
+                                <span>
+                                  {notif.data?.detalleValue ??
+                                    notif.detalleValue ??
+                                    "Sin definir"}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -331,13 +362,19 @@ export default function NotificationsBell({
       <ConfirmModal
         open={confirm.open}
         variant={confirm.action === "reject" ? "danger" : "success"}
-        title={confirm.action === "reject" ? "¿Rechazar solicitud?" : "¿Aprobar solicitud?"}
+        title={
+          confirm.action === "reject"
+            ? "¿Rechazar solicitud?"
+            : "¿Aprobar solicitud?"
+        }
         description={
           confirm.action === "reject"
             ? "Esta acción rechazará la solicitud del usuario. ¿Deseas continuar?"
             : "Esta acción aprobará la solicitud del usuario. ¿Deseas continuar?"
         }
-        confirmText={confirm.action === "reject" ? "Sí, rechazar" : "Sí, aprobar"}
+        confirmText={
+          confirm.action === "reject" ? "Sí, rechazar" : "Sí, aprobar"
+        }
         cancelText="Cancelar"
         loading={!!busyId}
         onCancel={closeConfirm}
