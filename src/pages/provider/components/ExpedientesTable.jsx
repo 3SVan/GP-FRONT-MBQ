@@ -1,4 +1,4 @@
-// src/components/ExpedientesTable.jsx
+//  src/pages/provider/components/ExpedientesTable.jsx
 import React, { useMemo, useState } from "react";
 import { Eye, Download, Pencil, Check, Trash2, AlertTriangle, FileText } from "lucide-react";
 import InvoiceFilesModal from "./InvoiceFilesModal.jsx";

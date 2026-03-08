@@ -8,6 +8,7 @@ import {
   BarChart,
   LogOut,
   Receipt,
+  FileText,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -18,6 +19,7 @@ import Parcialidades from "./Parcialidades.jsx";
 import Reportes from "./Reportes.jsx";
 import Graficas from "../shared/Graficas.jsx";
 import DatosAprobador from "./DatosAprobador.jsx";
+import PurchaseOrdersApproval from "./PurchaseOrdersApproval.jsx";
 
 import logo from "../../assets/logo-relleno.png";
 
@@ -45,7 +47,6 @@ function DashboardApro() {
     onConfirm: null,
   });
 
-  // ✅ Alert central (igual que el tuyo)
   const showAlert = useCallback(
     (type, title, message, showConfirm = false, onConfirm = null) => {
       setAlertConfig({ type, title, message, showConfirm, onConfirm });
@@ -55,10 +56,9 @@ function DashboardApro() {
         setTimeout(() => setAlertOpen(false), 4000);
       }
     },
-    [],
+    []
   );
 
-  // ✅ Revisión de Documentos: ahora viene de hook (pero sigue “siendo del dashboard”)
   const {
     aprobaciones,
     setAprobaciones,
@@ -67,7 +67,6 @@ function DashboardApro() {
     fetchFilesForReview,
   } = useDocumentReviews({ showAlert });
 
-  // ✅ Usuario actual
   const { currentUser } = useCurrentUser();
 
   const handleAprobacionChange = (nuevasAprobaciones) =>
@@ -94,6 +93,11 @@ function DashboardApro() {
       id: "revision-documentos",
       title: "Revisión de Documentos",
       icon: <ClipboardList className="w-5 h-5" />,
+    },
+    {
+      id: "ordenes-compra",
+      title: "Órdenes de Compra",
+      icon: <FileText className="w-5 h-5" />,
     },
     {
       id: "parcialidades",
@@ -129,12 +133,12 @@ function DashboardApro() {
             const arr = Array.isArray(files)
               ? files
               : Array.isArray(files?.files)
-                ? files.files
-                : Array.isArray(files?.data?.files)
-                  ? files.data.files
-                  : Array.isArray(files?.data)
-                    ? files.data
-                    : [];
+              ? files.files
+              : Array.isArray(files?.data?.files)
+              ? files.data.files
+              : Array.isArray(files?.data)
+              ? files.data
+              : [];
 
             return arr;
           } catch (e) {
@@ -142,7 +146,7 @@ function DashboardApro() {
             showAlert?.(
               "error",
               "Error",
-              "No se pudieron cargar los archivos.",
+              "No se pudieron cargar los archivos."
             );
             return [];
           }
@@ -158,12 +162,25 @@ function DashboardApro() {
       },
     },
 
+    "ordenes-compra": {
+      component: PurchaseOrdersApproval,
+      title: "Órdenes de Compra",
+      props: {
+        showAlert,
+      },
+    },
+
     parcialidades: {
       component: Parcialidades,
       title: "Parcialidades",
       props: {},
     },
-    reportes: { component: Reportes, title: "Reportes Generales", props: {} },
+
+    reportes: {
+      component: Reportes,
+      title: "Reportes Generales",
+      props: {},
+    },
   };
 
   const openModal = (sectionId) => {
@@ -275,7 +292,7 @@ function DashboardApro() {
                       () => {
                         setAlertOpen(false);
                         handleLogout();
-                      },
+                      }
                     )
                   }
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"

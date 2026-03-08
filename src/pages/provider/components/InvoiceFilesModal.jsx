@@ -1,4 +1,4 @@
-// src/components/InvoiceFilesModal.jsx
+// src/pages/provider/components/InvoiceFilesModal.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { X, Eye, Download, FileText } from "lucide-react";
 

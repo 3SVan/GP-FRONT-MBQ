@@ -14,7 +14,6 @@ export const PurchaseOrdersAPI = {
       .then((r) => r.data);
   },
 
-  // ✅ editar (PATCH multipart)
   update(id, formData) {
     return api
       .patch(`/purchase-orders/${id}`, formData, {
@@ -23,13 +22,38 @@ export const PurchaseOrdersAPI = {
       .then((r) => r.data);
   },
 
-  // ✅ enviar a revisión (DRAFT -> SENT)
   submit(id) {
     return api.post(`/purchase-orders/${id}/submit`).then((r) => r.data);
   },
 
-  // ✅ eliminar (DELETE) (solo DRAFT)
   remove(id) {
     return api.delete(`/purchase-orders/${id}`).then((r) => r.data);
   },
+
+  listPendingApproval(params = {}) {
+    return api
+      .get("/purchase-orders/pending-approval", { params })
+      .then((r) => r.data);
+  },
+
+  approve(id, payload = {}) {
+    return api.post(`/purchase-orders/${id}/approve`, payload).then((r) => r.data);
+  },
+
+  reject(id, payload = {}) {
+    return api.post(`/purchase-orders/${id}/reject`, payload).then((r) => r.data);
+  },
+
+  getById(id) {
+    return api.get(`/purchase-orders/${id}`).then((r) => r.data);
+  },
+
+  // ✅ NUEVO: órdenes aprobadas sin pagos (admin/aprobador)
+  listApprovedUnpaid(params = {}) {
+    return api
+      .get("/purchase-orders/approved-unpaid", { params })
+      .then((r) => r.data);
+  },
 };
+
+export default PurchaseOrdersAPI;

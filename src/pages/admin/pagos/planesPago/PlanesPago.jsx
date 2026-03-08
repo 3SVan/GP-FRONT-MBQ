@@ -4,7 +4,8 @@ import PlanesPagoList from "./PlanesPagoList.jsx";
 import PlanesPagoCreate from "./PlanesPagoCreate.jsx";
 import PlanesPagoDetail from "./PlanesPagoDetail.jsx";
 
-import PaymentsAPI from "../../../../api/payments.api"; // ✅ ajusta si tu ruta difiere
+import PaymentsAPI from "../../../../api/payments.api";
+import PurchaseOrdersAPI from "../../../../api/purchaseOrders.api";
 
 // -------------------- Helpers --------------------
 function isoDate(x) {
@@ -17,27 +18,19 @@ function isoDate(x) {
 }
 
 function mapPaymentToPartialStatus(p) {
-  // Tu UI espera: PENDIENTE | ENVIADA | APROBADA | RECHAZADA | PAGADA
   const st = String(p?.status || "").toUpperCase();
 
-  // evidencia (si tu backend manda algo tipo evidences / files / urls)
   const hasEvidence =
     Boolean(p?.pdfUrl || p?.xmlUrl) ||
     Boolean(p?.evidence?.pdfUrl || p?.evidence?.xmlUrl) ||
     Boolean(p?.files?.pdfUrl || p?.files?.xmlUrl) ||
     Boolean((p?.evidences || []).length);
 
-  // si ya pagada (si existe ese status)
   if (st === "PAID" || st === "PAGADA") return "PAGADA";
-
-  // aprobada/rechazada
   if (st === "APPROVED") return "APROBADA";
   if (st === "REJECTED") return "RECHAZADA";
-
-  // pendiente: si ya subieron evidencia => ENVIADA, si no => PENDIENTE
   if (st === "PENDING" || !st) return hasEvidence ? "ENVIADA" : "PENDIENTE";
 
-  // fallback
   return hasEvidence ? "ENVIADA" : "PENDIENTE";
 }
 
@@ -56,7 +49,6 @@ function pickOcNumber(po) {
 }
 
 function pickOcTotal(po) {
-  // intenta varios nombres comunes
   const n =
     Number(po?.total) ||
     Number(po?.totalAmount) ||
@@ -67,7 +59,6 @@ function pickOcTotal(po) {
 }
 
 function groupPlansFromPayments(payments = []) {
-  // Agrupa por purchaseOrderId
   const map = new Map();
 
   for (const p of payments) {
@@ -85,7 +76,6 @@ function groupPlansFromPayments(payments = []) {
     map.get(poId).rows.push(p);
   }
 
-  // Construye planes
   const plans = [];
 
   for (const [, grp] of map.entries()) {
@@ -93,7 +83,6 @@ function groupPlansFromPayments(payments = []) {
     const provider = pickProviderName(po);
     const ocNumber = pickOcNumber(po);
 
-    // ordena por installmentNo si existe, si no por fecha
     const rows = [...grp.rows].sort((a, b) => {
       const an = Number(a?.installmentNo || 0);
       const bn = Number(b?.installmentNo || 0);
@@ -111,21 +100,25 @@ function groupPlansFromPayments(payments = []) {
 
     const partialities = rows.map((p, idx) => {
       const index = Number(p?.installmentNo) || idx + 1;
-      const totalParts = Number(p?.installmentOf) || installmentOf || rows.length || 1;
+      const totalParts =
+        Number(p?.installmentOf) || installmentOf || rows.length || 1;
 
-      // URLs evidencia (intentando varias formas)
       const pdfUrl =
         p?.pdfUrl ||
         p?.evidence?.pdfUrl ||
         p?.files?.pdfUrl ||
-        p?.evidences?.find?.((e) => String(e?.type || "").toUpperCase() === "PDF")?.url ||
+        p?.evidences?.find?.(
+          (e) => String(e?.type || "").toUpperCase() === "PDF"
+        )?.url ||
         "";
 
       const xmlUrl =
         p?.xmlUrl ||
         p?.evidence?.xmlUrl ||
         p?.files?.xmlUrl ||
-        p?.evidences?.find?.((e) => String(e?.type || "").toUpperCase() === "XML")?.url ||
+        p?.evidences?.find?.(
+          (e) => String(e?.type || "").toUpperCase() === "XML"
+        )?.url ||
         "";
 
       return {
@@ -133,8 +126,11 @@ function groupPlansFromPayments(payments = []) {
         index,
         totalParts,
         amount: Number(p?.amount || 0),
-        payDate: isoDate(p?.paidAt) || isoDate(p?.scheduledAt) || isoDate(p?.createdAt),
-        closeDate: isoDate(p?.closeDate) || "", // si no existe, queda vacío (tu UI pone "—")
+        payDate:
+          isoDate(p?.paidAt) ||
+          isoDate(p?.scheduledAt) ||
+          isoDate(p?.createdAt),
+        closeDate: isoDate(p?.closeDate) || "",
         status: mapPaymentToPartialStatus(p),
         pdfUrl,
         xmlUrl,
@@ -142,12 +138,17 @@ function groupPlansFromPayments(payments = []) {
       };
     });
 
-    const totalPlan = partialities.reduce((acc, x) => acc + Number(x.amount || 0), 0);
+    const totalPlan = partialities.reduce(
+      (acc, x) => acc + Number(x.amount || 0),
+      0
+    );
 
-    const allPaid = partialities.length > 0 && partialities.every((x) => String(x.status).toUpperCase() === "PAGADA");
+    const allPaid =
+      partialities.length > 0 &&
+      partialities.every((x) => String(x.status).toUpperCase() === "PAGADA");
+
     const planStatus = allPaid ? "COMPLETADO" : "ABIERTO";
 
-    // id del plan: usamos el purchaseOrderId para que sea estable
     plans.push({
       id: String(grp.purchaseOrderId),
       purchaseOrderId: grp.purchaseOrderId,
@@ -155,48 +156,42 @@ function groupPlansFromPayments(payments = []) {
       ocNumber,
       totalPlan,
       status: planStatus,
-      createdAt: isoDate(rows[0]?.createdAt) || isoDate(rows[0]?.paidAt) || isoDate(new Date().toISOString()),
-      notes: "", // si luego guardas notas en backend, aquí la mapeas
+      createdAt:
+        isoDate(rows[0]?.createdAt) ||
+        isoDate(rows[0]?.paidAt) ||
+        isoDate(new Date().toISOString()),
+      notes: "",
       partialities,
     });
   }
 
-  // ordena por ocNumber o createdAt (como quieras)
   plans.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   return plans;
 }
 
-function buildOCsFromPayments(payments = []) {
-  // Para el selector de OC usamos las purchaseOrders que ya vienen en /payments
-  const map = new Map();
-
-  for (const p of payments) {
-    const po = p?.purchaseOrder;
-    if (!po?.id) continue;
-
-    if (!map.has(po.id)) {
-      map.set(po.id, {
-        id: po.id,
-        ocNumber: pickOcNumber(po),
-        provider: pickProviderName(po),
-        total: pickOcTotal(po),
-      });
-    }
-  }
-
-  return Array.from(map.values()).sort((a, b) => String(a.ocNumber).localeCompare(String(b.ocNumber)));
+function buildOCsFromApprovedPurchaseOrders(purchaseOrders = []) {
+  return (Array.isArray(purchaseOrders) ? purchaseOrders : [])
+    .map((po) => ({
+      id: po.id,
+      ocNumber: pickOcNumber(po),
+      provider: pickProviderName(po),
+      total: pickOcTotal(po),
+    }))
+    .sort((a, b) => String(a.ocNumber).localeCompare(String(b.ocNumber)));
 }
 
 // -------------------- Component --------------------
 export default function PlanesPago({ showAlert }) {
-  const [view, setView] = useState("list"); // list | create | detail
+  const [view, setView] = useState("list");
   const [plans, setPlans] = useState([]);
   const [ocs, setOcs] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-
   const [loading, setLoading] = useState(false);
 
-  const selectedPlan = useMemo(() => plans.find((p) => String(p.id) === String(selectedId)) || null, [plans, selectedId]);
+  const selectedPlan = useMemo(
+    () => plans.find((p) => String(p.id) === String(selectedId)) || null,
+    [plans, selectedId]
+  );
 
   const openDetail = (id) => {
     setSelectedId(id);
@@ -216,14 +211,19 @@ export default function PlanesPago({ showAlert }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await PaymentsAPI.list({ limit: 500 }); // ✅ tu API
-      const payments = res?.payments || [];
+      const [paymentsRes, approvedUnpaidRes] = await Promise.all([
+        PaymentsAPI.list({ limit: 500 }),
+        PurchaseOrdersAPI.listApprovedUnpaid({ limit: 500 }),
+      ]);
 
-      // ocs para selector
-      const newOCs = buildOCsFromPayments(payments);
+      const payments = paymentsRes?.payments || [];
+      const approvedUnpaid = approvedUnpaidRes?.purchaseOrders || [];
+
+      // ✅ OCs para selector: vienen de órdenes aprobadas sin pagos
+      const newOCs = buildOCsFromApprovedPurchaseOrders(approvedUnpaid);
       setOcs(newOCs);
 
-      // planes construidos desde payments
+      // ✅ Planes existentes: vienen de payments
       const newPlans = groupPlansFromPayments(payments);
       setPlans(newPlans);
     } catch (e) {
@@ -237,14 +237,17 @@ export default function PlanesPago({ showAlert }) {
     refresh();
   }, [refresh]);
 
-  // Guardar plan: crea N payments programados (isScheduled=true)
   const savePlanToAPI = async (draftPlan) => {
     try {
       const purchaseOrderId = draftPlan?.purchaseOrderId;
       const parts = draftPlan?.partialities || [];
 
       if (!purchaseOrderId) {
-        showAlert?.("error", "OC requerida", "No se encontró purchaseOrderId para crear el plan.");
+        showAlert?.(
+          "error",
+          "OC requerida",
+          "No se encontró purchaseOrderId para crear el plan."
+        );
         return;
       }
 
@@ -253,13 +256,12 @@ export default function PlanesPago({ showAlert }) {
         return;
       }
 
-      // crea cada parcialidad como un payment programado
       for (const part of parts) {
         await PaymentsAPI.create({
           purchaseOrderId,
           amount: Number(part.amount || 0),
-          paidAt: part.payDate, // lo usamos como fecha programada/fecha pago
-          method: "TRANSFER", // default para plan
+          paidAt: part.payDate,
+          method: "TRANSFER",
           reference: draftPlan?.notes ? `PLAN: ${draftPlan.notes}` : "PLAN",
           isScheduled: true,
           installmentNo: Number(part.index || 1),
@@ -270,7 +272,7 @@ export default function PlanesPago({ showAlert }) {
       showAlert?.("success", "Plan creado", "El plan de pago se creó correctamente.");
       await refresh();
 
-      // abrir detalle del plan nuevo (su id es purchaseOrderId)
+      // como ya tendrá payments, ya existirá en plans
       setSelectedId(String(purchaseOrderId));
       setView("detail");
     } catch (e) {
@@ -278,18 +280,12 @@ export default function PlanesPago({ showAlert }) {
     }
   };
 
-  // updatePlan: por ahora sólo actualiza local (ej. marcar pagada en UI).
-  // Si después agregas endpoint para "mark paid", aquí es donde lo conectas.
   const updatePlan = async () => {
     await refresh();
   };
 
   if (loading && view === "list") {
-    return (
-      <div className="p-6 text-sm text-gray-600">
-        Cargando planes de pago...
-      </div>
-    );
+    return <div className="p-6 text-sm text-gray-600">Cargando planes de pago...</div>;
   }
 
   if (view === "create") {
@@ -297,7 +293,7 @@ export default function PlanesPago({ showAlert }) {
       <PlanesPagoCreate
         ocs={ocs}
         onCancel={goList}
-        onSavePlan={savePlanToAPI} // ✅ ahora guarda en backend
+        onSavePlan={savePlanToAPI}
         showAlert={showAlert}
       />
     );
@@ -308,7 +304,6 @@ export default function PlanesPago({ showAlert }) {
       <PlanesPagoDetail
         plan={selectedPlan}
         onBack={() => {
-          // refresca al volver (por si hubo cambios externos)
           refresh();
           goList();
         }}

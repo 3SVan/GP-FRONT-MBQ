@@ -20,13 +20,16 @@ export const AuthAPI = {
   forgotPassword(payload) {
     return api.post("/auth/password-reset/request", payload);
   },
-
   resetPassword(payload) {
     return api.post("/auth/password-reset/confirm", payload);
   },
-
   changePassword(payload) {
-  return api.post("/auth/change-password", payload);
+    return api.post("/auth/change-password", payload);
+  },
+
+  // ✅ Solicitud de acceso
+  requestAccess(payload) {
+    return api.post("/access-requests", payload);
   },
 };
 
