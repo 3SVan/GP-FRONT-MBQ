@@ -3,15 +3,17 @@ import api from "./client.js";
 
 export const PaymentEvidenceAPI = {
     /**
-     * GET /api/payments/:paymentId/evidence
+     * GET /api/payment-evidence/payments/:paymentId/evidence
      */
     async list(paymentId) {
-        const { data } = await api.get(`/payments/${paymentId}/evidence`);
-        return data; // PaymentEvidence[]
+        const { data } = await api.get(
+            `/payment-evidence/payments/${paymentId}/evidence`
+        );
+        return data;
     },
 
     /**
-     * POST /api/payments/:paymentId/evidence (multipart)
+     * POST /api/payment-evidence/payments/:paymentId/evidence
      * kind: "PDF" | "XML" | "OTHER"
      */
     async upload(paymentId, file, { kind, comment } = {}) {
@@ -20,22 +22,26 @@ export const PaymentEvidenceAPI = {
         if (kind) form.append("kind", kind);
         if (comment) form.append("comment", comment);
 
-        const { data } = await api.post(`/payments/${paymentId}/evidence`, form, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+        const { data } = await api.post(
+            `/payment-evidence/payments/${paymentId}/evidence`,
+            form,
+            {
+                headers: { "Content-Type": "multipart/form-data" },
+            }
+        );
 
         return data;
     },
 
     /**
-     * GET /api/evidence/:id/signed-url?download=0|1
+     * GET /api/payment-evidence/evidence/:id/signed-url?download=0|1
      */
     async signedUrl(evidenceId, { download = false } = {}) {
         const { data } = await api.get(
-            `/evidence/${evidenceId}/signed-url`,
+            `/payment-evidence/evidence/${evidenceId}/signed-url`,
             { params: { download: download ? 1 : 0 } }
         );
-        return data; // { url, expires }
+        return data;
     },
 };
 

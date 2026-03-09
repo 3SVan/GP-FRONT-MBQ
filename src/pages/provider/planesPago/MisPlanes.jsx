@@ -1,16 +1,129 @@
 // src/pages/provider/planesPago/MisPlanes.jsx
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import CalendarSimple from "../components/CalendarSimple";
 import PlanCard from "../components/PlanCard";
-import { mockPlanes, diffDays, isBeforeToday } from "../utils/mockPlanes";
+import { PaymentsAPI } from "../../../api/payments.api";
+
+function diffDays(fromISO, toISO) {
+  const a = new Date(fromISO);
+  const b = new Date(toISO);
+  const ms = 1000 * 60 * 60 * 24;
+  return Math.floor(
+    (b.setHours(0, 0, 0, 0) - a.setHours(0, 0, 0, 0)) / ms
+  );
+}
+
+function isBeforeToday(dateStr) {
+  const today = new Date();
+  const t = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  ).getTime();
+
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return false;
+
+  return d.setHours(0, 0, 0, 0) < t;
+}
+
+function backendStatusToUi(status) {
+  const st = String(status || "").toUpperCase();
+
+  switch (st) {
+    case "PENDING":
+      return "PENDIENTE";
+    case "SUBMITTED":
+      return "ENVIADA";
+    case "APPROVED":
+      return "APROBADA";
+    case "REJECTED":
+      return "RECHAZADA";
+    case "PAID":
+      return "PAGADA";
+    default:
+      return "PENDIENTE";
+  }
+}
+
+function derivePlanStatus(parcialidades = []) {
+  const statuses = parcialidades.map((p) => String(p.estado || "").toUpperCase());
+
+  if (statuses.every((s) => s === "PAGADA")) return "PAGADA";
+  if (statuses.some((s) => s === "ENVIADA")) return "EN REVISIÓN";
+  if (statuses.some((s) => s === "RECHAZADA")) return "CON OBSERVACIONES";
+  if (statuses.some((s) => s === "PENDIENTE")) return "PENDIENTE";
+  if (statuses.some((s) => s === "APROBADA")) return "APROBADA";
+  return "PENDIENTE";
+}
+
+function groupPaymentsIntoPlans(payments = []) {
+  const map = new Map();
+
+  for (const pay of payments) {
+    const po = pay.purchaseOrder || {};
+    const poId = po.id;
+    if (!poId) continue;
+
+    if (!map.has(poId)) {
+      map.set(poId, {
+        id: poId,
+        ordenCompra: po.number || `OC-${poId}`,
+        moneda: po.currency || "MXN",
+        total: Number(po.total || 0),
+        status: "PENDIENTE",
+        parcialidades: [],
+      });
+    }
+
+    const evidences = Array.isArray(pay.evidences) ? pay.evidences : [];
+    const pdf = evidences.find(
+      (e) => String(e.kind || "").toUpperCase() === "PDF"
+    );
+    const xml = evidences.find(
+      (e) => String(e.kind || "").toUpperCase() === "XML"
+    );
+
+    map.get(poId).parcialidades.push({
+      id: pay.id,
+      numero: pay.installmentNo || 1,
+      totalParcialidades: pay.installmentOf || 1,
+      monto: Number(pay.amount || 0),
+      fechaPago: pay.paidAt,
+      fechaCierre: pay.paidAt,
+      estado: backendStatusToUi(pay.status),
+      rejectionType: pay.rejectionType || "",
+      comentariosProveedor: "",
+      evidencia: {
+        pdfName: pdf?.fileName || "",
+        xmlName: xml?.fileName || "",
+      },
+    });
+  }
+
+  return Array.from(map.values()).map((plan) => {
+    const parcialidades = [...plan.parcialidades].sort(
+      (a, b) => a.numero - b.numero
+    );
+
+    return {
+      ...plan,
+      status: derivePlanStatus(parcialidades),
+      parcialidades,
+    };
+  });
+}
 
 function buildEvents(planes) {
   const out = [];
+
   for (const plan of planes) {
     for (const p of plan.parcialidades) {
       const st = String(p.estado || "").toUpperCase();
 
-      const allowUpload = (st === "PENDIENTE" || st === "RECHAZADA") && !isBeforeToday(p.fechaCierre);
+      const allowUpload =
+        (st === "PENDIENTE" || st === "RECHAZADA") &&
+        !isBeforeToday(p.fechaCierre);
 
       out.push({
         id: `${plan.id}-${p.id}-cierre`,
@@ -37,19 +150,59 @@ function buildEvents(planes) {
       });
     }
   }
+
   return out;
 }
 
-export default function MisPlanes({ onOpenPlan, onOpenUpload }) {
-  const planes = mockPlanes;
+export default function MisPlanes({ onOpenPlan, onOpenUpload, showAlert }) {
+  const [planes, setPlanes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPlans() {
+      try {
+        setLoading(true);
+
+        const res = await PaymentsAPI.listMyPlans();
+        const payments = Array.isArray(res?.payments) ? res.payments : [];
+        const grouped = groupPaymentsIntoPlans(payments);
+
+        if (!cancelled) {
+          setPlanes(grouped);
+        }
+      } catch (error) {
+        console.error("Error cargando mis planes:", error);
+
+        if (!cancelled) {
+          setPlanes([]);
+          showAlert?.(
+            "error",
+            "Mis planes",
+            error?.response?.data?.error ||
+              error?.message ||
+              "No se pudieron cargar tus parcialidades."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadPlans();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAlert]);
 
   const events = useMemo(() => buildEvents(planes), [planes]);
 
   const summary = useMemo(() => {
     const today = new Date();
-    const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-      today.getDate()
-    ).padStart(2, "0")}`;
+    const todayISO = `${today.getFullYear()}-${String(
+      today.getMonth() + 1
+    ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     let porVencer = 0;
     let vencidas = 0;
@@ -61,54 +214,76 @@ export default function MisPlanes({ onOpenPlan, onOpenUpload }) {
         if (st === "ENVIADA") enRevision++;
 
         const d = diffDays(todayISO, p.fechaCierre);
+
         if (st === "PENDIENTE" || st === "RECHAZADA") {
           if (d < 0) vencidas++;
           else if (d <= 3) porVencer++;
         }
       }
     }
+
     return { porVencer, vencidas, enRevision };
   }, [planes]);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="space-y-6 p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-darkBlue">Mis planes de pago</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="mt-1 text-sm text-gray-500">
             Visualiza fechas de pago, cierres y el estado de cada parcialidad.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold border border-yellow-200">
+          <span className="rounded-full border border-yellow-200 bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">
             Por vencer: {summary.porVencer}
           </span>
-          <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold border border-red-200">
+          <span className="rounded-full border border-red-200 bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
             Vencidas: {summary.vencidas}
           </span>
-          <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold border border-blue-200">
+          <span className="rounded-full border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
             En revisión: {summary.enRevision}
           </span>
         </div>
       </div>
 
-      {/* Calendario */}
-      <CalendarSimple events={events} onOpenPlan={onOpenPlan} onOpenUpload={onOpenUpload} />
-
-      {/* Plan cards */}
-      {planes.length === 0 ? (
-        <div className="bg-white rounded-2xl border shadow-sm p-8 text-center">
-          <p className="text-gray-700 font-semibold">Aún no tienes planes asignados</p>
-          <p className="text-sm text-gray-500 mt-1">Cuando te asignen un plan aparecerá aquí.</p>
+      {loading ? (
+        <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
+          <p className="font-semibold text-gray-700">Cargando planes...</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Estamos consultando tus parcialidades.
+          </p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-6">
-          {planes.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} onOpen={() => onOpenPlan?.(plan.id)} />
-          ))}
-        </div>
+        <>
+          <CalendarSimple
+            events={events}
+            onOpenPlan={onOpenPlan}
+            onOpenUpload={onOpenUpload}
+          />
+
+          {planes.length === 0 ? (
+            <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
+              <p className="font-semibold text-gray-700">
+                Aún no tienes planes asignados
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Cuando te asignen un plan aparecerá aquí.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {planes.map((plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  onOpen={() => onOpenPlan?.(plan.id)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

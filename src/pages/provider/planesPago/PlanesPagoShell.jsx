@@ -4,7 +4,7 @@ import MisPlanes from "./MisPlanes";
 import DetallePlan from "./DetallePlan";
 import SubirParcialidad from "./SubirParcialidad";
 
-export default function PlanesPagoShell() {
+export default function PlanesPagoShell({showAlert}) {
   const [view, setView] = useState("LIST"); // LIST | DETAIL | UPLOAD
   const [activePlanId, setActivePlanId] = useState(null);
   const [activeParcialidadId, setActiveParcialidadId] = useState(null);
@@ -33,6 +33,7 @@ export default function PlanesPagoShell() {
         planId={activePlanId}
         onBack={goList}
         onUploadParcialidad={(planId, parcialidadId) => goUpload(planId, parcialidadId)}
+        showAlert={showAlert}
       />
     );
   }
@@ -44,9 +45,10 @@ export default function PlanesPagoShell() {
         parcialidadId={activeParcialidadId}
         onBack={() => goDetail(activePlanId)}
         onSubmitted={() => goDetail(activePlanId)}
+        showAlert={showAlert}
       />
     );
   }
 
-  return <MisPlanes onOpenPlan={goDetail} onOpenUpload={goUpload} />;
+  return <MisPlanes onOpenPlan={goDetail} onOpenUpload={goUpload} showAlert={showAlert} />;
 }

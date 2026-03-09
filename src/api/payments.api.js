@@ -71,6 +71,14 @@ export const PaymentsAPI = {
         const { data } = await api.patch(`/payments/${id}/mark-paid`, payload);
         return data; // { message, payment }
     },
+    async submit(id) {
+        const { data } = await api.patch(`/payments/${id}/submit`);
+        return data;
+    },
+    async listMyPlans() {
+        const { data } = await api.get("/payments/my-plans");
+        return data;
+    },
 };
 
 
