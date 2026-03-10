@@ -11,7 +11,6 @@ export const NotificationsAPI = {
   markAllRead() {
     return api.patch("/notifications/read-all").then((r) => r.data);
   },
-
   deleteUserRequest(id) {
     return api.delete(`/notifications/${id}/user-request`).then((r) => r.data);
   },

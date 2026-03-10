@@ -316,19 +316,17 @@ const DocumentosPro = () => {
             <button
               type="button"
               onClick={() => handleTipoPersonaChange("fisica")}
-              className={`rounded-lg border-2 p-4 text-left transition-all ${
-                tipoPersona === "fisica"
+              className={`rounded-lg border-2 p-4 text-left transition-all ${tipoPersona === "fisica"
                   ? "border-blue-600 bg-blue-50"
                   : "border-gray-200 hover:border-blue-400"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
                 <User
-                  className={`h-6 w-6 ${
-                    tipoPersona === "fisica"
+                  className={`h-6 w-6 ${tipoPersona === "fisica"
                       ? "text-blue-600"
                       : "text-gray-400"
-                  }`}
+                    }`}
                 />
                 <div>
                   <h4 className="font-semibold text-gray-800">
@@ -344,19 +342,17 @@ const DocumentosPro = () => {
             <button
               type="button"
               onClick={() => handleTipoPersonaChange("moral")}
-              className={`rounded-lg border-2 p-4 text-left transition-all ${
-                tipoPersona === "moral"
+              className={`rounded-lg border-2 p-4 text-left transition-all ${tipoPersona === "moral"
                   ? "border-blue-600 bg-blue-50"
                   : "border-gray-200 hover:border-blue-400"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
                 <Building
-                  className={`h-6 w-6 ${
-                    tipoPersona === "moral"
+                  className={`h-6 w-6 ${tipoPersona === "moral"
                       ? "text-blue-600"
                       : "text-gray-400"
-                  }`}
+                    }`}
                 />
                 <div>
                   <h4 className="font-semibold text-gray-800">
@@ -432,6 +428,15 @@ const DocumentosPro = () => {
                             </p>
                           ) : null}
 
+                          {code === "CONTRATO" ? (
+                            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                              <p className="text-sm font-medium text-amber-800">
+                                Este contrato debe de ir firmado por ambas partes o en su caso por el
+                                proveedor de una manera correcta.
+                              </p>
+                            </div>
+                          ) : null}
+
                           {local || existing ? (
                             <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3">
                               <div className="flex items-center space-x-3">
@@ -488,11 +493,10 @@ const DocumentosPro = () => {
                             </div>
                           ) : (
                             <div
-                              className={`rounded-lg border-2 border-dashed p-4 text-center transition ${
-                                errors[code]
+                              className={`rounded-lg border-2 border-dashed p-4 text-center transition ${errors[code]
                                   ? "border-red-500 bg-red-50"
                                   : "border-gray-300 hover:border-blue-500"
-                              }`}
+                                }`}
                             >
                               <Upload className="mx-auto mb-2 h-6 w-6 text-gray-400" />
                               <p className="mb-2 text-sm text-gray-700">
@@ -543,8 +547,8 @@ const DocumentosPro = () => {
         ) : null}
 
         {tipoPersona &&
-        (Object.keys(archivos).length > 0 ||
-          Object.keys(existingByCode).length > 0) ? (
+          (Object.keys(archivos).length > 0 ||
+            Object.keys(existingByCode).length > 0) ? (
           <SectionCard className="p-6">
             <h3 className="mb-4 text-lg font-semibold text-gray-800">
               Resumen de documentos
@@ -580,11 +584,10 @@ const DocumentosPro = () => {
             <button
               type="submit"
               disabled={!tipoPersona || !todosDocumentosCubiertos() || submitting}
-              className={`inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition ${
-                tipoPersona && todosDocumentosCubiertos() && !submitting
+              className={`inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition ${tipoPersona && todosDocumentosCubiertos() && !submitting
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "cursor-not-allowed bg-gray-300 text-gray-500"
-              }`}
+                }`}
             >
               {submitting ? (
                 <InlineLoading text="Enviando..." className="text-white" />
