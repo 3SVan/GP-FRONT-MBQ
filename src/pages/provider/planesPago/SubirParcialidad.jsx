@@ -1,11 +1,17 @@
 // src/pages/provider/planesPago/SubirParcialidad.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Send, AlertTriangle, CheckCircle2, Upload } from "lucide-react";
 import UploadCard from "../components/UploadCard";
 import WindowIndicator from "../components/WindowIndicator";
 import StatusBadge from "../components/StatusBadge";
 import { PaymentsAPI } from "../../../api/payments.api";
 import { PaymentEvidenceAPI } from "../../../api/paymentEvidence.api";
+
+import PageHeader from "../../../components/ui/PageHeader.jsx";
+import SectionCard from "../../../components/ui/SectionCard.jsx";
+import LoadingState from "../../../components/ui/LoadingState.jsx";
+import EmptyState from "../../../components/ui/EmptyState.jsx";
+import InlineLoading from "../../../components/ui/InlineLoading.jsx";
 
 function parseLocalDate(value) {
   if (!value) return null;
@@ -94,7 +100,7 @@ function fileTooBig(file, maxMb) {
 
 function StepCardInvoiceError() {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+    <SectionCard className="p-5">
       <p className="font-bold text-darkBlue">Corrección por error en factura</p>
       <p className="mt-1 text-sm text-gray-500">
         Este rechazo requiere: acuse de cancelación SAT y nuevas facturas.
@@ -120,7 +126,7 @@ function StepCardInvoiceError() {
           </p>
         </div>
       </div>
-    </div>
+    </SectionCard>
   );
 }
 
@@ -220,7 +226,10 @@ export default function SubirParcialidad({
         }
       } catch (error) {
         console.error("Error cargando parcialidad proveedor:", error);
+
         if (!cancelled) {
+          setPlan(null);
+          setParcialidad(null);
           showAlert?.(
             "error",
             "Parcialidades",
@@ -242,26 +251,39 @@ export default function SubirParcialidad({
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="rounded-2xl border bg-white p-6">
-          <p className="font-semibold text-gray-700">Cargando parcialidad...</p>
-        </div>
+      <div className="bg-beige px-6 py-6">
+        <LoadingState
+          title="Cargando parcialidad..."
+          subtitle="Estamos preparando la información y los documentos requeridos."
+        />
       </div>
     );
   }
 
   if (!plan || !parcialidad) {
     return (
-      <div className="p-6">
-        <button
-          onClick={onBack}
-          className="text-sm font-semibold text-midBlue underline"
-        >
-          Volver
-        </button>
-        <div className="mt-4 rounded-2xl border bg-white p-6">
-          <p className="font-semibold text-gray-700">Parcialidad no encontrada</p>
-        </div>
+      <div className="space-y-6 bg-beige px-6 py-6">
+        <PageHeader
+          title="Subir parcialidad"
+          subtitle="Adjunta la evidencia correspondiente para enviarla a revisión."
+          action={
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold hover:bg-gray-50"
+            >
+              <ArrowLeft size={18} />
+              Volver
+            </button>
+          }
+        />
+
+        <SectionCard className="p-4">
+          <EmptyState
+            icon={Upload}
+            title="Parcialidad no encontrada"
+            subtitle="No fue posible localizar la parcialidad seleccionada."
+          />
+        </SectionCard>
       </div>
     );
   }
@@ -377,28 +399,28 @@ export default function SubirParcialidad({
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold hover:bg-gray-50"
-        >
-          <ArrowLeft size={18} />
-          Volver
-        </button>
+    <div className="space-y-6 bg-beige px-6 py-6">
+      <PageHeader
+        title={`Subir parcialidad #${parcialidad.numero}`}
+        subtitle="Adjunta la evidencia correspondiente para enviar esta parcialidad a revisión."
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={st} />
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold hover:bg-gray-50"
+            >
+              <ArrowLeft size={18} />
+              Volver
+            </button>
+          </div>
+        }
+      />
 
-        <div className="flex items-center gap-3">
-          <p className="text-lg font-bold text-darkBlue">
-            Subir parcialidad #{parcialidad.numero}
-          </p>
-          <StatusBadge status={st} />
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-2xl border bg-white p-5 shadow-sm">
+      <SectionCard className="p-5">
         <p className="text-sm text-gray-500">Resumen</p>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
             <p className="text-sm text-gray-600">
               OC: <b className="text-gray-800">{plan.ordenCompra}</b>
@@ -427,19 +449,23 @@ export default function SubirParcialidad({
           </div>
         </div>
 
-        <WindowIndicator fechaCierre={parcialidad.fechaCierre} />
-      </div>
+        <div className="mt-4">
+          <WindowIndicator fechaCierre={parcialidad.fechaCierre} />
+        </div>
+      </SectionCard>
 
       {bloqueoVentana && (
-        <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
-          <AlertTriangle className="mt-0.5" size={18} />
-          <div>
-            <p className="font-semibold">Ventana vencida</p>
-            <p className="text-sm opacity-90">
-              La fecha de cierre ya pasó. Por ahora se bloquea el envío.
-            </p>
+        <SectionCard className="p-4">
+          <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+            <AlertTriangle className="mt-0.5" size={18} />
+            <div>
+              <p className="font-semibold">Ventana vencida</p>
+              <p className="text-sm opacity-90">
+                La fecha de cierre ya pasó. Por ahora se bloquea el envío.
+              </p>
+            </div>
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {isInvoiceErrorMode && <StepCardInvoiceError />}
@@ -452,10 +478,12 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".pdf"))
+          if (!fileOk(f, ".pdf")) {
             return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
-          if (fileTooBig(f, 10))
+          }
+          if (fileTooBig(f, 10)) {
             return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
+          }
           setPdfFile(f);
         }}
       />
@@ -468,10 +496,12 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".xml"))
+          if (!fileOk(f, ".xml")) {
             return showAlert?.("error", "Archivo inválido", "Solo se permite XML.");
-          if (fileTooBig(f, 10))
+          }
+          if (fileTooBig(f, 10)) {
             return showAlert?.("error", "Archivo inválido", "El XML supera 10MB.");
+          }
           setXmlFile(f);
         }}
       />
@@ -484,10 +514,12 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".pdf"))
+          if (!fileOk(f, ".pdf")) {
             return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
-          if (fileTooBig(f, 10))
+          }
+          if (fileTooBig(f, 10)) {
             return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
+          }
           setSatPdfFile(f);
         }}
       />
@@ -500,10 +532,12 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".pdf"))
+          if (!fileOk(f, ".pdf")) {
             return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
-          if (fileTooBig(f, 10))
+          }
+          if (fileTooBig(f, 10)) {
             return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
+          }
           setInvPdfFile(f);
         }}
       />
@@ -516,42 +550,46 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".xml"))
+          if (!fileOk(f, ".xml")) {
             return showAlert?.("error", "Archivo inválido", "Solo se permite XML.");
-          if (fileTooBig(f, 10))
+          }
+          if (fileTooBig(f, 10)) {
             return showAlert?.("error", "Archivo inválido", "El XML supera 10MB.");
+          }
           setInvXmlFile(f);
         }}
       />
 
       {!isInvoiceErrorMode ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          <UploadCard
-            title="Factura PDF"
-            typeLabel="PDF"
-            acceptLabel="pdf"
-            required
-            maxMb={10}
-            onPick={() => pdfRef.current?.click()}
-            newFileName={pdfFile?.name || ""}
-            currentFilesList={currentPdfList}
-            onRemoveCurrentAt={() => setCurrentPdfList([])}
-          />
+        <SectionCard className="p-5">
+          <div className="grid gap-6 md:grid-cols-2">
+            <UploadCard
+              title="Factura PDF"
+              typeLabel="PDF"
+              acceptLabel="pdf"
+              required
+              maxMb={10}
+              onPick={() => pdfRef.current?.click()}
+              newFileName={pdfFile?.name || ""}
+              currentFilesList={currentPdfList}
+              onRemoveCurrentAt={() => setCurrentPdfList([])}
+            />
 
-          <UploadCard
-            title="Factura XML"
-            typeLabel="XML"
-            acceptLabel="xml"
-            required
-            maxMb={10}
-            onPick={() => xmlRef.current?.click()}
-            newFileName={xmlFile?.name || ""}
-            currentFilesList={currentXmlList}
-            onRemoveCurrentAt={() => setCurrentXmlList([])}
-          />
-        </div>
+            <UploadCard
+              title="Factura XML"
+              typeLabel="XML"
+              acceptLabel="xml"
+              required
+              maxMb={10}
+              onPick={() => xmlRef.current?.click()}
+              newFileName={xmlFile?.name || ""}
+              currentFilesList={currentXmlList}
+              onRemoveCurrentAt={() => setCurrentXmlList([])}
+            />
+          </div>
+        </SectionCard>
       ) : (
-        <div className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <SectionCard className="p-5">
           <div className="flex items-start gap-3">
             <div className="rounded-xl border border-red-100 bg-red-50 p-2">
               <AlertTriangle className="text-red-600" />
@@ -564,7 +602,7 @@ export default function SubirParcialidad({
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="mt-4 grid gap-6 md:grid-cols-3">
             <UploadCard
               title="Acuse de cancelación SAT"
               typeLabel="PDF"
@@ -599,17 +637,18 @@ export default function SubirParcialidad({
             />
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
             <CheckCircle2 size={16} className="text-green-600" />
             El envío se habilita cuando adjuntas estos 3 archivos.
           </div>
-        </div>
+        </SectionCard>
       )}
 
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
+      <SectionCard className="p-5">
         <p className="font-bold text-darkBlue">
           Comentarios para el aprobador (opcional)
         </p>
+
         <textarea
           value={comentarios}
           onChange={(e) => setComentarios(e.target.value)}
@@ -617,31 +656,33 @@ export default function SubirParcialidad({
           className="mt-3 w-full rounded-2xl border p-3 text-sm outline-none focus:ring-2 focus:ring-midBlue"
           placeholder="Escribe un comentario breve si aplica..."
         />
-      </div>
+      </SectionCard>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="text-sm text-gray-500">
-          {bloqueoVentana
-            ? "Ventana vencida. No se puede enviar."
-            : isInvoiceErrorMode
-            ? "Requiere: Acuse SAT + Nueva factura PDF + Nueva factura XML."
-            : "Requiere: Factura PDF + Factura XML."}
+      <SectionCard className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="text-sm text-gray-500">
+            {bloqueoVentana
+              ? "Ventana vencida. No se puede enviar."
+              : isInvoiceErrorMode
+              ? "Requiere: Acuse SAT + Nueva factura PDF + Nueva factura XML."
+              : "Requiere: Factura PDF + Factura XML."}
+          </div>
+
+          <button
+            disabled={!canSend || working}
+            onClick={handleSubmit}
+            className={[
+              "inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold transition",
+              canSend && !working
+                ? "bg-midBlue text-white hover:opacity-90"
+                : "cursor-not-allowed bg-gray-200 text-gray-500",
+            ].join(" ")}
+          >
+            {working ? <InlineLoading text="Enviando..." /> : <Send size={18} />}
+            {!working ? sendLabel : null}
+          </button>
         </div>
-
-        <button
-          disabled={!canSend || working}
-          onClick={handleSubmit}
-          className={[
-            "inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-semibold transition",
-            canSend && !working
-              ? "bg-midBlue text-white hover:opacity-90"
-              : "cursor-not-allowed bg-gray-200 text-gray-500",
-          ].join(" ")}
-        >
-          <Send size={18} />
-          {working ? "Enviando..." : sendLabel}
-        </button>
-      </div>
+      </SectionCard>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // src/pages/approver/DashboardApro.jsx
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   User,
   ChevronLeft,
@@ -13,6 +13,7 @@ import {
 
 import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
+import { AnalyticsAPI } from "../../api/analytics.api";
 
 import Documents from "./Documents.jsx";
 import Parcialidades from "./Parcialidades.jsx";
@@ -47,6 +48,9 @@ function DashboardApro() {
     onConfirm: null,
   });
 
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+
   const showAlert = useCallback(
     (type, title, message, showConfirm = false, onConfirm = null) => {
       setAlertConfig({ type, title, message, showConfirm, onConfirm });
@@ -68,6 +72,41 @@ function DashboardApro() {
   } = useDocumentReviews({ showAlert });
 
   const { currentUser } = useCurrentUser();
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadDashboardStats = async () => {
+      try {
+        setLoadingStats(true);
+
+        const data = await AnalyticsAPI.getApproverDashboard();
+
+        if (!alive) return;
+
+        setStats(data || null);
+      } catch (error) {
+        console.error("Error cargando métricas del aprobador:", error);
+
+        if (!alive) return;
+
+        setStats(null);
+        showAlert(
+          "error",
+          "Métricas",
+          "No se pudieron cargar las métricas del dashboard del aprobador."
+        );
+      } finally {
+        if (alive) setLoadingStats(false);
+      }
+    };
+
+    loadDashboardStats();
+
+    return () => {
+      alive = false;
+    };
+  }, [showAlert]);
 
   const handleAprobacionChange = (nuevasAprobaciones) =>
     setAprobaciones(nuevasAprobaciones);
@@ -309,7 +348,13 @@ function DashboardApro() {
 
         <section className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
-            <Graficas showAlert={showAlert} />
+            <Graficas
+              showAlert={showAlert}
+              loading={loadingStats}
+              stats={stats}
+              tableEnabled={false}
+              tableScope="none"
+            />
           </div>
         </section>
       </main>

@@ -18,7 +18,7 @@ export const AnalyticsAPI = {
   },
 
   /**
-   * ✅ GET /api/analytics/activity
+   * GET /api/analytics/activity
    * Historial de actividad (ADMIN)
    */
   getActivity(params = {}) {
@@ -26,10 +26,18 @@ export const AnalyticsAPI = {
   },
 
   /**
-   * ✅ GET /api/analytics/provider-dashboard
-   * Dashboard PROVEEDOR (Facturas / Contratos / Órdenes de Compra)
+   * GET /api/analytics/provider-dashboard
+   * Dashboard PROVEEDOR
    */
   getProviderDashboard() {
     return api.get("/analytics/provider-dashboard").then((r) => r.data);
+  },
+
+  /**
+   * GET /api/analytics/approver-dashboard
+   * Dashboard APROBADOR
+   */
+  getApproverDashboard() {
+    return api.get("/analytics/approver-dashboard").then((r) => r.data);
   },
 };

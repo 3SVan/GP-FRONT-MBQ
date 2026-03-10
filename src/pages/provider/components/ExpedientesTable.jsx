@@ -1,7 +1,19 @@
 //  src/pages/provider/components/ExpedientesTable.jsx
 import React, { useMemo, useState } from "react";
-import { Eye, Download, Pencil, Check, Trash2, AlertTriangle, FileText } from "lucide-react";
+import {
+  Eye,
+  Download,
+  Pencil,
+  Check,
+  Trash2,
+  AlertTriangle,
+  FileText,
+  FolderOpen,
+} from "lucide-react";
 import InvoiceFilesModal from "./InvoiceFilesModal.jsx";
+
+import TableContainer from "../../../components/ui/TableContainer.jsx";
+import EmptyState from "../../../components/ui/EmptyState.jsx";
 
 function formatDate(d) {
   try {
@@ -19,6 +31,7 @@ function StatusPill({ status }) {
     APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
     CANCELLED: "bg-red-100 text-red-800 border-red-200",
   };
+
   const label = {
     DRAFT: "Pendiente",
     SENT: "Enviado",
@@ -28,7 +41,7 @@ function StatusPill({ status }) {
 
   return (
     <span
-      className={`px-2 py-1 rounded-full text-xs border ${
+      className={`px-2 py-1 rounded-full text-xs border font-medium ${
         map[status] || "bg-gray-100 text-gray-700 border-gray-200"
       }`}
     >
@@ -39,39 +52,36 @@ function StatusPill({ status }) {
 
 function IconCell({ enabled, onView, onDownload }) {
   return (
-    <div className="flex items-center gap-2 justify-center">
+    <div className="flex items-center justify-center gap-2">
       <button
         type="button"
         onClick={onView}
-        className={`p-1.5 rounded-md border transition ${
-          enabled ? "hover:bg-lightBlue" : "opacity-40 cursor-not-allowed"
+        className={`rounded-md border p-1.5 transition ${
+          enabled ? "hover:bg-lightBlue" : "cursor-not-allowed opacity-40"
         }`}
         disabled={!enabled}
         title="Ver"
       >
-        <Eye className="w-4 h-4" />
+        <Eye className="h-4 w-4" />
       </button>
 
       <button
         type="button"
         onClick={onDownload}
-        className={`p-1.5 rounded-md border transition ${
-          enabled ? "hover:bg-lightBlue" : "opacity-40 cursor-not-allowed"
+        className={`rounded-md border p-1.5 transition ${
+          enabled ? "hover:bg-lightBlue" : "cursor-not-allowed opacity-40"
         }`}
         disabled={!enabled}
         title="Descargar"
       >
-        <Download className="w-4 h-4" />
+        <Download className="h-4 w-4" />
       </button>
     </div>
   );
 }
 
 /**
- * Normaliza múltiples posibles formas de datos (por si backend cambia).
- * Idealmente tu row debería traer algo como:
- *   row.invoicePdfs = [{name, url, ...}, ...]
- *   row.invoiceXmls = [{name, url, ...}, ...]
+ * Normaliza múltiples posibles formas de datos.
  */
 function normalizeInvoiceFiles(row) {
   const pickArray = (...candidates) => {
@@ -108,19 +118,20 @@ function normalizeInvoiceFiles(row) {
 
 function FileCountButton({ label, count, onClick }) {
   const enabled = count > 0;
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={!enabled}
-      className={`w-full px-3 py-2 rounded-xl border text-sm flex items-center justify-center gap-2 transition ${
+      className={`w-full rounded-xl border px-3 py-2 text-sm flex items-center justify-center gap-2 transition ${
         enabled
-          ? "hover:bg-lightBlue text-darkBlue"
-          : "opacity-40 cursor-not-allowed text-midBlue"
+          ? "text-darkBlue hover:bg-lightBlue"
+          : "cursor-not-allowed text-midBlue opacity-40"
       }`}
       title={enabled ? `Ver ${label}` : `Sin ${label}`}
     >
-      <FileText className="w-4 h-4" />
+      <FileText className="h-4 w-4" />
       <span className="font-medium">{label}</span>
       <span className="text-midBlue">({count})</span>
     </button>
@@ -148,14 +159,9 @@ export default function ExpedientesTable({
   onViewInvoiceXml,
   onDownloadInvoiceXml,
 }) {
-  // modal state
   const [filesOpen, setFilesOpen] = useState(false);
   const [filesRow, setFilesRow] = useState(null);
   const [filesTab, setFilesTab] = useState("PDF");
-
-  const { pdfs, xmls } = useMemo(() => {
-    return { pdfs: [], xmls: [] };
-  }, []);
 
   const openFiles = (row, tab) => {
     setFilesRow(row);
@@ -174,79 +180,106 @@ export default function ExpedientesTable({
   }, [filesRow]);
 
   return (
-    <div className="mt-6 bg-white rounded-xl shadow-lg border border-lightBlue overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full">
-          <thead className="bg-darkBlue text-white">
-            <tr>
-              <th className="text-left px-4 py-3 text-sm font-semibold">Fecha</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold">Número de Orden</th>
-              <th className="text-center px-4 py-3 text-sm font-semibold">Órdenes de compra (PDF)</th>
-              <th className="text-center px-4 py-3 text-sm font-semibold">Factura (PDF/XML)</th>
-              <th className="text-center px-4 py-3 text-sm font-semibold">Acción</th>
-            </tr>
-          </thead>
+    <TableContainer
+      loading={loading}
+      loadingTitle="Cargando expedientes..."
+      loadingSubtitle="Estamos preparando tus órdenes de compra y sus documentos."
+      className="rounded-2xl"
+    >
+      {!loading && (!rows || rows.length === 0) ? (
+        <div className="p-4">
+          <EmptyState
+            icon={FolderOpen}
+            title="No hay expedientes disponibles"
+            subtitle="Cuando tengas órdenes de compra o facturas registradas aparecerán aquí."
+            className="py-10"
+          />
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-darkBlue text-white">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Fecha
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Número de Orden
+                </th>
+                <th className="px-4 py-3 text-center text-sm font-semibold">
+                  Órdenes de compra (PDF)
+                </th>
+                <th className="px-4 py-3 text-center text-sm font-semibold">
+                  Factura (PDF/XML)
+                </th>
+                <th className="px-4 py-3 text-center text-sm font-semibold">
+                  Acción
+                </th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-midBlue">
-                  Cargando expedientes...
-                </td>
-              </tr>
-            ) : !rows || rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-midBlue">
-                  No hay expedientes disponibles.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => {
+            <tbody>
+              {(rows || []).map((row) => {
                 const lockedApproved = row.backendStatus === "APPROVED";
                 const lockedSent = row.backendStatus === "SENT";
 
-                const { pdfs: invoicePdfs, xmls: invoiceXmls } = normalizeInvoiceFiles(row);
+                const { pdfs: invoicePdfs, xmls: invoiceXmls } =
+                  normalizeInvoiceFiles(row);
 
                 const pdfCount =
-                  invoicePdfs.length > 0 ? invoicePdfs.length : (row.hasInvoicePdf ? 1 : 0);
+                  invoicePdfs.length > 0
+                    ? invoicePdfs.length
+                    : row.hasInvoicePdf
+                    ? 1
+                    : 0;
+
                 const xmlCount =
-                  invoiceXmls.length > 0 ? invoiceXmls.length : (row.hasInvoiceXml ? 1 : 0);
+                  invoiceXmls.length > 0
+                    ? invoiceXmls.length
+                    : row.hasInvoiceXml
+                    ? 1
+                    : 0;
 
                 return (
                   <tr
                     key={row.id}
-                    className="border-b border-lightBlue hover:bg-[#f7fbff] transition"
+                    className="border-b border-lightBlue transition hover:bg-[#f7fbff]"
                   >
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-darkBlue font-medium">{formatDate(row.fecha)}</span>
+                        <span className="font-medium text-darkBlue">
+                          {formatDate(row.fecha)}
+                        </span>
                         <StatusPill status={row.status} />
                       </div>
 
                       {(lockedSent || lockedApproved) && (
                         <div
-                          className={`text-xs mt-1 flex items-center gap-2 ${
+                          className={`mt-1 flex items-center gap-2 text-xs ${
                             lockedSent ? "text-green-700" : "text-midBlue"
                           }`}
                         >
                           <AlertTriangle
-                            className={`w-4 h-4 ${
+                            className={`h-4 w-4 ${
                               lockedSent ? "text-green-600" : "text-yellow-600"
                             }`}
                           />
-                          {lockedSent ? "Enviado (no editable)" : "Bloqueado por aprobación"}
+                          {lockedSent
+                            ? "Enviado (no editable)"
+                            : "Bloqueado por aprobación"}
                         </div>
                       )}
                     </td>
 
-                    {/* Número de Orden */}
                     <td className="px-4 py-4">
-                      <div className="text-darkBlue font-semibold">
+                      <div className="font-semibold text-darkBlue">
                         {row?.purchaseOrder?.number || "-"}
                       </div>
                       <div className="text-xs text-midBlue">
                         Monto:{" "}
-                        {Number(row?.purchaseOrder?.total || 0).toLocaleString("es-MX")}
+                        {Number(row?.purchaseOrder?.total || 0).toLocaleString(
+                          "es-MX"
+                        )}
                       </div>
                     </td>
 
@@ -273,41 +306,44 @@ export default function ExpedientesTable({
                       </div>
                     </td>
 
-                    {/* Acciones */}
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-2 justify-center flex-wrap">
+                      <div className="flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={() => onEdit?.(row)}
-                          className={`p-2 rounded-lg border ${
+                          className={`rounded-lg border p-2 ${
                             canEdit?.(row)
-                              ? "hover:bg-lightBlue transition"
-                              : "opacity-40 cursor-not-allowed"
+                              ? "transition hover:bg-lightBlue"
+                              : "cursor-not-allowed opacity-40"
                           }`}
                           title={canEdit?.(row) ? "Editar" : "No editable"}
                           disabled={!canEdit?.(row)}
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Pencil className="h-4 w-4" />
                         </button>
 
                         <button
                           onClick={() => onSubmit?.(row)}
-                          className={`p-2 rounded-lg border ${
+                          className={`rounded-lg border p-2 ${
                             canSubmit?.(row)
-                              ? "hover:bg-green-50 transition"
-                              : "opacity-40 cursor-not-allowed"
+                              ? "transition hover:bg-green-50"
+                              : "cursor-not-allowed opacity-40"
                           }`}
-                          title={canSubmit?.(row) ? "Enviar a validación" : "Solo si está Pendiente"}
+                          title={
+                            canSubmit?.(row)
+                              ? "Enviar a validación"
+                              : "Solo si está Pendiente"
+                          }
                           disabled={!canSubmit?.(row)}
                         >
-                          <Check className="w-4 h-4 text-green-600" />
+                          <Check className="h-4 w-4 text-green-600" />
                         </button>
 
                         <button
                           onClick={() => onDelete?.(row)}
-                          className={`p-2 rounded-lg border ${
+                          className={`rounded-lg border p-2 ${
                             canDelete?.(row)
-                              ? "hover:bg-red-50 transition"
-                              : "opacity-40 cursor-not-allowed"
+                              ? "transition hover:bg-red-50"
+                              : "cursor-not-allowed opacity-40"
                           }`}
                           title={
                             canDelete?.(row)
@@ -316,17 +352,17 @@ export default function ExpedientesTable({
                           }
                           disabled={!canDelete?.(row)}
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="h-4 w-4 text-red-600" />
                         </button>
                       </div>
                     </td>
                   </tr>
                 );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <InvoiceFilesModal
         open={filesOpen}
@@ -340,6 +376,6 @@ export default function ExpedientesTable({
         onViewXml={onViewInvoiceXml}
         onDownloadXml={onDownloadInvoiceXml}
       />
-    </div>
+    </TableContainer>
   );
 }

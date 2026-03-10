@@ -1,75 +1,95 @@
-import React from 'react';
-import { Clock, Eye, CheckCircle, DollarSign } from 'lucide-react';
+// src/pages/provider/EstatusPago.jsx
+import React from "react";
+import { Clock, Eye, CheckCircle, DollarSign } from "lucide-react";
+
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import SectionCard from "../../components/ui/SectionCard.jsx";
 
 const EstatusPago = () => {
-  // Datos con solo los días de tardanza por estatus
   const tiemposEstatus = [
     {
-      estatus: 'Pendiente de validación',
-      tiempo: '2 días',
-      color: 'bg-yellow-50 border-yellow-200',
+      estatus: "Pendiente de validación",
+      tiempo: "2 días",
+      tone: "yellow",
       icono: Clock,
-      iconColor: 'text-yellow-500',
-      bgIcon: 'bg-yellow-100'
+      iconColor: "text-yellow-600",
+      bgIcon: "bg-yellow-100",
+      border: "border-yellow-200",
+      bgCard: "bg-yellow-50",
+      bar: "bg-yellow-300",
     },
     {
-      estatus: 'En revisión',
-      tiempo: '3 días',
-      color: 'bg-blue-50 border-blue-200',
+      estatus: "En revisión",
+      tiempo: "3 días",
+      tone: "blue",
       icono: Eye,
-      iconColor: 'text-blue-500',
-      bgIcon: 'bg-blue-100'
+      iconColor: "text-blue-600",
+      bgIcon: "bg-blue-100",
+      border: "border-blue-200",
+      bgCard: "bg-blue-50",
+      bar: "bg-blue-300",
     },
     {
-      estatus: 'Autorizado',
-      tiempo: '1 día',
-      color: 'bg-green-50 border-green-200',
+      estatus: "Autorizado",
+      tiempo: "1 día",
+      tone: "green",
       icono: CheckCircle,
-      iconColor: 'text-green-500',
-      bgIcon: 'bg-green-100'
+      iconColor: "text-green-600",
+      bgIcon: "bg-green-100",
+      border: "border-green-200",
+      bgCard: "bg-green-50",
+      bar: "bg-green-300",
     },
     {
-      estatus: 'Pagado',
-      tiempo: '2 días',
-      color: 'bg-purple-50 border-purple-200',
+      estatus: "Pagado",
+      tiempo: "2 días",
+      tone: "purple",
       icono: DollarSign,
-      iconColor: 'text-purple-500',
-      bgIcon: 'bg-purple-100'
-    }
+      iconColor: "text-purple-600",
+      bgIcon: "bg-purple-100",
+      border: "border-purple-200",
+      bgCard: "bg-purple-50",
+      bar: "bg-purple-300",
+    },
   ];
 
   return (
-    <div className="min-h-screen bg-beige p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold text-darkBlue mb-4">Tiempos por Estatus de Pago</h2>
-          <p className="text-xl text-midBlue">Días de tardanza en cada etapa del proceso</p>
-        </div>
+    <div className="space-y-6 bg-beige px-6 py-6">
+      <PageHeader
+        title="Tiempos por estatus de pago"
+        subtitle="Consulta los días estimados de tardanza en cada etapa del proceso."
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <SectionCard className="p-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {tiemposEstatus.map((item, index) => {
             const Icono = item.icono;
-            
+
             return (
-              <div 
-                key={index} 
-                className={`p-8 rounded-xl border-2 ${item.color} text-center transition-all duration-300 hover:scale-105 hover:shadow-lg`}
+              <div
+                key={index}
+                className={`rounded-xl border p-6 text-center shadow-sm transition-transform duration-300 hover:scale-[1.02] ${item.border} ${item.bgCard}`}
               >
-                <div className={`p-4 rounded-2xl ${item.bgIcon} inline-flex items-center justify-center mb-6`}>
-                  <Icono className={`w-12 h-12 ${item.iconColor}`} />
+                <div
+                  className={`mb-5 inline-flex items-center justify-center rounded-2xl p-4 ${item.bgIcon}`}
+                >
+                  <Icono className={`h-10 w-10 ${item.iconColor}`} />
                 </div>
 
-                <div className="text-4xl font-bold text-gray-800 mb-4">{item.tiempo}</div>
+                <div className="mb-3 text-3xl font-bold text-gray-800">
+                  {item.tiempo}
+                </div>
 
-                <h3 className="text-lg font-semibold text-darkBlue leading-tight">{item.estatus}</h3>
+                <h3 className="text-base font-semibold leading-tight text-gray-800">
+                  {item.estatus}
+                </h3>
 
-                <div className={`h-1 w-16 mx-auto mt-4 rounded-full ${item.bgIcon.replace('bg-', 'bg-').replace('100', '300')}`}></div>
+                <div className={`mx-auto mt-4 h-1 w-16 rounded-full ${item.bar}`} />
               </div>
             );
           })}
         </div>
-      </div>
+      </SectionCard>
     </div>
   );
 };

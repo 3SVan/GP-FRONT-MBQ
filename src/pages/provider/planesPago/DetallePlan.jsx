@@ -1,8 +1,16 @@
 // src/pages/provider/planesPago/DetallePlan.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft, Receipt } from "lucide-react";
 import ParcialidadesTable from "../components/ParcialidadesTable";
+import RejectionReasonModal from "../components/RejectionReasonModal";
 import { PaymentsAPI } from "../../../api/payments.api";
+
+import PageHeader from "../../../components/ui/PageHeader.jsx";
+import SectionCard from "../../../components/ui/SectionCard.jsx";
+import LoadingState from "../../../components/ui/LoadingState.jsx";
+import EmptyState from "../../../components/ui/EmptyState.jsx";
+import StatusBadge from "../../../components/ui/StatusBadge.jsx";
+import SystemAlert from "../../../components/ui/SystemAlert.jsx";
 
 function parseLocalDate(value) {
   if (!value) return null;
@@ -45,6 +53,26 @@ function formatDateISO(value) {
   return d.toLocaleDateString("es-MX");
 }
 
+function isBeforeToday(dateStr) {
+  const d = parseLocalDate(dateStr);
+  if (!d) return false;
+
+  const today = new Date();
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  ).getTime();
+
+  const dateStart = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate()
+  ).getTime();
+
+  return dateStart < todayStart;
+}
+
 function backendStatusToUi(status) {
   const st = String(status || "").toUpperCase();
 
@@ -77,11 +105,28 @@ function derivePlanStatus(parcialidades = []) {
   return "PENDIENTE";
 }
 
-export default function DetallePlan({ planId, onBack, onUploadParcialidad }) {
+function summaryTone(status) {
+  const st = String(status || "").toUpperCase();
+  if (st === "PAGADA") return "success";
+  if (st === "EN REVISIÓN") return "info";
+  if (st === "CON OBSERVACIONES") return "warning";
+  if (st === "APROBADA") return "success";
+  return "neutral";
+}
+
+export default function DetallePlan({
+  planId,
+  onBack,
+  onUploadParcialidad,
+  showAlert,
+}) {
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState(null);
-  const [showReject, setShowReject] = useState(false);
-  const [rejectItem, setRejectItem] = useState(null);
+
+  const [rejectionModal, setRejectionModal] = useState({
+    open: false,
+    parcialidad: null,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -124,14 +169,16 @@ export default function DetallePlan({ planId, onBack, onUploadParcialidad }) {
                 payment.installmentOf || poPayments.length || 1,
               monto: Number(payment.amount || 0),
               fechaPago: toLocalISO(payment.paidAt),
-              fechaCierre: toLocalISO(payment.closeDate || payment.paidAt),
+              fechaCierre: toLocalISO(payment.closeAt || payment.closeDate || payment.paidAt),
               estado: backendStatusToUi(payment.status),
               rejectionType: payment.rejectionType || "",
               rejectionComment: payment.decisionComment || "",
               rechazoMotivo: payment.decisionComment || "",
               evidencia: {
                 pdfName: pdf?.fileName || "",
+                pdfUrl: pdf?.url || "",
                 xmlName: xml?.fileName || "",
+                xmlUrl: xml?.url || "",
               },
             };
           })
@@ -149,7 +196,17 @@ export default function DetallePlan({ planId, onBack, onUploadParcialidad }) {
         if (!cancelled) setPlan(mappedPlan);
       } catch (error) {
         console.error("Error cargando detalle del plan:", error);
-        if (!cancelled) setPlan(null);
+
+        if (!cancelled) {
+          setPlan(null);
+          showAlert?.(
+            "error",
+            "Detalle del plan",
+            error?.response?.data?.error ||
+              error?.message ||
+              "No se pudo cargar el detalle del plan."
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -160,7 +217,7 @@ export default function DetallePlan({ planId, onBack, onUploadParcialidad }) {
     return () => {
       cancelled = true;
     };
-  }, [planId]);
+  }, [planId, showAlert]);
 
   const resumen = useMemo(() => {
     if (!plan) return null;
@@ -189,160 +246,183 @@ export default function DetallePlan({ planId, onBack, onUploadParcialidad }) {
     };
   }, [plan]);
 
+  function closeRejectionModal() {
+    setRejectionModal({
+      open: false,
+      parcialidad: null,
+    });
+  }
+
+  function handleViewEvidence(p) {
+    const pdfUrl = p?.evidencia?.pdfUrl || "";
+    const xmlUrl = p?.evidencia?.xmlUrl || "";
+
+    if (pdfUrl) {
+      window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (xmlUrl) {
+      window.open(xmlUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    showAlert?.(
+      "info",
+      `Parcialidad #${p.numero}`,
+      "Esta parcialidad todavía no tiene un archivo disponible para visualizar."
+    );
+  }
+
+  function handleViewRejection(p) {
+    setRejectionModal({
+      open: true,
+      parcialidad: p,
+    });
+  }
+
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="rounded-2xl border bg-white p-6">
-          <p className="font-semibold text-gray-700">Cargando plan...</p>
-        </div>
+      <div className="bg-beige px-6 py-6">
+        <LoadingState
+          title="Cargando plan..."
+          subtitle="Estamos preparando el detalle de tu plan y sus parcialidades."
+        />
       </div>
     );
   }
 
   if (!plan) {
     return (
-      <div className="p-6">
-        <button
-          onClick={onBack}
-          className="text-sm font-semibold text-midBlue underline"
-        >
-          Volver
-        </button>
-        <div className="mt-4 rounded-2xl border bg-white p-6">
-          <p className="font-semibold text-gray-700">Plan no encontrado</p>
-        </div>
+      <div className="space-y-6 bg-beige px-6 py-6">
+        <PageHeader
+          title="Detalle del plan"
+          subtitle="Consulta el resumen de tu plan y el estado de sus parcialidades."
+          action={
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold hover:bg-gray-50"
+            >
+              <ArrowLeft size={18} />
+              Volver
+            </button>
+          }
+        />
+
+        <SectionCard className="p-4">
+          <EmptyState
+            icon={Receipt}
+            title="Plan no encontrado"
+            subtitle="No fue posible localizar el plan seleccionado."
+          />
+        </SectionCard>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold hover:bg-gray-50"
-        >
-          <ArrowLeft size={18} />
-          Volver
-        </button>
-
-        <div className="text-right">
-          <p className="text-xs text-gray-500">Plan</p>
-          <p className="text-lg font-bold text-darkBlue">{plan.ordenCompra}</p>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-sm text-gray-500">Orden de compra</p>
-            <p className="text-xl font-bold text-darkBlue">{plan.ordenCompra}</p>
-            <p className="text-sm text-gray-500">
-              Total del plan:{" "}
-              <b className="text-gray-700">
-                {formatCurrency(plan.total, plan.moneda)}
-              </b>
-            </p>
-            <p className="text-sm text-gray-500">
-              Estado del plan:{" "}
-              <span className="font-semibold text-gray-700">
+    <>
+      <div className="space-y-6 bg-beige px-6 py-6">
+        <PageHeader
+          title={`Plan ${plan.ordenCompra}`}
+          subtitle="Consulta el progreso general y administra las parcialidades de este plan."
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={summaryTone(plan.status)}>
                 {String(plan.status || "").toUpperCase()}
-              </span>
-            </p>
-          </div>
-
-          <div className="min-w-[260px]">
-            <p className="mb-2 text-sm text-gray-500">Progreso</p>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-2 rounded-full bg-midBlue"
-                style={{ width: `${resumen.progreso}%` }}
-              />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-              <span>
-                Pagadas <b className="text-gray-700">{resumen.pagadas}</b>/
-                <b className="text-gray-700">{resumen.total}</b>
-              </span>
-
-              {resumen.proximoCierre ? (
-                <span>
-                  Próx. cierre:{" "}
-                  <b className="text-gray-700">
-                    {formatDateISO(resumen.proximoCierre)}
-                  </b>
-                </span>
-              ) : (
-                <span>Sin cierres</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <ParcialidadesTable
-        parcialidades={plan.parcialidades}
-        currency={plan.moneda}
-        onUpload={(p) => onUploadParcialidad?.(plan.id, p.id)}
-        onView={(p) => {
-          alert(`(UI) Ver envío parcialidad #${p.numero}`);
-        }}
-        onViewRejection={(p) => {
-          setRejectItem(p);
-          setShowReject(true);
-        }}
-      />
-
-      {showReject && rejectItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl border bg-white shadow-lg">
-            <div className="flex items-start justify-between gap-3 border-b p-5">
-              <div className="flex items-center gap-2">
-                <Info className="text-red-600" />
-                <div>
-                  <p className="font-bold text-darkBlue">Motivo de rechazo</p>
-                  <p className="text-sm text-gray-500">
-                    Parcialidad #{rejectItem.numero}
-                  </p>
-                </div>
-              </div>
+              </StatusBadge>
 
               <button
-                onClick={() => setShowReject(false)}
-                className="rounded-xl border px-3 py-1.5 text-sm font-semibold hover:bg-gray-50"
+                onClick={onBack}
+                className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-semibold hover:bg-gray-50"
               >
-                Cerrar
+                <ArrowLeft size={18} />
+                Volver
               </button>
             </div>
+          }
+        />
 
-            <div className="p-5">
-              <p className="whitespace-pre-wrap text-sm text-gray-700">
-                {rejectItem.rejectionComment ||
-                  rejectItem.rechazoMotivo ||
-                  "No hay motivo registrado."}
+        <SectionCard className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500">Orden de compra</p>
+              <p className="text-xl font-bold text-darkBlue">{plan.ordenCompra}</p>
+              <p className="text-sm text-gray-500">
+                Total del plan:{" "}
+                <b className="text-gray-700">
+                  {formatCurrency(plan.total, plan.moneda)}
+                </b>
               </p>
+              <p className="text-sm text-gray-500">
+                Estado del plan:{" "}
+                <span className="font-semibold text-gray-700">
+                  {String(plan.status || "").toUpperCase()}
+                </span>
+              </p>
+            </div>
 
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  onClick={() => setShowReject(false)}
-                  className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
-                >
-                  Entendido
-                </button>
-                <button
-                  onClick={() => {
-                    setShowReject(false);
-                    onUploadParcialidad?.(plan.id, rejectItem.id);
-                  }}
-                  className="rounded-xl bg-midBlue px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-                >
-                  Re-subir
-                </button>
+            <div className="min-w-[260px]">
+              <p className="mb-2 text-sm text-gray-500">Progreso</p>
+
+              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-2 rounded-full bg-midBlue"
+                  style={{ width: `${resumen.progreso}%` }}
+                />
+              </div>
+
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                <span>
+                  Pagadas <b className="text-gray-700">{resumen.pagadas}</b>/
+                  <b className="text-gray-700">{resumen.total}</b>
+                </span>
+
+                {resumen.proximoCierre ? (
+                  <span>
+                    Próx. cierre:{" "}
+                    <b className="text-gray-700">
+                      {formatDateISO(resumen.proximoCierre)}
+                    </b>
+                  </span>
+                ) : (
+                  <span>Sin cierres</span>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        </SectionCard>
+
+        <ParcialidadesTable
+          parcialidades={plan.parcialidades}
+          currency={plan.moneda}
+          onUpload={(p) => onUploadParcialidad?.(plan.id, p.id)}
+          onView={handleViewEvidence}
+          onViewRejection={handleViewRejection}
+        />
+      </div>
+
+      <RejectionReasonModal
+        open={rejectionModal.open}
+        onClose={closeRejectionModal}
+        partialityNumber={rejectionModal.parcialidad?.numero}
+        rejectionType={rejectionModal.parcialidad?.rejectionType}
+        reason={
+          rejectionModal.parcialidad?.rejectionComment ||
+          rejectionModal.parcialidad?.rechazoMotivo ||
+          ""
+        }
+        canResubmit={
+          rejectionModal.parcialidad
+            ? !isBeforeToday(rejectionModal.parcialidad.fechaCierre)
+            : false
+        }
+        onResubmit={() => {
+          const p = rejectionModal.parcialidad;
+          closeRejectionModal();
+          if (p) onUploadParcialidad?.(plan.id, p.id);
+        }}
+      />
+    </>
   );
 }

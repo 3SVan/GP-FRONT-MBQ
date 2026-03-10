@@ -3,14 +3,22 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Upload,
   FileText,
-  CheckCircle2,
-  AlertCircle,
-  Info,
-  X,
   RefreshCcw,
+  X,
 } from "lucide-react";
 
 import { PurchaseOrdersAPI } from "../../api/purchaseOrders.api";
+
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import SectionCard from "../../components/ui/SectionCard.jsx";
+import TableContainer from "../../components/ui/TableContainer.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import LoadingState from "../../components/ui/LoadingState.jsx";
+import InlineLoading from "../../components/ui/InlineLoading.jsx";
+import SystemAlert from "../../components/ui/SystemAlert.jsx";
+import StatusBadge, {
+  statusToneFromText,
+} from "../../components/ui/StatusBadge.jsx";
 
 // =========================
 // Validaciones de tipo archivo
@@ -49,52 +57,52 @@ function formatMb(bytes = 0) {
   return ((bytes || 0) / 1024 / 1024).toFixed(2);
 }
 
-// =========================
-// Toast
-// =========================
-function Toast({ alert, onClose }) {
-  if (!alert) return null;
+function formatMoney(value) {
+  const num = Number(value || 0);
+  return Number.isFinite(num)
+    ? num.toLocaleString("es-MX", {
+        style: "currency",
+        currency: "MXN",
+      })
+    : "—";
+}
 
-  const base =
-    "fixed bottom-4 right-4 z-[9999] w-[min(92vw,420px)] rounded-xl border px-4 py-3 shadow-lg flex items-start gap-3";
+function formatDate(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-MX");
+}
 
-  const styles =
-    alert.type === "success"
-      ? "bg-green-50 border-green-200"
-      : alert.type === "error"
-      ? "bg-red-50 border-red-200"
-      : "bg-blue-50 border-blue-200";
+function normalizeOrderStatus(status) {
+  const s = String(status || "").trim().toUpperCase();
 
-  return (
-    <div className={`${base} ${styles}`}>
-      {alert.type === "success" ? (
-        <CheckCircle2 className="w-5 h-5 mt-0.5 text-green-600" />
-      ) : alert.type === "error" ? (
-        <AlertCircle className="w-5 h-5 mt-0.5 text-red-600" />
-      ) : (
-        <Info className="w-5 h-5 mt-0.5 text-blue-600" />
-      )}
+  if (s === "SENT") return "Enviada";
+  if (s === "APPROVED") return "Aprobada";
+  if (s === "REJECTED") return "Rechazada";
+  if (s === "CANCELLED") return "Cancelada";
+  if (s === "PENDING") return "Pendiente";
 
-      <div className="flex-1 text-sm text-gray-800 pr-2">{alert.msg}</div>
+  return status || "—";
+}
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="text-gray-500 hover:text-gray-800"
-        title="Cerrar"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  );
+function statusTone(status) {
+  const s = String(status || "").trim().toLowerCase();
+
+  if (["approved", "aprobada"].includes(s)) return "success";
+  if (["rejected", "rechazada", "cancelled", "cancelada"].includes(s))
+    return "danger";
+  if (["sent", "pending", "enviada", "pendiente"].includes(s)) return "pending";
+
+  return statusToneFromText(status);
 }
 
 function FilePill({ name, onRemove }) {
   return (
     <div className="mt-3 w-full">
-      <div className="inline-flex max-w-full items-center gap-2 rounded-xl border bg-lightBlue/30 border border-lightBlue px-3 py-2">
+      <div className="inline-flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
         <div className="min-w-0">
-          <div className="text-xs text-gray-700 truncate max-w-[240px] sm:max-w-[280px] md:max-w-[260px]">
+          <div className="max-w-[240px] truncate text-xs text-gray-700 sm:max-w-[280px] md:max-w-[260px]">
             {name}
           </div>
         </div>
@@ -105,7 +113,7 @@ function FilePill({ name, onRemove }) {
           className="ml-1 text-gray-500 hover:text-gray-800"
           title="Quitar archivo"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -121,13 +129,15 @@ function FilePillList({ files = [], onRemoveAt }) {
         {files.map((f, idx) => (
           <div
             key={`${f.name}-${idx}`}
-            className="inline-flex max-w-full items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-sm"
+            className="inline-flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm"
           >
             <div className="min-w-0">
-              <div className="text-xs text-gray-700 truncate max-w-[240px] sm:max-w-[280px] md:max-w-[220px]">
+              <div className="max-w-[240px] truncate text-xs text-gray-700 sm:max-w-[280px] md:max-w-[220px]">
                 {f.name}
               </div>
-              <div className="text-[11px] text-gray-400">{formatMb(f.size)} MB</div>
+              <div className="text-[11px] text-gray-400">
+                {formatMb(f.size)} MB
+              </div>
             </div>
 
             <button
@@ -136,7 +146,7 @@ function FilePillList({ files = [], onRemoveAt }) {
               className="ml-1 text-gray-500 hover:text-gray-800"
               title="Quitar archivo"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         ))}
@@ -145,9 +155,6 @@ function FilePillList({ files = [], onRemoveAt }) {
   );
 }
 
-/**
- * Card para 1 archivo
- */
 function UploadCardSingle({
   label,
   help,
@@ -170,20 +177,22 @@ function UploadCardSingle({
 
   return (
     <div>
-      <div className="text-sm font-medium mb-2">
+      <div className="mb-2 text-sm font-medium text-gray-700">
         {label} <span className="text-red-500">*</span>
       </div>
 
       <div
-        className={`border-2 border-dashed rounded-xl p-4 bg-white ${
+        className={`rounded-xl border-2 border-dashed bg-white p-4 ${
           errorText ? "border-red-300 bg-red-50" : "border-blue-200"
         }`}
       >
-        <div className="flex flex-col items-center justify-center text-center gap-2">
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
           <Upload
-            className={`w-8 h-8 ${errorText ? "text-red-400" : "text-gray-400"}`}
+            className={`h-8 w-8 ${errorText ? "text-red-400" : "text-gray-400"}`}
           />
+
           <div className="text-sm text-gray-600">{help}</div>
+
           <div className="text-xs text-gray-400">
             Máximo 10MB - Solo archivos {typeText}
           </div>
@@ -203,14 +212,12 @@ function UploadCardSingle({
           <button
             type="button"
             onClick={() => document.getElementById(inputId)?.click()}
-            className="mt-2 px-6 py-2 rounded-lg bg-[#0B3A67] hover:opacity-90 text-white text-sm font-medium"
+            className="mt-2 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
           >
-            Agregar archivos
+            Agregar archivo
           </button>
 
-          {file?.name ? (
-            <FilePill name={file.name} onRemove={onRemove} />
-          ) : null}
+          {file?.name ? <FilePill name={file.name} onRemove={onRemove} /> : null}
 
           {errorText ? (
             <div className="mt-1 text-xs text-red-600">{errorText}</div>
@@ -221,9 +228,6 @@ function UploadCardSingle({
   );
 }
 
-/**
- * Card para múltiples archivos
- */
 function UploadCardMulti({
   label,
   help,
@@ -246,20 +250,22 @@ function UploadCardMulti({
 
   return (
     <div>
-      <div className="text-sm font-medium mb-2">
+      <div className="mb-2 text-sm font-medium text-gray-700">
         {label} <span className="text-red-500">*</span>
       </div>
 
       <div
-        className={`border-2 border-dashed rounded-xl p-4 bg-white ${
+        className={`rounded-xl border-2 border-dashed bg-white p-4 ${
           errorText ? "border-red-300 bg-red-50" : "border-blue-200"
         }`}
       >
-        <div className="flex flex-col items-center justify-center text-center gap-2">
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
           <Upload
-            className={`w-8 h-8 ${errorText ? "text-red-400" : "text-gray-400"}`}
+            className={`h-8 w-8 ${errorText ? "text-red-400" : "text-gray-400"}`}
           />
+
           <div className="text-sm text-gray-600">{help}</div>
+
           <div className="text-xs text-gray-400">
             Máximo 10MB - Solo archivos {typeText}
           </div>
@@ -279,7 +285,7 @@ function UploadCardMulti({
           <button
             type="button"
             onClick={() => document.getElementById(inputId)?.click()}
-            className="mt-2 px-6 py-2 rounded-lg bg-[#0B3A67] hover:opacity-90 text-white text-sm font-medium"
+            className="mt-2 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
           >
             Agregar archivos
           </button>
@@ -296,9 +302,6 @@ function UploadCardMulti({
 }
 
 export default function OrdenCompraPro() {
-  // =========================
-  // Estado formulario
-  // =========================
   const [form, setForm] = useState({
     numeroOrden: "",
     monto: "",
@@ -308,18 +311,22 @@ export default function OrdenCompraPro() {
   });
 
   const [files, setFiles] = useState({
-    archivoOrden: null, // PDF (1)
-    facturasPdf: [], // PDF (multi)
-    facturasXml: [], // XML (multi)
+    archivoOrden: null,
+    facturasPdf: [],
+    facturasXml: [],
   });
 
-  // =========================
-  // UI state
-  // =========================
   const [loadingList, setLoadingList] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [items, setItems] = useState([]);
-  const [alert, setAlert] = useState(null); 
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const [errors, setErrors] = useState({
     archivoOrden: "",
@@ -327,18 +334,22 @@ export default function OrdenCompraPro() {
     facturasXml: "",
   });
 
-  // =========================
-  // Helpers
-  // =========================
-  const showAlert = (type, msg) => setAlert({ type, msg });
-  const clearAlert = () => setAlert(null);
+  const showAlert = (type, message, title = null) => {
+    setAlertConfig({
+      type,
+      title:
+        title ||
+        (type === "success"
+          ? "Éxito"
+          : type === "error"
+            ? "Error"
+            : "Información"),
+      message,
+    });
+    setAlertOpen(true);
+  };
 
-  // auto-cerrar toast
-  useEffect(() => {
-    if (!alert) return;
-    const t = setTimeout(() => setAlert(null), 4000);
-    return () => clearTimeout(t);
-  }, [alert]);
+  const clearAlert = () => setAlertOpen(false);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -364,11 +375,10 @@ export default function OrdenCompraPro() {
     return Boolean(hasBasics && hasInvoices && sameCount);
   }, [form, files]);
 
-  // =========================
-  // Cargar historial
-  // =========================
-  const loadMyOrders = async () => {
+  const loadMyOrders = async ({ firstLoad = false } = {}) => {
+    if (firstLoad) setInitialLoading(true);
     setLoadingList(true);
+
     try {
       const data = await PurchaseOrdersAPI.myList();
       setItems(Array.isArray(data) ? data : []);
@@ -377,21 +387,20 @@ export default function OrdenCompraPro() {
         err?.response?.data?.error ||
         err?.response?.data?.message ||
         err?.message ||
-        "Error cargando órdenes";
-      showAlert("error", msg);
+        "Error cargando órdenes.";
+
+      showAlert("error", msg, "No se pudo cargar");
     } finally {
       setLoadingList(false);
+      if (firstLoad) setInitialLoading(false);
     }
   };
 
   useEffect(() => {
-    loadMyOrders();
+    loadMyOrders({ firstLoad: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // =========================
-  // Utilidades multi-archivo
-  // =========================
   const addMany = (key, kind) => (picked) => {
     if (!picked || picked.length === 0) return;
 
@@ -404,7 +413,8 @@ export default function OrdenCompraPro() {
         "error",
         `Solo se permite ${kind.toUpperCase()}. Archivo(s) recibido(s): ${invalid
           .map((f) => `"${f.name}"`)
-          .join(", ")}`
+          .join(", ")}`,
+        "Formato inválido"
       );
     } else {
       setErrors((e) => ({ ...e, [key]: "" }));
@@ -415,7 +425,7 @@ export default function OrdenCompraPro() {
     const tooBig = valid.find((f) => (f?.size || 0) > 10 * 1024 * 1024);
     if (tooBig) {
       setErrors((e) => ({ ...e, [key]: msgPerCard }));
-      showAlert("error", `El archivo "${tooBig.name}" excede 10MB.`);
+      showAlert("error", `El archivo "${tooBig.name}" excede 10MB.`, "Archivo demasiado grande");
       return;
     }
 
@@ -440,9 +450,6 @@ export default function OrdenCompraPro() {
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
-  // =========================
-  // Submit crear orden
-  // =========================
   const onSubmit = async (e) => {
     e.preventDefault();
 
@@ -453,32 +460,43 @@ export default function OrdenCompraPro() {
       !form.rfc.trim() ||
       !files.archivoOrden
     ) {
-      showAlert("info", "Completa los campos y sube la Orden (PDF).");
+      showAlert(
+        "info",
+        "Completa los campos obligatorios y sube la orden en PDF.",
+        "Información incompleta"
+      );
       return;
     }
 
     if (!files.facturasPdf.length || !files.facturasXml.length) {
-      showAlert("info", "Sube al menos 1 Factura (PDF) y 1 Factura (XML).");
+      showAlert(
+        "info",
+        "Sube al menos 1 factura en PDF y 1 factura en XML.",
+        "Archivos requeridos"
+      );
       return;
     }
 
     if (files.facturasPdf.length !== files.facturasXml.length) {
       showAlert(
         "error",
-        `La cantidad de Facturas PDF (${files.facturasPdf.length}) debe ser igual a la de XML (${files.facturasXml.length}).`
+        `La cantidad de facturas PDF (${files.facturasPdf.length}) debe ser igual a la de XML (${files.facturasXml.length}).`,
+        "Cantidad inconsistente"
       );
       return;
     }
 
     setSubmitting(true);
+
     try {
       const fd = new FormData();
       fd.append("numeroOrden", form.numeroOrden.trim());
       fd.append("monto", String(form.monto));
       fd.append("fecha", form.fecha);
       fd.append("rfc", form.rfc.trim().toUpperCase());
-      if (form.observaciones?.trim())
+      if (form.observaciones?.trim()) {
         fd.append("observaciones", form.observaciones.trim());
+      }
 
       fd.append("archivoOrden", files.archivoOrden);
 
@@ -487,7 +505,12 @@ export default function OrdenCompraPro() {
 
       await PurchaseOrdersAPI.createForMe(fd);
 
-      showAlert("success", "✅ Orden de compra enviada correctamente.");
+      showAlert(
+        "success",
+        "La orden de compra fue enviada correctamente.",
+        "Orden registrada"
+      );
+
       setForm({
         numeroOrden: "",
         monto: "",
@@ -495,11 +518,13 @@ export default function OrdenCompraPro() {
         rfc: "",
         observaciones: "",
       });
+
       setFiles({
         archivoOrden: null,
         facturasPdf: [],
         facturasXml: [],
       });
+
       setErrors({
         archivoOrden: "",
         facturasPdf: "",
@@ -512,236 +537,293 @@ export default function OrdenCompraPro() {
         err?.response?.data?.error ||
         err?.response?.data?.message ||
         err?.message ||
-        "Error enviando orden";
-      showAlert("error", msg);
+        "Error enviando orden.";
+
+      showAlert("error", msg, "No se pudo registrar");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // =========================
-  // UI
-  // =========================
-  return (
-    <div className="w-full h-full p-4">
-      <Toast alert={alert} onClose={clearAlert} />
-
-      {/* FORM */}
-      <div className="bg-white rounded-2xl shadow p-4 mb-6 border">
-        <div className="flex items-center gap-2 mb-3">
-          <FileText className="w-5 h-5" />
-          <h2 className="text-lg font-semibold">Subir Orden de Compra</h2>
-        </div>
-
-        <form
-          onSubmit={onSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 gap-3"
-        >
-          <div>
-            <label className="text-xs text-gray-600">Número de Orden</label>
-            <input
-              name="numeroOrden"
-              value={form.numeroOrden}
-              onChange={onChange}
-              className="w-full border rounded-xl px-3 py-2"
-              placeholder="OC-000123"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-600">Monto</label>
-            <input
-              name="monto"
-              value={form.monto}
-              onChange={onChange}
-              className="w-full border rounded-xl px-3 py-2"
-              placeholder="1000.00"
-              type="number"
-              step="0.01"
-              min="0"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-600">Fecha</label>
-            <input
-              name="fecha"
-              value={form.fecha}
-              onChange={onChange}
-              className="w-full border rounded-xl px-3 py-2"
-              type="date"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-600">RFC</label>
-            <input
-              name="rfc"
-              value={form.rfc}
-              onChange={onChange}
-              className="w-full border rounded-xl px-3 py-2"
-              placeholder="XAXX010101000"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="text-xs text-gray-600">
-              Observaciones (opcional)
-            </label>
-            <textarea
-              name="observaciones"
-              value={form.observaciones}
-              onChange={onChange}
-              className="w-full border rounded-xl px-3 py-2 min-h-[80px]"
-              placeholder="Notas..."
-            />
-          </div>
-
-          {/* FILES */}
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <UploadCardSingle
-              label="Orden (PDF)"
-              help="Haz clic para subir la orden en PDF"
-              accept="application/pdf"
-              file={files.archivoOrden}
-              errorText={errors.archivoOrden}
-              onRemove={() => removeSingle("archivoOrden")}
-              onPick={(f) => {
-                if (!f) {
-                  setFiles((s) => ({ ...s, archivoOrden: null }));
-                  setErrors((e) => ({ ...e, archivoOrden: "" }));
-                  return;
-                }
-
-                if (!isPdfFile(f)) {
-                  setFiles((s) => ({ ...s, archivoOrden: null }));
-                  setErrors((e) => ({ ...e, archivoOrden: "Solo PDF" }));
-                  showAlert(
-                    "error",
-                    `Solo se permite PDF. Archivo recibido: "${f.name}"`
-                  );
-                  return;
-                }
-
-                if ((f?.size || 0) > 10 * 1024 * 1024) {
-                  setFiles((s) => ({ ...s, archivoOrden: null }));
-                  setErrors((e) => ({ ...e, archivoOrden: "Solo PDF" }));
-                  showAlert("error", `El archivo "${f.name}" excede 10MB.`);
-                  return;
-                }
-
-                setErrors((e) => ({ ...e, archivoOrden: "" }));
-                setFiles((s) => ({ ...s, archivoOrden: f }));
-              }}
-            />
-
-            <UploadCardMulti
-              label="Factura en PDF"
-              help="Haz clic para subir una o varias facturas en PDF"
-              accept="application/pdf"
-              files={files.facturasPdf}
-              errorText={errors.facturasPdf}
-              onPickMany={addMany("facturasPdf", "pdf")}
-              onRemoveAt={removeAt("facturasPdf")}
-            />
-
-            <UploadCardMulti
-              label="Factura en XML"
-              help="Haz clic para subir uno o varios XML de facturas"
-              accept=".xml,text/xml,application/xml"
-              files={files.facturasXml}
-              errorText={errors.facturasXml}
-              onPickMany={addMany("facturasXml", "xml")}
-              onRemoveAt={removeAt("facturasXml")}
-            />
-          </div>
-
-          <div className="md:col-span-2 flex items-center justify-end gap-2 mt-2">
-            <button
-              type="button"
-              onClick={loadMyOrders}
-              className="px-4 py-2 rounded-xl border flex items-center gap-2"
-              disabled={loadingList}
-            >
-              <RefreshCcw
-                className={`w-4 h-4 ${loadingList ? "animate-spin" : ""}`}
-              />
-              Recargar
-            </button>
-
-            <button
-              type="submit"
-              disabled={!canSubmit || submitting}
-              className={`px-4 py-2 rounded-xl text-white flex items-center gap-2 ${
-                !canSubmit || submitting
-                  ? "bg-gray-400"
-                  : "bg-black hover:bg-gray-800"
-              }`}
-            >
-              <Upload className="w-4 h-4" />
-              {submitting ? "Enviando..." : "Registrar Orden de Compra"}
-            </button>
-          </div>
-
-          <div className="md:col-span-2 text-xs text-gray-500 mt-1">
-            Para enviar: 1 Orden PDF + al menos 1 Factura PDF y su XML
-            correspondiente (mismas cantidades).
-          </div>
-        </form>
+  if (initialLoading) {
+    return (
+      <div className="bg-beige px-6 py-6">
+        <LoadingState
+          title="Cargando órdenes de compra..."
+          subtitle="Estamos preparando el formulario y tu historial de órdenes."
+        />
       </div>
+    );
+  }
 
-      {/* LIST */}
-      <div className="bg-white rounded-2xl shadow p-4 border">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">Mis Órdenes</h3>
+  return (
+    <div className="space-y-6 bg-beige px-6 py-6">
+      <PageHeader
+        title="Órdenes de compra"
+        subtitle="Registra nuevas órdenes de compra y consulta el historial enviado."
+      />
+
+      <form onSubmit={onSubmit} className="space-y-6">
+        <SectionCard className="p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-800">
+              Subir orden de compra
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">
+                Número de orden
+              </label>
+              <input
+                name="numeroOrden"
+                value={form.numeroOrden}
+                onChange={onChange}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="OC-000123"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">Monto</label>
+              <input
+                name="monto"
+                value={form.monto}
+                onChange={onChange}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="1000.00"
+                type="number"
+                step="0.01"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">Fecha</label>
+              <input
+                name="fecha"
+                value={form.fecha}
+                onChange={onChange}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                type="date"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-gray-600">RFC</label>
+              <input
+                name="rfc"
+                value={form.rfc}
+                onChange={onChange}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="XAXX010101000"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-xs text-gray-600">
+                Observaciones (opcional)
+              </label>
+              <textarea
+                name="observaciones"
+                value={form.observaciones}
+                onChange={onChange}
+                className="min-h-[80px] w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Notas..."
+              />
+            </div>
+
+            <div className="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <UploadCardSingle
+                label="Orden (PDF)"
+                help="Haz clic para subir la orden en PDF"
+                accept="application/pdf"
+                file={files.archivoOrden}
+                errorText={errors.archivoOrden}
+                onRemove={() => removeSingle("archivoOrden")}
+                onPick={(f) => {
+                  if (!f) {
+                    setFiles((s) => ({ ...s, archivoOrden: null }));
+                    setErrors((e) => ({ ...e, archivoOrden: "" }));
+                    return;
+                  }
+
+                  if (!isPdfFile(f)) {
+                    setFiles((s) => ({ ...s, archivoOrden: null }));
+                    setErrors((e) => ({ ...e, archivoOrden: "Solo PDF" }));
+                    showAlert(
+                      "error",
+                      `Solo se permite PDF. Archivo recibido: "${f.name}"`,
+                      "Formato inválido"
+                    );
+                    return;
+                  }
+
+                  if ((f?.size || 0) > 10 * 1024 * 1024) {
+                    setFiles((s) => ({ ...s, archivoOrden: null }));
+                    setErrors((e) => ({ ...e, archivoOrden: "Solo PDF" }));
+                    showAlert(
+                      "error",
+                      `El archivo "${f.name}" excede 10MB.`,
+                      "Archivo demasiado grande"
+                    );
+                    return;
+                  }
+
+                  setErrors((e) => ({ ...e, archivoOrden: "" }));
+                  setFiles((s) => ({ ...s, archivoOrden: f }));
+                }}
+              />
+
+              <UploadCardMulti
+                label="Factura en PDF"
+                help="Haz clic para subir una o varias facturas en PDF"
+                accept="application/pdf"
+                files={files.facturasPdf}
+                errorText={errors.facturasPdf}
+                onPickMany={addMany("facturasPdf", "pdf")}
+                onRemoveAt={removeAt("facturasPdf")}
+              />
+
+              <UploadCardMulti
+                label="Factura en XML"
+                help="Haz clic para subir uno o varios XML de facturas"
+                accept=".xml,text/xml,application/xml"
+                files={files.facturasXml}
+                errorText={errors.facturasXml}
+                onPickMany={addMany("facturasXml", "xml")}
+                onRemoveAt={removeAt("facturasXml")}
+              />
+            </div>
+
+            <div className="md:col-span-2 mt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => loadMyOrders()}
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                disabled={loadingList}
+              >
+                {loadingList ? (
+                  <InlineLoading text="Recargando..." />
+                ) : (
+                  <>
+                    <RefreshCcw className="h-4 w-4" />
+                    Recargar
+                  </>
+                )}
+              </button>
+
+              <button
+                type="submit"
+                disabled={!canSubmit || submitting}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition ${
+                  !canSubmit || submitting
+                    ? "cursor-not-allowed bg-gray-400"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {submitting ? (
+                  <InlineLoading text="Enviando..." className="text-white" />
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Registrar orden de compra
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="md:col-span-2 mt-1 text-xs text-gray-500">
+              Para enviar: 1 orden PDF + al menos 1 factura PDF y su XML
+              correspondiente (mismas cantidades).
+            </div>
+          </div>
+        </SectionCard>
+      </form>
+
+      <SectionCard className="p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-800">Mis órdenes</h3>
           <div className="text-xs text-gray-500">
             {loadingList ? "Cargando..." : `${items.length} registro(s)`}
           </div>
         </div>
 
-        {loadingList ? (
-          <div className="text-sm text-gray-600">Cargando…</div>
-        ) : items.length === 0 ? (
-          <div className="text-sm text-gray-600">
-            Aún no tienes órdenes registradas.
-          </div>
-        ) : (
-          <div className="overflow-auto">
-            <table className="min-w-[900px] w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-600 border-b">
-                  <th className="py-2">Número</th>
-                  <th className="py-2">Monto</th>
-                  <th className="py-2">Fecha</th>
-                  <th className="py-2">Estatus</th>
-                  <th className="py-2">Creado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it) => (
-                  <tr key={it.id} className="border-b">
-                    <td className="py-2 font-medium">
-                      {it.number || it.numeroOrden || "-"}
-                    </td>
-                    <td className="py-2">{it.total ?? it.monto ?? "-"}</td>
-                    <td className="py-2">
-                      {it.date
-                        ? String(it.date).slice(0, 10)
-                        : it.fecha
-                        ? String(it.fecha).slice(0, 10)
-                        : "-"}
-                    </td>
-                    <td className="py-2">{it.status || "-"}</td>
-                    <td className="py-2">
-                      {it.createdAt ? String(it.createdAt).slice(0, 10) : "-"}
-                    </td>
+        <TableContainer
+          loading={loadingList}
+          loadingTitle="Cargando órdenes..."
+          loadingSubtitle="Estamos preparando tu historial de órdenes registradas."
+        >
+          {items.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="Aún no tienes órdenes registradas"
+              subtitle="Cuando envíes una orden de compra aparecerá aquí."
+            />
+          ) : (
+            <div className="overflow-auto">
+              <table className="min-w-[900px] w-full">
+                <thead className="bg-gray-50">
+                  <tr className="border-b border-gray-200 text-left">
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Número
+                    </th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Monto
+                    </th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Fecha
+                    </th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Estatus
+                    </th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Creado
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {items.map((it) => (
+                    <tr key={it.id} className="transition-colors hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                        {it.number || it.numeroOrden || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {it.total != null || it.monto != null
+                          ? formatMoney(it.total ?? it.monto)
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {formatDate(it.date || it.fecha)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge tone={statusTone(it.status)}>
+                          {normalizeOrderStatus(it.status)}
+                        </StatusBadge>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {formatDate(it.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </TableContainer>
+      </SectionCard>
+
+      <SystemAlert
+        open={alertOpen}
+        onClose={clearAlert}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        acceptText="Aceptar"
+      />
     </div>
   );
 }

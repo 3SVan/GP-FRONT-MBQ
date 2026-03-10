@@ -4,12 +4,18 @@ import CalendarSimple from "../components/CalendarSimple";
 import PlanCard from "../components/PlanCard";
 import { PaymentsAPI } from "../../../api/payments.api";
 
+import PageHeader from "../../../components/ui/PageHeader.jsx";
+import SectionCard from "../../../components/ui/SectionCard.jsx";
+import LoadingState from "../../../components/ui/LoadingState.jsx";
+import EmptyState from "../../../components/ui/EmptyState.jsx";
+import StatusBadge from "../../../components/ui/StatusBadge.jsx";
+import { CalendarDays } from "lucide-react";
+
 function parseLocalDate(value) {
   if (!value) return null;
 
   const raw = String(value).trim();
 
-  // YYYY-MM-DD
   const onlyDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (onlyDate) {
     const year = Number(onlyDate[1]);
@@ -18,7 +24,6 @@ function parseLocalDate(value) {
     return new Date(year, month, day);
   }
 
-  // ISO u otro formato válido
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? null : d;
 }
@@ -127,11 +132,8 @@ function groupPaymentsIntoPlans(payments = []) {
       numero: pay.installmentNo || 1,
       totalParcialidades: pay.installmentOf || 1,
       monto: Number(pay.amount || 0),
-
-      // ✅ importante: convertir a ISO local seguro
       fechaPago: toLocalISO(pay.paidAt),
       fechaCierre: toLocalISO(pay.closeDate || pay.paidAt),
-
       estado: backendStatusToUi(pay.status),
       rejectionType: pay.rejectionType || "",
       rejectionComment: pay.decisionComment || "",
@@ -198,6 +200,13 @@ function buildEvents(planes) {
   }
 
   return out;
+}
+
+function summaryTone(type) {
+  if (type === "porVencer") return "warning";
+  if (type === "vencidas") return "danger";
+  if (type === "enRevision") return "info";
+  return "neutral";
 }
 
 export default function MisPlanes({ onOpenPlan, onOpenUpload, showAlert }) {
@@ -273,65 +282,63 @@ export default function MisPlanes({ onOpenPlan, onOpenUpload, showAlert }) {
     return { porVencer, vencidas, enRevision };
   }, [planes]);
 
-  return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-darkBlue">Mis planes de pago</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Visualiza fechas de pago, cierres y el estado de cada parcialidad.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-full border border-yellow-200 bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">
-            Por vencer: {summary.porVencer}
-          </span>
-          <span className="rounded-full border border-red-200 bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-            Vencidas: {summary.vencidas}
-          </span>
-          <span className="rounded-full border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-            En revisión: {summary.enRevision}
-          </span>
-        </div>
+  if (loading) {
+    return (
+      <div className="bg-beige px-6 py-6">
+        <LoadingState
+          title="Cargando planes..."
+          subtitle="Estamos consultando tus parcialidades y fechas programadas."
+        />
       </div>
+    );
+  }
 
-      {loading ? (
-        <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
-          <p className="font-semibold text-gray-700">Cargando planes...</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Estamos consultando tus parcialidades.
-          </p>
-        </div>
-      ) : (
-        <>
-          <CalendarSimple
-            events={events}
-            onOpenPlan={onOpenPlan}
-            onOpenUpload={onOpenUpload}
+  return (
+    <div className="space-y-6 bg-beige px-6 py-6">
+      <PageHeader
+        title="Mis planes de pago"
+        subtitle="Visualiza fechas de pago, cierres y el estado de cada parcialidad."
+        action={
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge tone={summaryTone("porVencer")}>
+              Por vencer: {summary.porVencer}
+            </StatusBadge>
+            <StatusBadge tone={summaryTone("vencidas")}>
+              Vencidas: {summary.vencidas}
+            </StatusBadge>
+            <StatusBadge tone={summaryTone("enRevision")}>
+              En revisión: {summary.enRevision}
+            </StatusBadge>
+          </div>
+        }
+      />
+
+      <SectionCard className="p-4">
+        <CalendarSimple
+          events={events}
+          onOpenPlan={onOpenPlan}
+          onOpenUpload={onOpenUpload}
+        />
+      </SectionCard>
+
+      {planes.length === 0 ? (
+        <SectionCard className="p-4">
+          <EmptyState
+            icon={CalendarDays}
+            title="Aún no tienes planes asignados"
+            subtitle="Cuando te asignen un plan de pago aparecerá aquí."
           />
-
-          {planes.length === 0 ? (
-            <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
-              <p className="font-semibold text-gray-700">
-                Aún no tienes planes asignados
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                Cuando te asignen un plan aparecerá aquí.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {planes.map((plan) => (
-                <PlanCard
-                  key={plan.id}
-                  plan={plan}
-                  onOpen={() => onOpenPlan?.(plan.id)}
-                />
-              ))}
-            </div>
-          )}
-        </>
+        </SectionCard>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2">
+          {planes.map((plan) => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              onOpen={() => onOpenPlan?.(plan.id)}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
