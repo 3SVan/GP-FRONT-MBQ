@@ -25,7 +25,6 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ✅ alerta personalizada
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("info"); // info | success | error
 

@@ -1,3 +1,4 @@
+// src/pages/admin/users/components/UsersToolbar.jsx
 import React from "react";
 import { Search, UserPlus } from "lucide-react";
 
@@ -17,31 +18,34 @@ export default function UsersToolbar({
   onOpenCreate,
 }) {
   const deps = (departamentos?.length ? departamentos : areasDisponibles) || [];
-  const rls = (roles?.length ? roles : ["Aprobador", "Administrador", "Proveedor"]) || [];
+  const rls =
+    (roles?.length ? roles : ["Aprobador", "Administrador", "Proveedor"]) || [];
+
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+  const selectClass =
+    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
-    <div className="bg-white rounded-lg border border-lightBlue p-4 mb-6 shadow-sm">
-      <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-        {/* Search */}
-        <div className="flex-1 w-full lg:w-auto">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-midBlue w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o email..."
-              value={busqueda}
-              onChange={(e) => onChangeBusqueda?.(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
-            />
-          </div>
+    <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre o email..."
+            value={busqueda}
+            onChange={(e) => onChangeBusqueda?.(e.target.value)}
+            className={`pl-10 pr-4 ${inputClass}`}
+          />
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <select
             value={filtroDepartamento}
             onChange={(e) => onChangeDepartamento?.(e.target.value)}
-            className="px-3 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
+            className={selectClass}
           >
             <option value="">Todos los departamentos</option>
             {deps.map((d) => (
@@ -54,7 +58,7 @@ export default function UsersToolbar({
           <select
             value={filtroRol}
             onChange={(e) => onChangeRol?.(e.target.value)}
-            className="px-3 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
+            className={selectClass}
           >
             <option value="">Todos los roles</option>
             {rls.map((r) => (
@@ -67,7 +71,7 @@ export default function UsersToolbar({
           <select
             value={filtroEstatus}
             onChange={(e) => onChangeEstatus?.(e.target.value)}
-            className="px-3 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
+            className={selectClass}
           >
             <option value="">Todos los estatus</option>
             {estatus.map((est) => (
@@ -76,15 +80,13 @@ export default function UsersToolbar({
               </option>
             ))}
           </select>
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-2">
           <button
+            type="button"
             onClick={onOpenCreate}
-            className="bg-midBlue text-white px-4 py-2 rounded-lg hover:bg-darkBlue transition duration-200 flex items-center gap-2"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="h-4 w-4" />
             Nuevo Usuario
           </button>
         </div>

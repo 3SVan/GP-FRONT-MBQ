@@ -31,14 +31,12 @@ export default function FacturaXmlViewer({ xmlText }) {
       const parser = new DOMParser();
       const xml = parser.parseFromString(xmlText, "text/xml");
 
-      // si hay error de parseo
       const parserError = xml.getElementsByTagName("parsererror")?.[0];
       if (parserError) {
         setError("El XML no se pudo interpretar (parsererror).");
         return;
       }
 
-      // ✅ sin prefijos: localName
       const comprobante = firstByLocalName(xml, "Comprobante");
       const emisor = firstByLocalName(xml, "Emisor");
       const receptor = firstByLocalName(xml, "Receptor");

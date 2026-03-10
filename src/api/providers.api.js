@@ -30,7 +30,6 @@ export const ProvidersAPI = {
   },
 
   // ADMIN
-  // ✅ tabla admin (activos/inactivos/all)
   getAdminTable: (params = {}) => api.get("/providers/admin/table", { params }),
   create(payload) {
     return api.post("/providers", payload);
@@ -39,7 +38,6 @@ export const ProvidersAPI = {
   update(id, payload) {
     return api.patch(`/providers/${id}`, payload);
   },
-// (si ya lo tienes) inactivar
 inactivate: (id, payload) => api.patch(`/providers/${id}/inactivate`, payload),
 
 reactivate: (id) => api.patch(`/providers/${id}/reactivate`),

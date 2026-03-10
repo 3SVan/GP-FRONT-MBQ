@@ -75,7 +75,6 @@ function Documents({
     });
   }, [aprobacionesSafe, busqueda, filtroEstatus]);
 
-  // ✅ CLAVE: id viene como "7|ID_REVERSO" -> agrupar por "7"
   const getProveedorKey = (a) => {
     const raw = String(a?.id ?? "");
     const base = raw.split("|")[0];
@@ -96,7 +95,6 @@ function Documents({
 
       const items = Array.isArray(grupo?.items) ? grupo.items : [];
 
-      // ✅ Fuerza que el endpoint termine en /download (attachment en tu backend)
       const forceDownloadEndpoint = (u) => {
         if (!u) return u;
         const s = String(u);
@@ -279,7 +277,7 @@ function Documents({
                         ? g.solicitudes
                         : [];
 
-                      const MAX_VISIBLE = 8; // 👈 ajusta: cuántas muestras antes de "Ver todas"
+                      const MAX_VISIBLE = 8; 
                       const isOpen = !!solicitudesOpen[g.proveedorId];
                       const visible = isOpen
                         ? list

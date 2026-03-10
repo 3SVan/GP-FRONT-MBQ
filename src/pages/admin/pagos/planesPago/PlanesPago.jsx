@@ -19,16 +19,22 @@ function isoDate(x) {
 
 function mapPaymentToPartialStatus(p) {
   const st = String(p?.status || "").toUpperCase();
+  const evidences = Array.isArray(p?.evidences) ? p.evidences : [];
 
-  const hasEvidence =
-    Boolean(p?.pdfUrl || p?.xmlUrl) ||
-    Boolean(p?.evidence?.pdfUrl || p?.evidence?.xmlUrl) ||
-    Boolean(p?.files?.pdfUrl || p?.files?.xmlUrl) ||
-    Boolean((p?.evidences || []).length);
+  const hasPdf = evidences.some(
+    (e) => String(e?.kind || "").toUpperCase() === "PDF",
+  );
+
+  const hasXml = evidences.some(
+    (e) => String(e?.kind || "").toUpperCase() === "XML",
+  );
+
+  const hasEvidence = hasPdf || hasXml;
 
   if (st === "PAID" || st === "PAGADA") return "PAGADA";
   if (st === "APPROVED") return "APROBADA";
   if (st === "REJECTED") return "RECHAZADA";
+  if (st === "SUBMITTED") return "ENVIADA";
   if (st === "PENDING" || !st) return hasEvidence ? "ENVIADA" : "PENDIENTE";
 
   return hasEvidence ? "ENVIADA" : "PENDIENTE";
@@ -73,6 +79,7 @@ function groupPlansFromPayments(payments = []) {
         rows: [],
       });
     }
+
     map.get(poId).rows.push(p);
   }
 
@@ -103,22 +110,32 @@ function groupPlansFromPayments(payments = []) {
       const totalParts =
         Number(p?.installmentOf) || installmentOf || rows.length || 1;
 
+      const evidences = Array.isArray(p?.evidences) ? p.evidences : [];
+
+      const pdfEvidence = evidences.find(
+        (e) => String(e?.kind || "").toUpperCase() === "PDF",
+      );
+
+      const xmlEvidence = evidences.find(
+        (e) => String(e?.kind || "").toUpperCase() === "XML",
+      );
+
       const pdfUrl =
         p?.pdfUrl ||
         p?.evidence?.pdfUrl ||
         p?.files?.pdfUrl ||
-        p?.evidences?.find?.(
-          (e) => String(e?.type || "").toUpperCase() === "PDF"
-        )?.url ||
+        p?.filePdfUrl ||
+        pdfEvidence?.fileUrl ||
+        pdfEvidence?.url ||
         "";
 
       const xmlUrl =
         p?.xmlUrl ||
         p?.evidence?.xmlUrl ||
         p?.files?.xmlUrl ||
-        p?.evidences?.find?.(
-          (e) => String(e?.type || "").toUpperCase() === "XML"
-        )?.url ||
+        p?.fileXmlUrl ||
+        xmlEvidence?.fileUrl ||
+        xmlEvidence?.url ||
         "";
 
       return {
@@ -134,13 +151,13 @@ function groupPlansFromPayments(payments = []) {
         status: mapPaymentToPartialStatus(p),
         pdfUrl,
         xmlUrl,
-        comment: p?.comment || p?.decisionComment || "",
+        comment: p?.comment || p?.decisionComment || p?.reference || "",
       };
     });
 
     const totalPlan = partialities.reduce(
       (acc, x) => acc + Number(x.amount || 0),
-      0
+      0,
     );
 
     const allPaid =
@@ -190,7 +207,7 @@ export default function PlanesPago({ showAlert }) {
 
   const selectedPlan = useMemo(
     () => plans.find((p) => String(p.id) === String(selectedId)) || null,
-    [plans, selectedId]
+    [plans, selectedId],
   );
 
   const openDetail = (id) => {
@@ -204,12 +221,13 @@ export default function PlanesPago({ showAlert }) {
   };
 
   const goCreate = () => {
-    setView("create");
     setSelectedId(null);
+    setView("create");
   };
 
   const refresh = useCallback(async () => {
     setLoading(true);
+
     try {
       const [paymentsRes, approvedUnpaidRes] = await Promise.all([
         PaymentsAPI.list({ limit: 500 }),
@@ -219,15 +237,21 @@ export default function PlanesPago({ showAlert }) {
       const payments = paymentsRes?.payments || [];
       const approvedUnpaid = approvedUnpaidRes?.purchaseOrders || [];
 
-      // ✅ OCs para selector: vienen de órdenes aprobadas sin pagos
       const newOCs = buildOCsFromApprovedPurchaseOrders(approvedUnpaid);
       setOcs(newOCs);
 
-      // ✅ Planes existentes: vienen de payments
       const newPlans = groupPlansFromPayments(payments);
       setPlans(newPlans);
     } catch (e) {
-      showAlert?.("error", "Error", "No se pudieron cargar los planes de pago.");
+      console.error("Error refresh planes pago:", e?.response?.data || e);
+
+      showAlert?.(
+        "error",
+        "Error",
+        e?.response?.data?.detail ||
+          e?.response?.data?.error ||
+          "No se pudieron cargar los planes de pago.",
+      );
     } finally {
       setLoading(false);
     }
@@ -246,13 +270,17 @@ export default function PlanesPago({ showAlert }) {
         showAlert?.(
           "error",
           "OC requerida",
-          "No se encontró purchaseOrderId para crear el plan."
+          "No se encontró purchaseOrderId para crear el plan.",
         );
         return;
       }
 
       if (!parts.length) {
-        showAlert?.("error", "Sin parcialidades", "No hay parcialidades para guardar.");
+        showAlert?.(
+          "error",
+          "Sin parcialidades",
+          "No hay parcialidades para guardar.",
+        );
         return;
       }
 
@@ -269,31 +297,61 @@ export default function PlanesPago({ showAlert }) {
         });
       }
 
-      showAlert?.("success", "Plan creado", "El plan de pago se creó correctamente.");
+      showAlert?.(
+        "success",
+        "Plan creado",
+        "El plan de pago se creó correctamente.",
+      );
+
       await refresh();
 
-      // como ya tendrá payments, ya existirá en plans
       setSelectedId(String(purchaseOrderId));
       setView("detail");
     } catch (e) {
-      showAlert?.("error", "Error", "No se pudo crear el plan de pago.");
+      showAlert?.(
+        "error",
+        "Error",
+        e?.response?.data?.detail ||
+          e?.response?.data?.error ||
+          "No se pudo crear el plan de pago.",
+      );
     }
   };
 
-  const updatePlan = async () => {
-    await refresh();
-  };
+  const updatePlan = async (updatedPlan) => {
+    if (!updatedPlan?.id) {
+      await refresh();
+      return;
+    }
 
-  if (loading && view === "list") {
-    return <div className="p-6 text-sm text-gray-600">Cargando planes de pago...</div>;
-  }
+    setPlans((prev) =>
+      prev.map((plan) => {
+        if (String(plan.id) !== String(updatedPlan.id)) return plan;
+
+        const partialities = updatedPlan.partialities || [];
+        const allPaid =
+          partialities.length > 0 &&
+          partialities.every(
+            (p) => String(p.status || "").toUpperCase() === "PAGADA",
+          );
+
+        return {
+          ...plan,
+          ...updatedPlan,
+          status: allPaid ? "COMPLETADO" : "ABIERTO",
+        };
+      }),
+    );
+  };
 
   if (view === "create") {
     return (
       <PlanesPagoCreate
         ocs={ocs}
+        loading={loading}
         onCancel={goList}
         onSavePlan={savePlanToAPI}
+        onRefresh={refresh}
         showAlert={showAlert}
       />
     );
@@ -303,11 +361,12 @@ export default function PlanesPago({ showAlert }) {
     return (
       <PlanesPagoDetail
         plan={selectedPlan}
+        loading={loading}
         onBack={() => {
-          refresh();
           goList();
         }}
         onUpdatePlan={updatePlan}
+        onRefresh={refresh}
         showAlert={showAlert}
       />
     );
@@ -316,8 +375,10 @@ export default function PlanesPago({ showAlert }) {
   return (
     <PlanesPagoList
       plans={plans}
+      loading={loading}
       onCreate={goCreate}
       onOpenDetail={openDetail}
+      onRefresh={refresh}
       showAlert={showAlert}
     />
   );

@@ -27,7 +27,6 @@ export const AuthAPI = {
     return api.post("/auth/change-password", payload);
   },
 
-  // ✅ Solicitud de acceso
   requestAccess(payload) {
     return api.post("/access-requests", payload);
   },

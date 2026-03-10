@@ -1,6 +1,7 @@
 // src/pages/admin/Usuarios.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { AdminAPI } from "../../api/admin.api";
+import LoadingState from "../../components/ui/LoadingState";
 
 // components
 import UsersHeader from "./users/components/UsersHeader";
@@ -402,8 +403,6 @@ export default function Usuarios() {
         onView={handleVerUsuario}
         onEdit={handleEditarUsuario}
         onDelete={handleEliminarUsuario}
-        getRolColor={getRolColor}
-        getEstatusColor={getEstatusColor}
       />
 
       <UserModalCreate

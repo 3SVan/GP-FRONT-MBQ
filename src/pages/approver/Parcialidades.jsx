@@ -161,7 +161,6 @@ export default function Parcialidades({ showAlert }) {
     });
   }
 
-  // 🔥 Orden inteligente por urgencia
   return [...base].sort((a, b) => {
     const now = Date.now();
 
@@ -171,11 +170,9 @@ export default function Parcialidades({ showAlert }) {
     const aDiff = aDate - now;
     const bDiff = bDate - now;
 
-    // vencidos primero
     if (aDiff < 0 && bDiff >= 0) return -1;
     if (bDiff < 0 && aDiff >= 0) return 1;
 
-    // luego más próximos
     return aDate - bDate;
   });
 

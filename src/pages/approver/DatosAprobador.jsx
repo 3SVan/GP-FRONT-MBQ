@@ -12,7 +12,7 @@ function DatosAprobador({ showAlert }) {
     area: "",
     correoCorporativo: "",
     telefono: "",
-    contraseña: "********", // ✅ nunca del back
+    contraseña: "********", 
   });
 
   const [editando, setEditando] = useState(false);
@@ -72,7 +72,6 @@ function DatosAprobador({ showAlert }) {
     }
 
     try {
-      // ✅ payload al back
       const payload = {
         fullName: formData.nombreCompleto.trim(),
         department: formData.area.trim(),
@@ -84,7 +83,7 @@ function DatosAprobador({ showAlert }) {
       const mapped = {
         nombreCompleto: updated?.fullName ?? payload.fullName,
         area: updated?.department ?? payload.department,
-        correoCorporativo: datosAprobador.correoCorporativo, // email no cambia aquí
+        correoCorporativo: datosAprobador.correoCorporativo, 
         telefono: updated?.phone ?? payload.phone,
         contraseña: "********",
       };

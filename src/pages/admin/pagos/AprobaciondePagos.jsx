@@ -17,14 +17,12 @@ import {
 } from "lucide-react";
 
 function AprobaciondePagos({ showAlert, onClose }) {
-  // Simulando usuario actual (esto vendría del sistema de autenticación)
   const usuarioActual = {
     id: 1,
     nombre: "admin",
     nombreCompleto: "Administrador del Sistema"
   };
 
-  // Estado inicial de pagos pendientes de aprobación
   const [pagos, setPagos] = useState([
     {
       id: 1,
@@ -203,10 +201,8 @@ function AprobaciondePagos({ showAlert, onClose }) {
   const aprobarPago = () => {
     if (!pagoSeleccionado) return;
 
-    // Primero cerrar el modal
     cerrarModalAprobar();
     
-    // Luego actualizar el estado con un pequeño retraso para que se cierre primero
     setTimeout(() => {
       const fechaActual = new Date().toLocaleDateString('es-MX', {
         year: 'numeric',
@@ -240,10 +236,8 @@ function AprobaciondePagos({ showAlert, onClose }) {
       return;
     }
 
-    // Primero cerrar el modal
     cerrarModalRechazar();
     
-    // Luego actualizar el estado con un pequeño retraso para que se cierre primero
     setTimeout(() => {
       const fechaActual = new Date().toLocaleDateString('es-MX', {
         year: 'numeric',
@@ -277,7 +271,6 @@ function AprobaciondePagos({ showAlert, onClose }) {
 
   const handleComentarioChange = (e) => {
     setComentarioRechazo(e.target.value);
-    // Limpiar error cuando el usuario empieza a escribir
     if (errorComentario && e.target.value.trim().length >= 10) {
       setErrorComentario("");
     }

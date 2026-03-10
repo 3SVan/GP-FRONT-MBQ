@@ -14,8 +14,7 @@ const buildUrl = (path) => {
 };
 
 /**
- * ✅ Forzar descarga REAL (sin CORS)
- * OJO: Esto hace navegación al endpoint del backend, y el backend redirige a Supabase con ?download=...
+ * Forzar descarga REAL (sin CORS)
  */
 const forceDownloadByNavigation = (path) => {
   const url = buildUrl(path);

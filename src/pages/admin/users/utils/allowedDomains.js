@@ -6,7 +6,6 @@ export const ALLOWED_EMAIL_DOMAINS = [
   "gmail.com",
 ];
 
-// helper reutilizable
 export const isEmailAllowed = (email = "") => {
   const domain = email.split("@")[1]?.toLowerCase();
   return ALLOWED_EMAIL_DOMAINS.includes(domain);

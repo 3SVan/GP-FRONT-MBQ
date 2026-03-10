@@ -36,7 +36,6 @@ export default function UserModalEdit({
 }) {
   if (!open || !usuarioEditando) return null;
 
-  // ✅ Asegura que el select siempre tenga un value válido que exista en options
   const rolUiValue = useMemo(
     () => backRoleToUi(usuarioEditando?.rol),
     [usuarioEditando?.rol]
@@ -120,7 +119,6 @@ export default function UserModalEdit({
               </label>
               <select
                 name="rol"
-                // ✅ usamos rolUiValue para que siempre coincida con options
                 value={rolUiValue || "Aprobador"}
                 onChange={onChange}
                 className="w-full p-3 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"

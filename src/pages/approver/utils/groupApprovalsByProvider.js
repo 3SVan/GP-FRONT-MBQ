@@ -16,14 +16,12 @@ function pickEstadoResumen(estados = []) {
   const hasPendiente = list.includes("Pendiente");
   if (hasPendiente) return "Pendiente";
 
-  // ✅ ya no hay pendientes → estado FINAL
   const hasRechazado = list.includes("Rechazado");
   if (hasRechazado) return "Rechazado";
 
   const allAprobado = list.length > 0 && list.every((s) => s === "Aprobado");
   if (allAprobado) return "Aprobado";
 
-  // fallback
   return "Pendiente";
 }
 

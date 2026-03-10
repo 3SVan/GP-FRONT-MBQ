@@ -1,3 +1,4 @@
+// src/pages/admin/pagos/GestionPagos.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import {
   DollarSign,
@@ -11,9 +12,14 @@ import {
   User,
 } from "lucide-react";
 import PaymentsAPI from "../../../api/payments.api";
+import LoadingState from "../../../components/ui/LoadingState";
+import PageHeader from "../../../components/ui/PageHeader";
+import TableContainer from "../../../components/ui/TableContainer";
+import EmptyState from "../../../components/ui/EmptyState";
 
 function GestionPagos({ showAlert }) {
   const [pagos, setPagos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [filtroMetodo, setFiltroMetodo] = useState("todos");
   const [filtroEstado, setFiltroEstado] = useState("todos");
@@ -94,17 +100,25 @@ function GestionPagos({ showAlert }) {
   };
 
   const cargarPagos = async () => {
+    setLoading(true);
+
     try {
       const res = await PaymentsAPI.list({ limit: 200 });
 
-      const pagosFormateados = (res.payments || []).map((p) => {
+      const listaBase = Array.isArray(res?.payments)
+        ? res.payments
+        : Array.isArray(res)
+          ? res
+          : [];
+
+      const pagosFormateados = listaBase.map((p) => {
         const proveedor =
           p?.purchaseOrder?.provider?.businessName || "Proveedor";
 
         const montoNumero = Number(p.amount || 0);
 
         return {
-          id: p.id,
+          id: p?.id ?? crypto.randomUUID(),
           purchaseOrderId: p?.purchaseOrderId ?? p?.purchaseOrder?.id ?? null,
           ocNumero: p?.purchaseOrder?.number || "OC",
           proveedor,
@@ -113,45 +127,46 @@ function GestionPagos({ showAlert }) {
             maximumFractionDigits: 2,
           })}`,
           montoNumerico: montoNumero,
-          fechaPago: p.paidAt?.slice(0, 10) || "",
-          metodo: methodFromApiToUi(p.method),
-          referencia: p.reference || "",
+          fechaPago: p?.paidAt?.slice(0, 10) || "",
+          metodo: methodFromApiToUi(p?.method),
+          referencia: p?.reference || "",
           parcialidad:
-            p.installmentNo && p.installmentOf
+            p?.installmentNo && p?.installmentOf
               ? `${p.installmentNo}/${p.installmentOf}`
               : "1/1",
-          fechaCreacion: p.createdAt?.slice(0, 10) || "",
+          fechaCreacion: p?.createdAt?.slice(0, 10) || "",
           estado:
-            p.status === "APPROVED"
+            p?.status === "APPROVED"
               ? "completado"
-              : p.status === "REJECTED" || p.status === "PAID"
-              ? "cancelado"
-              : "pendiente",
+              : p?.status === "REJECTED" || p?.status === "PAID"
+                ? "cancelado"
+                : "pendiente",
         };
       });
 
       setPagos(pagosFormateados);
     } catch (err) {
+      setPagos([]);
       showAlert?.("error", "Error", "No se pudieron cargar los pagos");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ Opciones de OC construidas desde pagos reales
   const ordenesCompra = useMemo(() => {
-    return [...new Set((pagos || []).map((p) => p.ocNumero).filter(Boolean))].sort(
-      (a, b) => String(a).localeCompare(String(b))
-    );
+    return [
+      ...new Set((pagos || []).map((p) => p.ocNumero).filter(Boolean)),
+    ].sort((a, b) => String(a).localeCompare(String(b)));
   }, [pagos]);
 
-  // ✅ Proveedor por OC
   const proveedoresData = useMemo(() => {
     return (pagos || []).reduce((acc, p) => {
-      if (p?.ocNumero) acc[p.ocNumero] = p.proveedor || "Proveedor no especificado";
+      if (p?.ocNumero)
+        acc[p.ocNumero] = p.proveedor || "Proveedor no especificado";
       return acc;
     }, {});
   }, [pagos]);
 
-  // ✅ Mapa OC -> purchaseOrderId real
   const purchaseOrderIdByOc = useMemo(() => {
     return (pagos || []).reduce((acc, p) => {
       if (p?.ocNumero && p?.purchaseOrderId) {
@@ -161,19 +176,26 @@ function GestionPagos({ showAlert }) {
     }, {});
   }, [pagos]);
 
-  const pagosFiltrados = pagos.filter((pago) => {
-    const coincideBusqueda =
-      pago.proveedor.toLowerCase().includes(busqueda.toLowerCase()) ||
-      pago.ocNumero.toLowerCase().includes(busqueda.toLowerCase()) ||
-      pago.referencia.toLowerCase().includes(busqueda.toLowerCase());
+  const pagosFiltrados = useMemo(() => {
+    return pagos.filter((pago) => {
+      const proveedor = String(pago?.proveedor || "").toLowerCase();
+      const ocNumero = String(pago?.ocNumero || "").toLowerCase();
+      const referencia = String(pago?.referencia || "").toLowerCase();
+      const terminoBusqueda = String(busqueda || "").toLowerCase();
 
-    const coincideMetodo =
-      filtroMetodo === "todos" || pago.metodo === filtroMetodo;
-    const coincideEstado =
-      filtroEstado === "todos" || pago.estado === filtroEstado;
+      const coincideBusqueda =
+        proveedor.includes(terminoBusqueda) ||
+        ocNumero.includes(terminoBusqueda) ||
+        referencia.includes(terminoBusqueda);
 
-    return coincideBusqueda && coincideMetodo && coincideEstado;
-  });
+      const coincideMetodo =
+        filtroMetodo === "todos" || pago?.metodo === filtroMetodo;
+      const coincideEstado =
+        filtroEstado === "todos" || pago?.estado === filtroEstado;
+
+      return coincideBusqueda && coincideMetodo && coincideEstado;
+    });
+  }, [pagos, busqueda, filtroMetodo, filtroEstado]);
 
   const abrirModalAgregar = () => {
     setFormData({
@@ -273,7 +295,7 @@ function GestionPagos({ showAlert }) {
         showAlert?.(
           "error",
           "OC no válida",
-          "No se encontró el ID real de la orden de compra seleccionada."
+          "No se encontró el ID real de la orden de compra seleccionada.",
         );
         return;
       }
@@ -299,7 +321,7 @@ function GestionPagos({ showAlert }) {
       showAlert?.(
         "error",
         "Error",
-        err?.userMessage || "No se pudo registrar el pago"
+        err?.userMessage || "No se pudo registrar el pago",
       );
     }
   };
@@ -328,7 +350,7 @@ function GestionPagos({ showAlert }) {
       showAlert?.(
         "error",
         "Error",
-        err?.userMessage || "No se pudo actualizar el pago"
+        err?.userMessage || "No se pudo actualizar el pago",
       );
     }
   };
@@ -347,7 +369,7 @@ function GestionPagos({ showAlert }) {
       showAlert?.(
         "error",
         "Error",
-        err?.userMessage || "No se pudo eliminar el pago"
+        err?.userMessage || "No se pudo eliminar el pago",
       );
     }
   };
@@ -360,51 +382,58 @@ function GestionPagos({ showAlert }) {
     showAlert?.(
       "info",
       "Filtros limpiados",
-      "Todos los filtros han sido restablecidos."
+      "Todos los filtros han sido restablecidos.",
     );
   };
 
-  const getParcialidadColor = (parcialidad) => {
-    if (parcialidad === "1/1")
-      return "bg-green-100 text-green-800 border-green-200";
-
-    if (parcialidad.includes("1/"))
-      return "bg-blue-100 text-blue-800 border-blue-200";
-
-    const [num, total] = parcialidad.split("/");
-
-    if (num === total)
-      return "bg-green-100 text-green-800 border-green-200";
-
-    return "bg-yellow-100 text-yellow-800 border-yellow-200";
-  };
-
-  const getMetodoColor = (metodo) => {
-    switch (metodo) {
-      case "Transferencia":
-        return "bg-blue-50 text-blue-700 border-blue-200";
-      case "Cheque":
-        return "bg-purple-50 text-purple-700 border-purple-200";
-      case "Efectivo":
-        return "bg-green-50 text-green-700 border-green-200";
-      case "Tarjeta de Crédito":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200";
-      default:
-        return "bg-gray-50 text-gray-700 border-gray-200";
+  const badgeClassByType = (type, value) => {
+    if (type === "estado") {
+      if (value === "completado") {
+        return "border border-green-200 bg-green-50 text-green-700";
+      }
+      if (value === "pendiente") {
+        return "border border-yellow-200 bg-yellow-50 text-yellow-700";
+      }
+      if (value === "cancelado") {
+        return "border border-red-200 bg-red-50 text-red-700";
+      }
+      return "border border-gray-200 bg-gray-50 text-gray-700";
     }
-  };
 
-  const getEstadoColor = (estado) => {
-    switch (estado) {
-      case "completado":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "pendiente":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "cancelado":
-        return "bg-red-100 text-red-800 border-red-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+    if (type === "metodo") {
+      if (value === "Transferencia") {
+        return "border border-blue-200 bg-blue-50 text-blue-700";
+      }
+      if (value === "Cheque") {
+        return "border border-purple-200 bg-purple-50 text-purple-700";
+      }
+      if (value === "Efectivo") {
+        return "border border-green-200 bg-green-50 text-green-700";
+      }
+      if (value === "Tarjeta de Crédito") {
+        return "border border-yellow-200 bg-yellow-50 text-yellow-700";
+      }
+      return "border border-gray-200 bg-gray-50 text-gray-700";
     }
+
+    if (type === "parcialidad") {
+      if (value === "1/1") {
+        return "border border-green-200 bg-green-50 text-green-700";
+      }
+
+      if (String(value).includes("1/")) {
+        return "border border-blue-200 bg-blue-50 text-blue-700";
+      }
+
+      const [num, total] = String(value).split("/");
+      if (num === total) {
+        return "border border-green-200 bg-green-50 text-green-700";
+      }
+
+      return "border border-yellow-200 bg-yellow-50 text-yellow-700";
+    }
+
+    return "border border-gray-200 bg-gray-50 text-gray-700";
   };
 
   const handleOverlayClick = (e) => {
@@ -413,206 +442,214 @@ function GestionPagos({ showAlert }) {
     }
   };
 
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-full mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {/* Header con botón agregar */}
-          <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-800">Gestión de Pagos</h1>
-            </div>
+      <div className="mx-auto max-w-full">
+        <PageHeader
+          title="Gestión de Pagos"
+          subtitle="Administra los pagos registrados del sistema."
+          action={
             <button
               onClick={abrirModalAgregar}
-              className="flex items-center gap-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
               Nuevo Pago
             </button>
+          }
+        />
+
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por OC, proveedor o referencia..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className={`pl-10 pr-4 ${inputClass}`}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
+              <div className="relative">
+                <CreditCard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <select
+                  value={filtroMetodo}
+                  onChange={(e) => setFiltroMetodo(e.target.value)}
+                  className={`pl-10 pr-3 ${inputClass}`}
+                >
+                  <option value="todos">Todos los métodos</option>
+                  {metodosPago
+                    .filter((m) => m !== "todos")
+                    .map((metodo) => (
+                      <option key={metodo} value={metodo}>
+                        {metodo}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <select
+                  value={filtroEstado}
+                  onChange={(e) => setFiltroEstado(e.target.value)}
+                  className={`pl-10 pr-3 ${inputClass}`}
+                >
+                  <option value="todos">Todos los estados</option>
+                  {estadosPago
+                    .filter((e) => e !== "todos")
+                    .map((estado) => (
+                      <option key={estado} value={estado}>
+                        {estado.charAt(0).toUpperCase() + estado.slice(1)}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <button
+                onClick={limpiarFiltros}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                Limpiar filtros
+              </button>
+            </div>
           </div>
+        </div>
 
-          {/* Filtros */}
-          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                {/* Búsqueda */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por OC, proveedor o referencia..."
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                {/* Filtro por método */}
-                <div className="relative">
-                  <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <select
-                    value={filtroMetodo}
-                    onChange={(e) => setFiltroMetodo(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="todos">Todos los métodos</option>
-                    {metodosPago
-                      .filter((m) => m !== "todos")
-                      .map((metodo, index) => (
-                        <option key={index} value={metodo}>
-                          {metodo}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                {/* Filtro por estado */}
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <select
-                    value={filtroEstado}
-                    onChange={(e) => setFiltroEstado(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="todos">Todos los estados</option>
-                    {estadosPago
-                      .filter((e) => e !== "todos")
-                      .map((estado, index) => (
-                        <option key={index} value={estado}>
-                          {estado.charAt(0).toUpperCase() + estado.slice(1)}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                {/* Botón limpiar */}
+        <TableContainer
+          loading={loading}
+          loadingTitle="Cargando pagos..."
+          loadingSubtitle="Estamos preparando la información de gestión de pagos."
+        >
+          {pagosFiltrados.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="No se encontraron pagos"
+              subtitle="No hay coincidencias con los filtros aplicados."
+              action={
                 <button
                   onClick={limpiarFiltros}
-                  className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   Limpiar filtros
                 </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Tabla */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+              }
+            />
+          ) : (
+            <table className="min-w-full">
               <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     OC Número
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Proveedor
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Monto
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Parcialidad
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Fecha Pago
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Método
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Estado
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Acciones
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+
+              <tbody className="divide-y divide-gray-200 bg-white">
                 {pagosFiltrados.map((pago) => (
-                  <tr key={pago.id} className="hover:bg-gray-50 transition-colors">
-                    {/* Columna OC Número */}
+                  <tr
+                    key={pago.id}
+                    className="transition-colors hover:bg-gray-50"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center">
-                        <Receipt className="w-3 h-3 mr-1.5 text-gray-500" />
+                        <Receipt className="mr-1.5 h-3 w-3 text-gray-500" />
                         <span className="text-sm font-medium text-gray-900">
                           {pago.ocNumero}
                         </span>
                       </div>
                     </td>
 
-                    {/* Columna Proveedor */}
                     <td className="px-4 py-3">
                       <div className="flex items-center">
-                        <User className="w-3 h-3 mr-1.5 text-gray-500" />
-                        <span className="text-sm text-gray-900">{pago.proveedor}</span>
+                        <User className="mr-1.5 h-3 w-3 text-gray-500" />
+                        <span className="text-sm text-gray-900">
+                          {pago.proveedor}
+                        </span>
                       </div>
                     </td>
 
-                    {/* Columna Monto */}
                     <td className="px-4 py-3">
                       <div className="flex items-center text-sm font-medium text-gray-900">
-                        <DollarSign className="w-3 h-3 mr-1 text-gray-500" />
+                        <DollarSign className="mr-1 h-3 w-3 text-gray-500" />
                         {pago.monto}
                       </div>
                     </td>
 
-                    {/* Columna Parcialidad */}
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex px-2 py-1 rounded text-xs font-medium border ${getParcialidadColor(
-                          pago.parcialidad
-                        )}`}
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeClassByType("parcialidad", pago.parcialidad)}`}
                       >
                         {pago.parcialidad}
                       </span>
                     </td>
 
-                    {/* Columna Fecha Pago */}
                     <td className="px-4 py-3">
                       <div className="flex items-center text-sm text-gray-900">
-                        <Calendar className="w-3 h-3 mr-1 text-gray-400" />
-                        {pago.fechaPago}
+                        <Calendar className="mr-1 h-3 w-3 text-gray-400" />
+                        {pago.fechaPago || "-"}
                       </div>
                     </td>
 
-                    {/* Columna Método */}
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex px-2 py-1 rounded text-xs font-medium border ${getMetodoColor(
-                          pago.metodo
-                        )}`}
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeClassByType("metodo", pago.metodo)}`}
                       >
                         {pago.metodo}
                       </span>
                     </td>
 
-                    {/* Columna Estado */}
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex px-2 py-1 rounded text-xs font-medium border ${getEstadoColor(
-                          pago.estado
-                        )}`}
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badgeClassByType("estado", pago.estado)}`}
                       >
-                        {pago.estado.charAt(0).toUpperCase() + pago.estado.slice(1)}
+                        {pago.estado.charAt(0).toUpperCase() +
+                          pago.estado.slice(1)}
                       </span>
                     </td>
 
-                    {/* Columna Acciones */}
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button
                           onClick={() => abrirModalEditar(pago)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50 hover:text-blue-700"
                           title="Editar pago"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => abrirModalEliminar(pago)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="rounded-lg p-2 text-red-600 transition hover:bg-red-50 hover:text-red-700"
                           title="Eliminar pago"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -620,78 +657,57 @@ function GestionPagos({ showAlert }) {
                 ))}
               </tbody>
             </table>
-          </div>
-
-          {/* Sin resultados */}
-          {pagosFiltrados.length === 0 && (
-            <div className="py-12 text-center">
-              <div className="text-gray-400 mb-2">
-                <Search className="w-12 h-12 mx-auto" />
-              </div>
-              <p className="text-gray-500 text-sm">
-                No se encontraron pagos con los filtros aplicados
-              </p>
-              <button
-                onClick={limpiarFiltros}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-              >
-                Limpiar filtros
-              </button>
-            </div>
           )}
+        </TableContainer>
 
-          {/* Footer */}
-          <div className="px-4 py-3 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center">
-              {pagosFiltrados.length} de {pagos.length} pagos
-            </p>
-          </div>
+        <div className="rounded-b-lg border border-t-0 border-gray-200 bg-white px-4 py-3 text-center shadow-sm">
+          <p className="text-xs text-gray-500">
+            {pagosFiltrados.length} de {pagos.length} pagos
+          </p>
         </div>
       </div>
 
-      {/* Modal Agregar Pago */}
       {modalAgregar && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={handleOverlayClick}
         >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto">
+          <div className="mx-auto w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-800">
                   Agregar Nuevo Pago
                 </h3>
                 <button
                   onClick={cerrarModal}
-                  className="text-gray-400 hover:text-gray-600 text-lg"
+                  className="text-lg text-gray-400 transition hover:text-gray-600"
                 >
                   ✕
                 </button>
               </div>
 
               <div className="space-y-4">
-                {/* Orden de Compra */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Orden de Compra <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="ocNumero"
                     value={formData.ocNumero}
                     onChange={handleInputChange}
-                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errores.ocNumero ? "border-red-500" : "border-gray-300"
-                    }`}
+                    className={`${inputClass} ${errores.ocNumero ? "border-red-500" : ""}`}
                   >
                     <option value="">Seleccionar OC</option>
-                    {ordenesCompra.map((oc, index) => (
-                      <option key={index} value={oc}>
+                    {ordenesCompra.map((oc) => (
+                      <option key={oc} value={oc}>
                         {oc}
                       </option>
                     ))}
                   </select>
                   {errores.ocNumero && (
-                    <p className="mt-1 text-xs text-red-500">{errores.ocNumero}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errores.ocNumero}
+                    </p>
                   )}
                   {formData.ocNumero && proveedoresData[formData.ocNumero] && (
                     <p className="mt-1 text-xs text-gray-500">
@@ -700,14 +716,13 @@ function GestionPagos({ showAlert }) {
                   )}
                 </div>
 
-                {/* Monto y Parcialidad */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Monto <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                         $
                       </span>
                       <input
@@ -715,30 +730,30 @@ function GestionPagos({ showAlert }) {
                         name="monto"
                         value={formData.monto}
                         onChange={handleInputChange}
-                        placeholder="0.00"
                         step="0.01"
                         min="0"
-                        className={`w-full pl-8 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errores.monto ? "border-red-500" : "border-gray-300"
-                        }`}
+                        className={`w-full rounded-lg border bg-white py-2 pl-8 pr-3 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 ${errores.monto ? "border-red-500" : "border-gray-300"}`}
                       />
                     </div>
                     {errores.monto && (
-                      <p className="mt-1 text-xs text-red-500">{errores.monto}</p>
+                      <p className="mt-1 text-xs text-red-500">
+                        {errores.monto}
+                      </p>
                     )}
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Parcialidad
                     </label>
                     <select
                       name="parcialidad"
                       value={formData.parcialidad}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={inputClass}
                     >
-                      {parcialidadesOpciones.map((parcialidad, index) => (
-                        <option key={index} value={parcialidad}>
+                      {parcialidadesOpciones.map((parcialidad) => (
+                        <option key={parcialidad} value={parcialidad}>
                           {parcialidad}
                         </option>
                       ))}
@@ -746,9 +761,8 @@ function GestionPagos({ showAlert }) {
                   </div>
                 </div>
 
-                {/* Fecha de Pago */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Fecha de Pago <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -756,47 +770,49 @@ function GestionPagos({ showAlert }) {
                     name="fechaPago"
                     value={formData.fechaPago}
                     onChange={handleInputChange}
-                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errores.fechaPago ? "border-red-500" : "border-gray-300"
-                    }`}
+                    className={`${inputClass} ${errores.fechaPago ? "border-red-500" : ""}`}
                   />
                   {errores.fechaPago && (
-                    <p className="mt-1 text-xs text-red-500">{errores.fechaPago}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errores.fechaPago}
+                    </p>
                   )}
                 </div>
 
-                {/* Método de Pago y Estado */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Método de Pago <span className="text-red-500">*</span>
                     </label>
                     <select
                       name="metodo"
                       value={formData.metodo}
                       onChange={handleInputChange}
-                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errores.metodo ? "border-red-500" : "border-gray-300"
-                      }`}
+                      className={`${inputClass} ${errores.metodo ? "border-red-500" : ""}`}
                     >
                       <option value="Transferencia">Transferencia</option>
                       <option value="Cheque">Cheque</option>
                       <option value="Efectivo">Efectivo</option>
-                      <option value="Tarjeta de Crédito">Tarjeta de Crédito</option>
+                      <option value="Tarjeta de Crédito">
+                        Tarjeta de Crédito
+                      </option>
                     </select>
                     {errores.metodo && (
-                      <p className="mt-1 text-xs text-red-500">{errores.metodo}</p>
+                      <p className="mt-1 text-xs text-red-500">
+                        {errores.metodo}
+                      </p>
                     )}
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Estado
                     </label>
                     <select
                       name="estado"
                       value={formData.estado}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={inputClass}
                     >
                       <option value="pendiente">Pendiente</option>
                       <option value="completado">Completado</option>
@@ -805,9 +821,8 @@ function GestionPagos({ showAlert }) {
                   </div>
                 </div>
 
-                {/* Referencia */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Referencia (Opcional)
                   </label>
                   <input
@@ -816,21 +831,21 @@ function GestionPagos({ showAlert }) {
                     value={formData.referencia}
                     onChange={handleInputChange}
                     placeholder="Número de referencia, cheque, etc."
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={inputClass}
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-8">
+              <div className="mt-8 flex gap-3">
                 <button
                   onClick={cerrarModal}
-                  className="flex-1 px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={agregarPago}
-                  className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
                   Agregar Pago
                 </button>
@@ -840,19 +855,20 @@ function GestionPagos({ showAlert }) {
         </div>
       )}
 
-      {/* Modal Editar Pago */}
       {modalEditar && pagoSeleccionado && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={handleOverlayClick}
         >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto">
+          <div className="mx-auto w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Editar Pago</h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Editar Pago
+                </h3>
                 <button
                   onClick={cerrarModal}
-                  className="text-gray-400 hover:text-gray-600 text-lg"
+                  className="text-lg text-gray-400 transition hover:text-gray-600"
                 >
                   ✕
                 </button>
@@ -860,35 +876,35 @@ function GestionPagos({ showAlert }) {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Orden de Compra <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="ocNumero"
                     value={formData.ocNumero}
                     onChange={handleInputChange}
-                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errores.ocNumero ? "border-red-500" : "border-gray-300"
-                    }`}
+                    className={`${inputClass} ${errores.ocNumero ? "border-red-500" : ""}`}
                   >
-                    {ordenesCompra.map((oc, index) => (
-                      <option key={index} value={oc}>
+                    {ordenesCompra.map((oc) => (
+                      <option key={oc} value={oc}>
                         {oc}
                       </option>
                     ))}
                   </select>
                   {errores.ocNumero && (
-                    <p className="mt-1 text-xs text-red-500">{errores.ocNumero}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errores.ocNumero}
+                    </p>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Monto <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                         $
                       </span>
                       <input
@@ -898,27 +914,28 @@ function GestionPagos({ showAlert }) {
                         onChange={handleInputChange}
                         step="0.01"
                         min="0"
-                        className={`w-full pl-8 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errores.monto ? "border-red-500" : "border-gray-300"
-                        }`}
+                        className={`w-full rounded-lg border bg-white py-2 pl-8 pr-3 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 ${errores.monto ? "border-red-500" : "border-gray-300"}`}
                       />
                     </div>
                     {errores.monto && (
-                      <p className="mt-1 text-xs text-red-500">{errores.monto}</p>
+                      <p className="mt-1 text-xs text-red-500">
+                        {errores.monto}
+                      </p>
                     )}
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Parcialidad
                     </label>
                     <select
                       name="parcialidad"
                       value={formData.parcialidad}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={inputClass}
                     >
-                      {parcialidadesOpciones.map((parcialidad, index) => (
-                        <option key={index} value={parcialidad}>
+                      {parcialidadesOpciones.map((parcialidad) => (
+                        <option key={parcialidad} value={parcialidad}>
                           {parcialidad}
                         </option>
                       ))}
@@ -927,7 +944,7 @@ function GestionPagos({ showAlert }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Fecha de Pago <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -935,46 +952,49 @@ function GestionPagos({ showAlert }) {
                     name="fechaPago"
                     value={formData.fechaPago}
                     onChange={handleInputChange}
-                    className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errores.fechaPago ? "border-red-500" : "border-gray-300"
-                    }`}
+                    className={`${inputClass} ${errores.fechaPago ? "border-red-500" : ""}`}
                   />
                   {errores.fechaPago && (
-                    <p className="mt-1 text-xs text-red-500">{errores.fechaPago}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errores.fechaPago}
+                    </p>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Método de Pago <span className="text-red-500">*</span>
                     </label>
                     <select
                       name="metodo"
                       value={formData.metodo}
                       onChange={handleInputChange}
-                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errores.metodo ? "border-red-500" : "border-gray-300"
-                      }`}
+                      className={`${inputClass} ${errores.metodo ? "border-red-500" : ""}`}
                     >
                       <option value="Transferencia">Transferencia</option>
                       <option value="Cheque">Cheque</option>
                       <option value="Efectivo">Efectivo</option>
-                      <option value="Tarjeta de Crédito">Tarjeta de Crédito</option>
+                      <option value="Tarjeta de Crédito">
+                        Tarjeta de Crédito
+                      </option>
                     </select>
                     {errores.metodo && (
-                      <p className="mt-1 text-xs text-red-500">{errores.metodo}</p>
+                      <p className="mt-1 text-xs text-red-500">
+                        {errores.metodo}
+                      </p>
                     )}
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Estado
                     </label>
                     <select
                       name="estado"
                       value={formData.estado}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={inputClass}
                     >
                       <option value="pendiente">Pendiente</option>
                       <option value="completado">Completado</option>
@@ -984,29 +1004,30 @@ function GestionPagos({ showAlert }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Referencia
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Referencia (Opcional)
                   </label>
                   <input
                     type="text"
                     name="referencia"
                     value={formData.referencia}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Número de referencia, cheque, etc."
+                    className={inputClass}
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-8">
+              <div className="mt-8 flex gap-3">
                 <button
                   onClick={cerrarModal}
-                  className="flex-1 px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={editarPago}
-                  className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
                   Guardar Cambios
                 </button>
@@ -1016,63 +1037,31 @@ function GestionPagos({ showAlert }) {
         </div>
       )}
 
-      {/* Modal Eliminar Pago */}
       {modalEliminar && pagoSeleccionado && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={handleOverlayClick}
         >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto">
+          <div className="mx-auto w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="p-6">
-              <div className="text-center mb-4">
-                <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
-                  <Trash2 className="w-6 h-6 text-red-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                  Eliminar Pago
-                </h3>
-                <p className="text-sm text-gray-600">
-                  ¿Está seguro de eliminar este pago?
-                </p>
-              </div>
+              <h3 className="text-lg font-semibold text-gray-800">
+                Eliminar Pago
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                ¿Seguro que deseas eliminar el pago{" "}
+                <span className="font-medium">{pagoSeleccionado.ocNumero}</span>?
+              </p>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700">
-                    OC Número:
-                  </span>
-                  <span className="text-sm text-gray-900">
-                    {pagoSeleccionado.ocNumero}
-                  </span>
-                </div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700">
-                    Proveedor:
-                  </span>
-                  <span className="text-sm text-gray-900">
-                    {pagoSeleccionado.proveedor}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium text-gray-700">
-                    Monto:
-                  </span>
-                  <span className="text-sm text-gray-900">
-                    {pagoSeleccionado.monto}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
+              <div className="mt-8 flex gap-3">
                 <button
                   onClick={cerrarModal}
-                  className="flex-1 px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={eliminarPago}
-                  className="flex-1 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
                 >
                   Eliminar
                 </button>

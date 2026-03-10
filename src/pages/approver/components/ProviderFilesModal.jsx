@@ -78,7 +78,6 @@ function statusPill(statusRaw) {
   return `${base} bg-gray-50 text-midBlue border-lightBlue`;
 }
 
-// ✅ nombre literal como tú quieres
 function slugifyName(name = "") {
   return String(name)
     .normalize("NFD")
@@ -150,19 +149,15 @@ export default function ProviderFilesModal({
   const sections = useMemo(() => groupFilesBySolicitud(files || []), [files]);
   const [openSections, setOpenSections] = useState({});
 
-  // status local instantáneo
   const [localStatusById, setLocalStatusById] = useState({}); // { [id]: "APPROVED"|"REJECTED" }
 
-  // cambios pendientes por guardar
   const [pendingChanges, setPendingChanges] = useState({}); // { [id]: {action:"APPROVE"} | {action:"REJECT", reason} }
 
   const [saving, setSaving] = useState(false);
 
-  // ✅ Reject inline
   const [rejectEditingId, setRejectEditingId] = useState(null);
   const [rejectDraftById, setRejectDraftById] = useState({}); // { [id]: "reason..." }
 
-  // ✅ Toast LOCAL (sin overlay) para aprobar/rechazar/guardar
   const [toast, setToast] = useState(null); // {type:"success"|"error"|"info", title, msg}
   const pushToast = (type, title, msg, ms = 1900) => {
     setToast({ type, title, msg });
@@ -177,7 +172,6 @@ export default function ProviderFilesModal({
     setOpenSections(initial);
   }, [open, sections]);
 
-  // reset al abrir/cambiar proveedor
   useEffect(() => {
     if (!open) return;
     setLocalStatusById({});
@@ -188,7 +182,6 @@ export default function ProviderFilesModal({
     setToast(null);
   }, [open, grupoSeleccionado?.groupId, grupoSeleccionado?.providerId]);
 
-  // ESC
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
@@ -308,7 +301,6 @@ export default function ProviderFilesModal({
         }
       }
 
-      // ✅ ya NO usamos showAlert (eso era lo que oscurecía), usamos toast local
       pushToast(
         "success",
         "Cambios guardados",
@@ -331,7 +323,6 @@ export default function ProviderFilesModal({
     }
   };
 
-  // ✅ Toast con color leve (para que se note)
   const toastBoxClass = (type) => {
     const base =
       "pointer-events-auto rounded-2xl border px-4 py-3 shadow-lg backdrop-blur";
@@ -470,7 +461,6 @@ export default function ProviderFilesModal({
                               const changed = !!pendingChanges[id];
                               const isEditingReject = rejectEditingId === id;
 
-                              // ✅ Deshabilitar solo el botón correspondiente
                               const isFinal =
                                 normalizedShown === "APPROVED" ||
                                 normalizedShown === "REJECTED";

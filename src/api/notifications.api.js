@@ -12,7 +12,6 @@ export const NotificationsAPI = {
     return api.patch("/notifications/read-all").then((r) => r.data);
   },
 
-  // ✅ NUEVO: borrar SOLO notificación de solicitud (approve/reject)
   deleteUserRequest(id) {
     return api.delete(`/notifications/${id}/user-request`).then((r) => r.data);
   },

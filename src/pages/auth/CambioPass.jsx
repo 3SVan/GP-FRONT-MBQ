@@ -7,10 +7,8 @@ function CambioPass() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Vienen desde Autentificacion cuando es reset:
-  // navigate("/cambio-pass", { state: { email, token } })
   const email = location.state?.email || "";
-  const token = location.state?.token || ""; // si existe => reset-password
+  const token = location.state?.token || "";
 
   const isResetMode = Boolean(email && token);
 
@@ -72,7 +70,6 @@ function CambioPass() {
       newErrors.confirmarPassword = "Las contraseñas no coinciden";
     }
 
-    // En reset mode, necesitamos email/token sí o sí
     if (isResetMode && (!email || !token)) {
       newErrors.general = "Falta información para recuperación. Vuelve a solicitar el código.";
     }
@@ -94,7 +91,6 @@ function CambioPass() {
 
     try {
       if (isResetMode) {
-        // ✅ RESET PASSWORD real (NO requiere cookie)
         await AuthAPI.resetPassword({
           email,
           token,
@@ -103,7 +99,6 @@ function CambioPass() {
 
         setShowSuccess(true);
 
-        // después del reset, lo más normal es mandarlo a login
         setTimeout(() => {
           navigate("/login", { replace: true });
         }, 1200);
@@ -111,17 +106,12 @@ function CambioPass() {
         return;
       }
 
-      // ✅ CHANGE PASSWORD (primer login / autenticado)
-      // Requiere cookie, si no hay sesión te dará 401.
-      // Si tu backend pide { currentPassword, newPassword } ajusta esto:
       await AuthAPI.changePassword({
-        // si tu endpoint requiere currentPassword, aquí tendrías que pedirlo en UI
         newPassword: formData.nuevaPassword,
       });
 
       setShowSuccess(true);
 
-      // leer roles y mandar dashboard por rol
       const meRes = await AuthAPI.me();
       const roles = meRes?.data?.user?.roles || [];
 

@@ -638,7 +638,7 @@ function Graficas({
       </div>
 
       {/* TABLA (solo si aplica) */}
-      {tableEnabled && tableScope !== "none" && (
+      {/* {tableEnabled && tableScope !== "none" && (
         <div className="bg-white rounded-xl border border-lightBlue shadow-lg overflow-hidden">
           <div className="p-6 border-b border-lightBlue">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -752,7 +752,7 @@ function Graficas({
             </>
           )}
         </div>
-      )}
+      )} */}
     </div>
   );
 }

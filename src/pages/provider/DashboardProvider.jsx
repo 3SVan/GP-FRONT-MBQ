@@ -23,14 +23,12 @@ import { useNavigate } from "react-router-dom";
 
 import logo from "../../assets/logo-relleno.png";
 
-// Importar componentes
 import GestionDatosPro from "./GestionDatosPro.jsx";
 import OrdenCompraPro from "./OrdenCompraPro.jsx";
 import DocumentosPro from "./DocumentosPro.jsx";
 import EstatusPago from "./EstatusPago.jsx";
 import ExpedientesProveedor from "./ExpedientesProveedor.jsx";
 
-// ✅ NUEVO: Planes de Pago (Shell sin rutas)
 import PlanesPagoShell from "./planesPago/PlanesPagoShell.jsx";
 
 import { AuthAPI } from "../../api/auth.api";
@@ -64,7 +62,6 @@ function DashboardProvider() {
     function pickCompanyName(p) {
     if (!p) return "Proveedor";
 
-    // por si viene { provider: {...} }
     const x = typeof p?.provider === "object" && p.provider ? p.provider : p;
 
     const name =
@@ -89,7 +86,6 @@ function DashboardProvider() {
     return (a + b) || a || "PR";
   }
 
-  // ✅ Alert helper (igual estilo que tus dashboards)
   const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
     setAlertConfig({ type, title, message, showConfirm, onConfirm });
     setAlertOpen(true);
@@ -99,7 +95,6 @@ function DashboardProvider() {
     }
   };
 
-  // ✅ Logout real (limpia cookie)
   const handleLogout = async () => {
     try {
       setUserMenuOpen(false);

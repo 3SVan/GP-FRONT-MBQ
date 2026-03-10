@@ -15,7 +15,6 @@ const unwrapArray = (res) => {
 export const AdminAPI = {
   // =========================
   // USERS (user.routes.js)
-  // BaseURL ya trae /api, por eso aquí NO ponemos /api
   // =========================
   listUsers: (params) => api.get("/users", { params }),
   getUser: (id) => api.get(`/users/${id}`), // (si lo tienes)
@@ -32,7 +31,6 @@ export const AdminAPI = {
 
   // =========================
   // NOTIFICATIONS (notification.routes.js)
-  // (si lo usas en admin)
   // =========================
   getMyNotifications: (params) => api.get("/notifications", { params }),
   readNotification: (id) => api.patch(`/notifications/${id}/read`),

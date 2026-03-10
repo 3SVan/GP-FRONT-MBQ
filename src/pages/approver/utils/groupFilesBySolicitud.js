@@ -2,8 +2,6 @@
 
 function normalizeSolicitudName(name) {
   const s = String(name || "").trim();
-
-  // ✅ Une Frontal + Reverso en una sola sección
   if (/identificaci[oó]n\s+oficial/i.test(s)) {
     return "Identificación Oficial";
   }
@@ -12,7 +10,6 @@ function normalizeSolicitudName(name) {
 }
 
 function fileKey(f) {
-  // Usa lo más estable para deduplicar
   return String(
     f?.id ??
       f?.fileId ??
@@ -29,7 +26,6 @@ function fileKey(f) {
   ).trim();
 }
 
-// ✅ Dedup para evitar duplicados al mezclar arrays
 export function dedupFiles(files = []) {
   const seen = new Set();
   const out = [];
@@ -53,7 +49,7 @@ export function groupFilesBySolicitud(files = []) {
 
   for (const f of files) {
     const rawKey =
-      f?.__solicitud || // ✅ tu Documents.jsx ya setea este
+      f?.__solicitud ||
       f?.solicitud ||
       f?.docTypeName ||
       f?.documentName ||

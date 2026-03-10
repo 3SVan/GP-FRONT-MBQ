@@ -38,7 +38,6 @@ export default function Autentificacion() {
     inputRefs.current[0]?.focus();
   };
 
-  // ✅ alfanumérico
   const handleChange = (index, value) => {
     const clean = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 
@@ -117,14 +116,12 @@ export default function Autentificacion() {
 
     try {
       if (mode === "reset-password") {
-        // ✅ NO llamar /login/verify aquí
-        // Guardamos token (código) y mandamos a CambioPass con el mismo diseño del login (ojito)
         setAlert("success", "Código válido. Continúa para cambiar tu contraseña...");
 
         navigate("/cambio-pass", {
           state: {
             email,
-            token: codeStr, // <- backend lo llama token
+            token: codeStr, 
           },
           replace: true,
         });
@@ -140,7 +137,6 @@ export default function Autentificacion() {
 
         setAlert("success", "Acceso concedido. Redirigiendo...");
 
-        // ✅ Si el backend indica que debe cambiar contraseña (primer login)
         if (user?.mustChangePassword) {
           navigate("/cambio-pass", { replace: true });
           return;
@@ -167,7 +163,6 @@ export default function Autentificacion() {
 
     try {
       if (mode === "reset-password") {
-        // ✅ reusar endpoint de reset
         await AuthAPI.forgotPassword({ email });
         setAlert("success", "Código reenviado. Revisa tu correo.");
         clearCode();

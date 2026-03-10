@@ -12,7 +12,6 @@ export const getEstatusColor = (estatusValue) => {
 };
 
 export const getRolColor = (rolValue) => {
-  // OJO: estos valores son los de UI (no ADMIN)
   switch (rolValue) {
     case "Administrador":
       return "bg-purple-100 text-purple-800";

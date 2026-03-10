@@ -11,8 +11,6 @@ function uniq(arr) {
 }
 
 function pickEstadoResumen(estados = []) {
-  // “peor” primero para que el resumen sea útil:
-  // Pendiente > Rechazado > Aprobado
   if (estados.includes("Pendiente")) return "Pendiente";
   if (estados.includes("Rechazado")) return "Rechazado";
   if (estados.includes("Aprobado")) return "Aprobado";
@@ -20,8 +18,8 @@ function pickEstadoResumen(estados = []) {
 }
 
 /**
- * @param {Array} aprobaciones - lista de aprobaciones (1 por documento/solicitud)
- * @param {(a:any)=>string|number} getKey - cómo identificar proveedor (id)
+ * @param {Array} aprobaciones 
+ * @param {(a:any)=>string|number} getKey 
  */
 export function groupApprovalsByProvider(aprobaciones = [], getKey) {
   const map = new Map();
@@ -62,12 +60,11 @@ export function groupApprovalsByProvider(aprobaciones = [], getKey) {
       fecha: fechaMax ? new Date(fechaMax).toISOString() : null,
       comentario,
       totalSolicitudes: g.items.length,
-      totalArchivos: totalArchivos > 0 ? totalArchivos : g.items.length, // fallback
+      totalArchivos: totalArchivos > 0 ? totalArchivos : g.items.length, 
       solicitudes,
     };
   });
 
-  // orden útil: pendientes primero, luego rechazado, luego aprobado
   const rank = (st) => (st === "Pendiente" ? 1 : st === "Rechazado" ? 2 : 3);
   groups.sort((a, b) => {
     const r = rank(a.estado) - rank(b.estado);

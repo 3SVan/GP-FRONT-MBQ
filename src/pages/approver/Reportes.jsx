@@ -1,7 +1,7 @@
 // src/pages/approver/Reportes.jsx
 import React, { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx'; // Importar la librería para Excel
-import { Download } from 'lucide-react'; // Icono para el botón
+import * as XLSX from 'xlsx'; 
+import { Download } from 'lucide-react'; 
 
 function Reportes({ tipoReporte }) {
   const [datosReportes, setDatosReportes] = useState([]);
@@ -149,7 +149,7 @@ function Reportes({ tipoReporte }) {
       ) / datosReportes.length
     ).toFixed(1);
 
-    datosExcel.push({}); // Fila vacía para separación
+    datosExcel.push({});
     datosExcel.push({
       'Proveedor': 'TOTALES',
       'Aprobadas': totalAprobadas,

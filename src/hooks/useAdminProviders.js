@@ -15,7 +15,6 @@ export function useAdminProviders({ showAlert } = {}) {
         } catch (err) {
             const status = err?.response?.status;
             if (status === 401) {
-                // opcional: navigate("/login")
                 setRows([]);
                 return;
             }

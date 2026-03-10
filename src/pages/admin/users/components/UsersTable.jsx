@@ -1,5 +1,12 @@
+// src/pages/admin/users/components/UsersTable.jsx
 import React from "react";
 import { Eye, Edit, Trash2, Search } from "lucide-react";
+import TableContainer from "../../../../components/ui/TableContainer";
+import EmptyState from "../../../../components/ui/EmptyState";
+import StatusBadge, {
+  roleToneFromText,
+  statusToneFromText,
+} from "../../../../components/ui/StatusBadge";
 
 export default function UsersTable({
   loading = false,
@@ -7,95 +14,96 @@ export default function UsersTable({
   onView,
   onEdit,
   onDelete,
-  getRolColor,
-  getEstatusColor,
 }) {
   return (
-    <div className="bg-white rounded-lg border border-lightBlue overflow-hidden shadow-sm">
-      {loading && (
-        <div className="px-6 py-3 text-sm text-midBlue border-b border-lightBlue">
-          Cargando usuarios...
-        </div>
-      )}
-
-      <div className="overflow-x-auto">
+    <TableContainer
+      loading={loading}
+      loadingTitle="Cargando usuarios..."
+      loadingSubtitle="Estamos obteniendo la información del módulo de usuarios."
+    >
+      {usuariosFiltrados.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="No se encontraron usuarios"
+          subtitle="Intenta ajustar los filtros de búsqueda."
+        />
+      ) : (
         <table className="w-full">
-          <thead>
-            <tr className="bg-lightBlue border-b border-midBlue">
-              <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+          <thead className="bg-gray-50">
+            <tr className="border-b border-gray-200">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                 Usuario
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                 Departamento
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                 Rol
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                 Estatus
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                 Acciones
               </th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-lightBlue">
+          <tbody className="divide-y divide-gray-200">
             {usuariosFiltrados.map((usuario) => (
-              <tr key={String(usuario.id)} className="hover:bg-beige transition-colors">
-                <td className="px-6 py-4">
+              <tr
+                key={String(usuario.id)}
+                className="transition-colors hover:bg-gray-50"
+              >
+                <td className="px-4 py-3">
                   <div>
-                    <div className="text-sm font-medium text-darkBlue">{usuario.nombre}</div>
-                    <div className="text-sm text-midBlue">{usuario.email}</div>
+                    <div className="text-sm font-semibold text-gray-800">
+                      {usuario.nombre}
+                    </div>
+                    <div className="text-sm text-gray-500">{usuario.email}</div>
                   </div>
                 </td>
 
-                <td className="px-6 py-4 text-sm text-darkBlue">{usuario.departamento}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">
+                  {usuario.departamento}
+                </td>
 
-                <td className="px-6 py-4">
-                  <span
-                    className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      typeof getRolColor === "function" ? getRolColor(usuario.rol) : ""
-                    }`}
-                  >
+                <td className="px-4 py-3">
+                  <StatusBadge tone={roleToneFromText(usuario.rol)}>
                     {usuario.rol}
-                  </span>
+                  </StatusBadge>
                 </td>
 
-                <td className="px-6 py-4">
-                  <span
-                    className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      typeof getEstatusColor === "function" ? getEstatusColor(usuario.estatus) : ""
-                    }`}
-                  >
+                <td className="px-4 py-3">
+                  <StatusBadge tone={statusToneFromText(usuario.estatus)}>
                     {usuario.estatus}
-                  </span>
+                  </StatusBadge>
                 </td>
 
-                <td className="px-6 py-4">
-                  <div className="flex gap-2">
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => onView?.(usuario.id)}
-                      className="text-midBlue hover:text-darkBlue transition p-1"
+                      className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
                       title="Ver detalles"
                     >
-                      <Eye className="w-4 h-4" />
+                      <Eye className="h-4 w-4" />
                     </button>
 
                     <button
                       onClick={() => onEdit?.(usuario.id)}
-                      className="text-green-600 hover:text-green-800 transition p-1"
+                      className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50 hover:text-blue-700"
                       title="Editar"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="h-4 w-4" />
                     </button>
 
                     <button
                       onClick={() => onDelete?.(usuario.id)}
-                      className="text-red-600 hover:text-red-800 transition p-1"
+                      className="rounded-lg p-2 text-red-600 transition hover:bg-red-50 hover:text-red-700"
                       title="Eliminar"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </td>
@@ -103,17 +111,7 @@ export default function UsersTable({
             ))}
           </tbody>
         </table>
-      </div>
-
-      {!loading && usuariosFiltrados.length === 0 && (
-        <div className="text-center py-8">
-          <div className="text-midBlue mb-2">
-            <Search className="w-12 h-12 mx-auto" />
-          </div>
-          <p className="text-darkBlue text-lg">No se encontraron usuarios</p>
-          <p className="text-midBlue">Intenta ajustar los filtros de búsqueda</p>
-        </div>
       )}
-    </div>
+    </TableContainer>
   );
 }

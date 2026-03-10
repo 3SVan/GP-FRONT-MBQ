@@ -48,7 +48,6 @@ export const PurchaseOrdersAPI = {
     return api.get(`/purchase-orders/${id}`).then((r) => r.data);
   },
 
-  // ✅ NUEVO: órdenes aprobadas sin pagos (admin/aprobador)
   listApprovedUnpaid(params = {}) {
     return api
       .get("/purchase-orders/approved-unpaid", { params })

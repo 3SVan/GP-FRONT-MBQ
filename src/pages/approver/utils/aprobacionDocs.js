@@ -19,7 +19,6 @@ export function getTipoDocumento(solicitud) {
   return "general";
 }
 
-// Función para generar archivo Excel con formato profesional
 export function generarExcelConFormato(datos, cabeceras, titulo, nombreArchivo) {
   const html = `
   <html xmlns:o="urn:schemas-microsoft-com:office:office"

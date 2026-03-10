@@ -25,11 +25,6 @@ export const apiStatusToUi = (v) => {
   return "Activo";
 };
 
-// roles puede venir como:
-// - ["ADMIN"]
-// - [{ role: { name: "ADMIN" } }] ✅ (con include role)
-// - [{ name: "ADMIN" }]
-// - [{ userId, roleId }] ❌ (pivote sin include role)
 export const pickRole = (u) => {
   if (typeof u?.role === "string") return u.role;
 

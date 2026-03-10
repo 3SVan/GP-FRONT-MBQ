@@ -1,8 +1,20 @@
+// src/pages/admin/HistorialActividad.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, Filter, Calendar, Clock, User, FileUp, CheckCircle } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Calendar,
+  Clock,
+  User,
+  FileUp,
+  CheckCircle,
+} from "lucide-react";
 import { AnalyticsAPI } from "../../api/analytics.api";
+import LoadingState from "../../components/ui/LoadingState";
+import PageHeader from "../../components/ui/PageHeader";
+import TableContainer from "../../components/ui/TableContainer";
+import EmptyState from "../../components/ui/EmptyState";
 
-// --- helpers ---
 function pad2(n) {
   const s = String(n);
   return s.length === 1 ? "0" + s : s;
@@ -21,39 +33,33 @@ function safeDate(v) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-// Mapea action del backend a etiquetas de tu UI
 function mapActionToLabel(action = "") {
   const a = String(action || "").toUpperCase();
 
-  // auth
   if (a.includes("LOGIN")) return "Inicio sesión";
 
-  // docs
   if (a.includes("UPLOAD") && a.includes("DOCUMENT")) return "Subió documentos";
-  if (a.includes("APPROVE") && a.includes("DOCUMENT")) return "Aprobó documentos";
-  if (a.includes("REJECT") && a.includes("DOCUMENT")) return "Rechazó documentos";
+  if (a.includes("APPROVE") && a.includes("DOCUMENT"))
+    return "Aprobó documentos";
+  if (a.includes("REJECT") && a.includes("DOCUMENT"))
+    return "Rechazó documentos";
 
-  // providers
   if (a.includes("CREATE") && a.includes("PROVIDER")) return "Creó proveedor";
-  if (a.includes("UPDATE") && a.includes("PROVIDER")) return "Actualizó proveedor";
-  if (a.includes("INACTIVATE") && a.includes("PROVIDER")) return "Inactivó proveedor";
-  if (a.includes("REACTIVATE") && a.includes("PROVIDER")) return "Reactivó proveedor";
+  if (a.includes("UPDATE") && a.includes("PROVIDER"))
+    return "Actualizó proveedor";
+  if (a.includes("INACTIVATE") && a.includes("PROVIDER"))
+    return "Inactivó proveedor";
+  if (a.includes("REACTIVATE") && a.includes("PROVIDER"))
+    return "Reactivó proveedor";
 
-  // payments
   if (a.includes("CREATE") && a.includes("PAYMENT")) return "Registró pago";
   if (a.includes("APPROVE") && a.includes("PAYMENT")) return "Aprobó pago";
   if (a.includes("REJECT") && a.includes("PAYMENT")) return "Rechazó pago";
 
-  // fallback (mostrar action cruda pero legible)
   return action || "Actividad";
 }
 
-// Determina tipo (proveedor/aprobador) para tu badge
 function mapActorType(actor) {
-  // Si tu backend envía roles en req.user pero aquí solo llega actor básico,
-  // no hay forma 100% segura de saber el tipo. Usamos heurística:
-  // - si el email NO es corporativo, probablemente proveedor
-  // - si es @mbqinc.com, probablemente interno (aprobador/admin)
   const email = String(actor?.email || "").toLowerCase();
   if (!email) return "aprobador";
   if (email.endsWith("@mbqinc.com")) return "aprobador";
@@ -77,7 +83,7 @@ function buildRowFromAudit(audit) {
     fecha,
     hora,
     actividad,
-    _raw: audit, // por si luego quieres abrir modal con meta/entity
+    _raw: audit,
   };
 }
 
@@ -109,14 +115,12 @@ function HistorialActividad({ showAlert }) {
 
   const load = async (page = 1) => {
     setLoading(true);
+
     try {
-      // Filtros -> params backend
       const params = {
         page,
         pageSize: meta.pageSize || 50,
         search: busqueda || undefined,
-        // dateFrom/dateTo: para un día exacto, mandamos rango del día
-        // (porque tu endpoint trabaja con gte/lte de createdAt)
         ...(filtroFecha
           ? {
               dateFrom: `${filtroFecha}T00:00:00.000Z`,
@@ -125,12 +129,12 @@ function HistorialActividad({ showAlert }) {
           : {}),
       };
 
-      // Para filtroActividad, el backend filtra por action exacta (si mandas action)
-      // como tu UI tiene labels, lo hacemos client-side (más flexible).
-      // Igual con filtroTipo (no existe server-side).
       const resp = await AnalyticsAPI.getActivity(params);
 
-      const rows = Array.isArray(resp?.data) ? resp.data.map(buildRowFromAudit) : [];
+      const rows = Array.isArray(resp?.data)
+        ? resp.data.map(buildRowFromAudit)
+        : [];
+
       setHistorial(rows);
       setMeta(resp?.meta || { page, pageSize: 50, total: rows.length });
     } catch (e) {
@@ -141,7 +145,7 @@ function HistorialActividad({ showAlert }) {
       showAlert?.(
         "error",
         "No se pudo cargar historial",
-        "Revisa que el endpoint /api/analytics/activity esté disponible y tu sesión sea ADMIN."
+        "Revisa que el endpoint /api/analytics/activity esté disponible y tu sesión sea ADMIN.",
       );
     } finally {
       setLoading(false);
@@ -153,16 +157,20 @@ function HistorialActividad({ showAlert }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Filtros que tu UI quiere (tipo/actividad) se aplican client-side para no romper nada
   const historialFiltrado = useMemo(() => {
     return historial.filter((item) => {
-      const coincideBusqueda = item.usuario.toLowerCase().includes(busqueda.toLowerCase());
+      const coincideBusqueda = item.usuario
+        .toLowerCase()
+        .includes(busqueda.toLowerCase());
+
       const coincideTipo = filtroTipo === "todos" || item.tipo === filtroTipo;
       const coincideActividad =
         filtroActividad === "todos" || item.actividad === filtroActividad;
       const coincideFecha = !filtroFecha || item.fecha === filtroFecha;
 
-      return coincideBusqueda && coincideTipo && coincideActividad && coincideFecha;
+      return (
+        coincideBusqueda && coincideTipo && coincideActividad && coincideFecha
+      );
     });
   }, [historial, busqueda, filtroTipo, filtroActividad, filtroFecha]);
 
@@ -172,9 +180,12 @@ function HistorialActividad({ showAlert }) {
     setFiltroActividad("todos");
     setFiltroFecha("");
 
-    showAlert?.("info", "Filtros limpiados", "Todos los filtros han sido restablecidos.");
+    showAlert?.(
+      "info",
+      "Filtros limpiados",
+      "Todos los filtros han sido restablecidos.",
+    );
 
-    // recarga página 1 sin filtros
     setTimeout(() => load(1), 0);
   };
 
@@ -191,226 +202,233 @@ function HistorialActividad({ showAlert }) {
     if (page < totalPages) load(page + 1);
   };
 
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-full mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <h1 className="text-lg font-semibold text-gray-800">Historial de Actividad</h1>
+      <div className="mx-auto max-w-full">
+        <PageHeader
+          title="Historial de Actividad"
+          subtitle="Consulta las acciones registradas en el sistema."
+          action={
             <div className="text-xs text-gray-500">
-              {loading ? "Cargando..." : `Página ${page} de ${totalPages}`}
+              Página {page} de {totalPages}
             </div>
-          </div>
+          }
+        />
 
-          {/* Filtros */}
-          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-            <div className="space-y-3">
-              {/* Búsqueda */}
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre de usuario..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className={`pl-10 pr-4 ${inputClass}`}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <select
+                  value={filtroTipo}
+                  onChange={(e) => setFiltroTipo(e.target.value)}
+                  className={`pl-10 pr-3 ${inputClass}`}
+                >
+                  {tipos.map((tipo, index) => (
+                    <option key={index} value={tipo}>
+                      {tipo === "todos"
+                        ? "Todos los tipos"
+                        : tipo === "proveedor"
+                          ? "Proveedor"
+                          : "Aprobador"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <select
+                  value={filtroActividad}
+                  onChange={(e) => setFiltroActividad(e.target.value)}
+                  className={`pl-10 pr-3 ${inputClass}`}
+                >
+                  {actividades.map((actividad, index) => (
+                    <option key={index} value={actividad}>
+                      {actividad === "todos"
+                        ? "Todas las actividades"
+                        : actividad}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
-                  type="text"
-                  placeholder="Buscar por nombre de usuario..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  type="date"
+                  value={filtroFecha}
+                  onChange={(e) => setFiltroFecha(e.target.value)}
+                  className={`pl-10 pr-3 ${inputClass}`}
                 />
               </div>
 
-              {/* Filtros en fila */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Filtro por tipo */}
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <select
-                    value={filtroTipo}
-                    onChange={(e) => setFiltroTipo(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    {tipos.map((tipo, index) => (
-                      <option key={index} value={tipo}>
-                        {tipo === "todos" ? "Todos los tipos" : tipo === "proveedor" ? "Proveedor" : "Aprobador"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filtro por actividad */}
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <select
-                    value={filtroActividad}
-                    onChange={(e) => setFiltroActividad(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    {actividades.map((actividad, index) => (
-                      <option key={index} value={actividad}>
-                        {actividad === "todos" ? "Todas las actividades" : actividad}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filtro por fecha */}
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="date"
-                    value={filtroFecha}
-                    onChange={(e) => setFiltroFecha(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Botones */}
               <div className="flex gap-2">
                 <button
                   onClick={() => load(1)}
-                  className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
-                  Aplicar (recargar)
+                  Aplicar
                 </button>
                 <button
                   onClick={limpiarFiltros}
-                  className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
-                  Limpiar filtros
+                  Limpiar
                 </button>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Tabla */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+        <TableContainer
+          loading={loading}
+          loadingTitle="Cargando historial..."
+          loadingSubtitle="Estamos obteniendo la información del historial de actividad."
+        >
+          {!loading && historialFiltrado.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="No se encontraron actividades"
+              subtitle="No hay registros que coincidan con los filtros aplicados."
+            />
+          ) : (
+            <table className="min-w-full">
               <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Usuario
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Tipo
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Fecha
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Hora
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                     Actividad
                   </th>
                 </tr>
               </thead>
 
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 bg-white">
                 {historialFiltrado.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    {/* Usuario */}
+                  <tr key={item.id} className="transition-colors hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              item.tipo === "proveedor"
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-green-100 text-green-600"
-                            }`}
-                          >
-                            {item.usuario.charAt(0)}
-                          </div>
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                            item.tipo === "proveedor"
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-green-100 text-green-600"
+                          }`}
+                        >
+                          {item.usuario.charAt(0)}
                         </div>
+
                         <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">{item.usuario}</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {item.usuario}
+                          </p>
                         </div>
                       </div>
                     </td>
 
-                    {/* Tipo */}
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                           item.tipo === "proveedor"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : "bg-green-50 text-green-700 border border-green-200"
+                            ? "border border-blue-200 bg-blue-50 text-blue-700"
+                            : "border border-green-200 bg-green-50 text-green-700"
                         }`}
                       >
                         {item.tipo === "proveedor" ? "Proveedor" : "Aprobador"}
                       </span>
                     </td>
 
-                    {/* Fecha */}
                     <td className="px-4 py-3">
                       <div className="flex items-center text-sm text-gray-900">
-                        <Calendar className="w-3 h-3 mr-1 text-gray-400" />
+                        <Calendar className="mr-1 h-3 w-3 text-gray-400" />
                         {item.fecha}
                       </div>
                     </td>
 
-                    {/* Hora */}
                     <td className="px-4 py-3">
                       <div className="flex items-center text-sm text-gray-900">
-                        <Clock className="w-3 h-3 mr-1 text-gray-400" />
+                        <Clock className="mr-1 h-3 w-3 text-gray-400" />
                         {item.hora}
                       </div>
                     </td>
 
-                    {/* Actividad */}
                     <td className="px-4 py-3">
                       <div className="flex items-center">
                         {item.actividad === "Inicio sesión" ? (
-                          <User className="w-3 h-3 mr-1.5 text-gray-500" />
+                          <User className="mr-1.5 h-3 w-3 text-gray-500" />
                         ) : item.actividad === "Subió documentos" ? (
-                          <FileUp className="w-3 h-3 mr-1.5 text-blue-500" />
+                          <FileUp className="mr-1.5 h-3 w-3 text-blue-500" />
                         ) : item.actividad.includes("Aprob") ? (
-                          <CheckCircle className="w-3 h-3 mr-1.5 text-green-500" />
+                          <CheckCircle className="mr-1.5 h-3 w-3 text-green-500" />
                         ) : (
-                          <CheckCircle className="w-3 h-3 mr-1.5 text-gray-500" />
+                          <CheckCircle className="mr-1.5 h-3 w-3 text-gray-500" />
                         )}
-                        <span className="text-sm text-gray-700">{item.actividad}</span>
+
+                        <span className="text-sm text-gray-700">
+                          {item.actividad}
+                        </span>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-
-          {/* Sin resultados */}
-          {!loading && historialFiltrado.length === 0 && (
-            <div className="py-8 text-center">
-              <p className="text-gray-500 text-sm">No se encontraron actividades</p>
-            </div>
           )}
+        </TableContainer>
 
-          {/* Footer */}
-          <div className="px-4 py-3 border-t border-gray-200">
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-gray-500">
-                {historialFiltrado.length} actividades mostradas — Total en servidor: {total}
-              </p>
+        <div className="rounded-b-lg border border-t-0 border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-xs text-gray-500">
+              {historialFiltrado.length} actividades mostradas — Total en servidor: {total}
+            </p>
 
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex items-center gap-2">
                 <button
                   onClick={prevPage}
                   disabled={page <= 1 || loading}
-                  className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Anterior
                 </button>
+
                 <button
                   onClick={nextPage}
                   disabled={page >= totalPages || loading}
-                  className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Siguiente
                 </button>
+              </div>
 
-                <div className="text-xs text-gray-500 ml-2">
-                  Última actualización: {new Date().toLocaleString()}
-                </div>
+              <div className="text-xs text-gray-500">
+                Última actualización: {new Date().toLocaleString()}
               </div>
             </div>
           </div>

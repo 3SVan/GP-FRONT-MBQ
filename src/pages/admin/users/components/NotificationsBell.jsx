@@ -2,15 +2,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
-  X,
-  AlertTriangle,
-  CheckCircle2,
   Mail,
   Building2,
   Clock3,
   User,
   Building,
 } from "lucide-react";
+import SystemAlert from "../../../../components/ui/SystemAlert";
 
 const ensureArray = (v) => (Array.isArray(v) ? v : []);
 
@@ -21,98 +19,6 @@ function getStatus(n) {
   if (["APROBADA", "APROBADO", "APPROVED"].includes(up)) return "APROBADA";
   if (["RECHAZADA", "RECHAZADO", "REJECTED"].includes(up)) return "RECHAZADA";
   return "PENDIENTE";
-}
-
-function ConfirmModal({
-  open,
-  title,
-  description,
-  confirmText = "Confirmar",
-  cancelText = "Cancelar",
-  variant = "danger",
-  loading = false,
-  onCancel,
-  onConfirm,
-}) {
-  if (!open) return null;
-
-  const isDanger = variant === "danger";
-
-  return (
-    <>
-      <div
-        className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-[2px]"
-        onClick={loading ? undefined : onCancel}
-      />
-
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
-          <div className="px-6 pt-6 pb-4">
-            <div className="flex items-start gap-4">
-              <div
-                className={`shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center ${
-                  isDanger
-                    ? "bg-red-100 text-red-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {isDanger ? (
-                  <AlertTriangle className="w-7 h-7" />
-                ) : (
-                  <CheckCircle2 className="w-7 h-7" />
-                )}
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="text-2xl font-bold text-gray-900 leading-tight">
-                      {title}
-                    </h4>
-                    <p className="text-gray-600 text-base mt-2 leading-relaxed">
-                      {description}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={loading ? undefined : onCancel}
-                    className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition"
-                    aria-label="Cerrar"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-6 pb-6 pt-2">
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-              <button
-                onClick={onCancel}
-                disabled={loading}
-                className="px-5 py-3 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition disabled:opacity-50"
-              >
-                {cancelText}
-              </button>
-
-              <button
-                onClick={onConfirm}
-                disabled={loading}
-                className={`px-5 py-3 rounded-xl text-white font-semibold transition shadow-sm disabled:opacity-50 ${
-                  isDanger
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-green-600 hover:bg-green-700"
-                }`}
-              >
-                {loading ? "Procesando..." : confirmText}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
 }
 
 export default function NotificationsBell({
@@ -243,14 +149,14 @@ export default function NotificationsBell({
                   </p>
                 </div>
 
-                {typeof onMarkAllRead === "function" && (
+                {/* {typeof onMarkAllRead === "function" && (
                   <button
                     onClick={() => onMarkAllRead()}
                     className="text-xs px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 transition"
                   >
                     Marcar leídas
                   </button>
-                )}
+                )} */}
               </div>
             </div>
 
@@ -359,26 +265,30 @@ export default function NotificationsBell({
         </>
       )}
 
-      <ConfirmModal
+      <SystemAlert
         open={confirm.open}
-        variant={confirm.action === "reject" ? "danger" : "success"}
+        type={confirm.action === "reject" ? "error" : "success"}
         title={
           confirm.action === "reject"
             ? "¿Rechazar solicitud?"
             : "¿Aprobar solicitud?"
         }
-        description={
+        message={
           confirm.action === "reject"
-            ? "Esta acción rechazará la solicitud del usuario. ¿Deseas continuar?"
-            : "Esta acción aprobará la solicitud del usuario. ¿Deseas continuar?"
+            ? "Esta acción rechazará la solicitud del usuario.\n¿Deseas continuar?"
+            : "Esta acción aprobará la solicitud del usuario.\n¿Deseas continuar?"
         }
+        onClose={closeConfirm}
+        showConfirm
+        onConfirm={doAction}
         confirmText={
-          confirm.action === "reject" ? "Sí, rechazar" : "Sí, aprobar"
+          busyId
+            ? "Procesando..."
+            : confirm.action === "reject"
+              ? "Sí, rechazar"
+              : "Sí, aprobar"
         }
         cancelText="Cancelar"
-        loading={!!busyId}
-        onCancel={closeConfirm}
-        onConfirm={doAction}
       />
     </div>
   );

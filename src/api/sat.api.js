@@ -12,6 +12,5 @@ export const SatAPI = {
     quickCheckRfc: (rfc) =>
         api.get(`/sat/admin/quick-check/${encodeURIComponent(rfc)}`),
 
-    // opcional si quieres mostrar “última actualización”
     getLastImport: () => api.get("/sat/admin/last-import"),
 };
