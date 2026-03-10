@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
 import logo from "../../assets/logo-relleno.png";
 
 function Login() {
   const navigate = useNavigate();
+  const loginRequestRef = useRef(false);
 
   const [showForgot, setShowForgot] = useState(false);
   const [showRequestAccess, setShowRequestAccess] = useState(false);
@@ -74,13 +75,14 @@ function Login() {
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
-    if (errors.general) {
-      setErrors((prev) => ({ ...prev, general: "" }));
-    }
+
+    clearAlert();
   };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+
+    if (isLoading || loginRequestRef.current) return;
 
     const newErrors = {};
     if (!formData.email) newErrors.email = "El correo es requerido";
@@ -89,34 +91,48 @@ function Login() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      clearAlert();
       return;
     }
 
+    loginRequestRef.current = true;
     setIsLoading(true);
     setErrors({});
     clearAlert();
 
     try {
       const res = await AuthAPI.loginStart({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
 
-      const returnedCode = res?.data?.code;
+      const returnedCode = res?.data?.code ?? res?.data?.debugCode;
 
       navigate("/autentificacion", {
         state: {
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           code: returnedCode,
         },
       });
     } catch (err) {
-      console.error("Error en login:", err);
-      setErrors({
-        general: getErrorMessage(err, "Error al iniciar sesión"),
-      });
-      setAlert("error", getErrorMessage(err, "Error al iniciar sesión"));
+      const status = err?.response?.status;
+      const serverMessage = err?.response?.data?.message;
+
+      let loginMessage = "Error al iniciar sesión";
+
+      if (status === 401) {
+        loginMessage = serverMessage || "Credenciales inválidas";
+      } else if (status === 403) {
+        loginMessage = serverMessage || "Tu usuario está inactivo";
+      } else if (status >= 500) {
+        loginMessage = "Ocurrió un error interno en el servidor. Intenta nuevamente.";
+      } else {
+        loginMessage = serverMessage || "Error al iniciar sesión";
+      }
+
+      setAlert("error", loginMessage);
     } finally {
+      loginRequestRef.current = false;
       setIsLoading(false);
     }
   };
@@ -137,11 +153,11 @@ function Login() {
       setIsLoading(true);
       clearAlert();
 
-      await AuthAPI.forgotPassword({ email: forgotEmail });
+      await AuthAPI.forgotPassword({ email: forgotEmail.trim().toLowerCase() });
 
       setShowForgot(false);
       setErrors({});
-      const emailToReset = forgotEmail.trim();
+      const emailToReset = forgotEmail.trim().toLowerCase();
       setForgotEmail("");
 
       setAlert("success", "Se envió el código de recuperación a tu correo.");
@@ -297,7 +313,6 @@ function Login() {
             alt="Logo"
             className="w-24 h-24 object-contain mx-auto mb-4"
             onError={(e) => {
-              // console.log("Error cargando imagen");
               e.target.style.display = "none";
             }}
           />
@@ -321,8 +336,10 @@ function Login() {
               name="email"
               value={formData.email}
               onChange={handleLoginChange}
+              disabled={isLoading}
+              autoComplete="email"
               placeholder="tu@correo.com"
-              className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-midBlue transition ${
+              className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-midBlue transition disabled:opacity-70 disabled:cursor-not-allowed ${
                 errors.email
                   ? "border-red-500 bg-red-50"
                   : "border-lightBlue hover:border-midBlue"
@@ -339,8 +356,10 @@ function Login() {
                 name="password"
                 value={formData.password}
                 onChange={handleLoginChange}
+                disabled={isLoading}
+                autoComplete="current-password"
                 placeholder="••••••••"
-                className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-midBlue transition ${
+                className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-midBlue transition disabled:opacity-70 disabled:cursor-not-allowed ${
                   errors.password
                     ? "border-red-500 bg-red-50 pr-10"
                     : "border-lightBlue hover:border-midBlue pr-10"
@@ -349,7 +368,8 @@ function Login() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-darkBlue focus:outline-none"
+                disabled={isLoading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-darkBlue focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
               >
                 {showPassword ? (
@@ -388,22 +408,23 @@ function Login() {
             )}
           </div>
 
-          {errors.general && (
-            <div className="text-red-500 text-sm text-center bg-red-50 py-2 rounded-lg">
-              {errors.general}
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 ${
+            className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center gap-2 ${
               isLoading
-                ? "bg-midBlue opacity-70 cursor-not-allowed text-white"
+                ? "bg-midBlue opacity-80 cursor-not-allowed text-white"
                 : "bg-midBlue hover:bg-darkBlue text-white"
             }`}
           >
-            {isLoading ? "Ingresando..." : "Ingresar"}
+            {isLoading ? (
+              <>
+                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                <span>Ingresando...</span>
+              </>
+            ) : (
+              "Ingresar"
+            )}
           </button>
         </form>
 
@@ -411,14 +432,16 @@ function Login() {
           <button
             type="button"
             onClick={() => setShowForgot(true)}
-            className="text-midBlue hover:text-darkBlue font-medium text-sm transition-colors"
+            disabled={isLoading}
+            className="text-midBlue hover:text-darkBlue font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ¿Olvidaste tu contraseña?
           </button>
           <button
             type="button"
             onClick={() => setShowRequestAccess(true)}
-            className="text-midBlue hover:text-darkBlue font-medium text-sm transition-colors"
+            disabled={isLoading}
+            className="text-midBlue hover:text-darkBlue font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Solicitar acceso
           </button>
@@ -462,9 +485,16 @@ function Login() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 py-3 rounded-lg bg-midBlue text-white font-semibold hover:bg-darkBlue transition-colors disabled:opacity-70"
+                  className="flex-1 py-3 rounded-lg bg-midBlue text-white font-semibold hover:bg-darkBlue transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
                 >
-                  {isLoading ? "Enviando..." : "Enviar enlace"}
+                  {isLoading ? (
+                    <>
+                      <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      <span>Enviando...</span>
+                    </>
+                  ) : (
+                    "Enviar enlace"
+                  )}
                 </button>
                 <button
                   type="button"
@@ -708,9 +738,16 @@ function Login() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 py-3 rounded-lg bg-midBlue text-white font-semibold hover:bg-darkBlue transition-colors disabled:opacity-70"
+                  className="flex-1 py-3 rounded-lg bg-midBlue text-white font-semibold hover:bg-darkBlue transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
                 >
-                  {isLoading ? "Enviando..." : "Enviar solicitud"}
+                  {isLoading ? (
+                    <>
+                      <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      <span>Enviando...</span>
+                    </>
+                  ) : (
+                    "Enviar solicitud"
+                  )}
                 </button>
                 <button
                   type="button"

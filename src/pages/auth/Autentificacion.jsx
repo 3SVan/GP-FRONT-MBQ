@@ -1,3 +1,4 @@
+// src/pages/auth/Autentificacion.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth, getDashboardByRole } from "../../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -126,20 +127,20 @@ export default function Autentificacion() {
       if (mode === "reset-password") {
         setAlert("success", "Código válido. Continúa para cambiar tu contraseña...");
 
-        navigate("/cambio-pass", {
-          state: {
-            email,
-            token: codeStr,
-          },
+        const params = new URLSearchParams({
+          email,
+          token: codeStr,
+          mode: "reset",
+        });
+
+        navigate(`/cambio-pass?${params.toString()}`, {
           replace: true,
         });
         return;
       }
 
-      // LOGIN NORMAL
       await AuthAPI.loginVerify({ email, code: codeStr });
 
-      // Refresca el contexto ya con sesión/cookie creada
       const me = await refreshAuth();
 
       if (!me) {
@@ -187,7 +188,10 @@ export default function Autentificacion() {
       setAlert("success", "Código reenviado. Revisa tu correo.");
       clearCode();
     } catch (err) {
-      setAlert("error", err?.response?.data?.error || err?.message || "No se pudo reenviar el código.");
+      setAlert(
+        "error",
+        err?.response?.data?.error || err?.message || "No se pudo reenviar el código."
+      );
     } finally {
       setLoadingResend(false);
     }

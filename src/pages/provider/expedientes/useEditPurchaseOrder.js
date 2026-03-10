@@ -2,7 +2,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { PurchaseOrdersAPI } from "../../../api/purchaseOrders.api";
 
-// helpers
 function toInputDate(v) {
   try {
     if (!v) return "";
@@ -46,9 +45,13 @@ export function useEditPurchaseOrder({
     rfc: "",
     observaciones: "",
 
-    ocPdfFile: null,       
-    facturaPdfFiles: [],     
-    facturaXmlFiles: [],      
+    ocPdfFile: null,
+    facturaPdfFiles: [],
+    facturaXmlFiles: [],
+
+    ocPdfRemoved: false,
+    removedInvoicePdfNames: [],
+    removedInvoiceXmlNames: [],
   });
 
   const [currentFiles, setCurrentFiles] = useState({
@@ -57,13 +60,27 @@ export function useEditPurchaseOrder({
     invoiceXmlFiles: [],
   });
 
+  const hasInvoiceRemovalMismatch = useMemo(() => {
+    const removedPdf = (form.removedInvoicePdfNames || []).length;
+    const removedXml = (form.removedInvoiceXmlNames || []).length;
+    return removedPdf !== removedXml;
+  }, [form.removedInvoicePdfNames, form.removedInvoiceXmlNames]);
+
+  const hasNewInvoiceMismatch = useMemo(() => {
+    const pdfCount = (form.facturaPdfFiles || []).length;
+    const xmlCount = (form.facturaXmlFiles || []).length;
+    return pdfCount !== xmlCount;
+  }, [form.facturaPdfFiles, form.facturaXmlFiles]);
+
   const canSave = useMemo(() => {
     if (!selectedRow?.id) return false;
+
     const n = Number(form.total);
     if (!Number.isFinite(n) || n <= 0) return false;
     if (!form.date) return false;
+
     return true;
-  }, [form, selectedRow]);
+  }, [form.total, form.date, selectedRow]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -93,7 +110,12 @@ export function useEditPurchaseOrder({
 
       return {
         orderFiles: orderRef
-          ? [{ name: pickNameFromUrl(orderRef), onView: () => onViewPurchaseOrderPdf?.(row) }]
+          ? [
+              {
+                name: pickNameFromUrl(orderRef),
+                onView: () => onViewPurchaseOrderPdf?.(row),
+              },
+            ]
           : [],
 
         invoicePdfFiles: invoicePdfRefs.map((ref) => ({
@@ -117,13 +139,28 @@ export function useEditPurchaseOrder({
       setForm({
         number: row?.purchaseOrder?.number || "",
         total: String(row?.purchaseOrder?.total ?? ""),
-        date: toInputDate(row?.purchaseOrder?.date || row?.fecha),
-        rfc: row?.purchaseOrder?.rfc || "",
-        observaciones: row?.purchaseOrder?.observaciones || "",
+        date: toInputDate(
+          row?.purchaseOrder?.issuedAt ||
+            row?.purchaseOrder?.date ||
+            row?.fecha
+        ),
+        rfc:
+          row?.purchaseOrder?.provider?.rfc ||
+          row?.provider?.rfc ||
+          row?.purchaseOrder?.rfc ||
+          "",
+        observaciones:
+          row?.purchaseOrder?.obervations ||
+          row?.purchaseOrder?.observaciones ||
+          "",
 
         ocPdfFile: null,
-        facturaPdfFiles: [], 
-        facturaXmlFiles: [],   
+        facturaPdfFiles: [],
+        facturaXmlFiles: [],
+
+        ocPdfRemoved: false,
+        removedInvoicePdfNames: [],
+        removedInvoiceXmlNames: [],
       });
 
       setCurrentFiles(buildCurrentFiles(row));
@@ -170,7 +207,12 @@ export function useEditPurchaseOrder({
   const onPickFile = useCallback(
     (key, file, type) => {
       if (!validateFile(file, type)) return;
-      setForm((p) => ({ ...p, [key]: file }));
+
+      setForm((p) => ({
+        ...p,
+        [key]: file,
+        ...(key === "ocPdfFile" ? { ocPdfRemoved: false } : {}),
+      }));
     },
     [validateFile]
   );
@@ -205,7 +247,37 @@ export function useEditPurchaseOrder({
 
   const save = useCallback(async () => {
     if (!selectedRow?.id) return;
-    if (!canSave) return;
+    if (!canSave) {
+      showAlert?.(
+        "warning",
+        "Datos incompletos",
+        "Verifica el monto y la fecha antes de guardar."
+      );
+      return;
+    }
+
+    const removedPdfCount = (form.removedInvoicePdfNames || []).length;
+    const removedXmlCount = (form.removedInvoiceXmlNames || []).length;
+    const newPdfCount = (form.facturaPdfFiles || []).length;
+    const newXmlCount = (form.facturaXmlFiles || []).length;
+
+    if (removedPdfCount !== removedXmlCount) {
+      showAlert?.(
+        "warning",
+        "Factura incompleta",
+        "Si eliminas un PDF o XML de factura, debes eliminar y reemplazar ambos al mismo tiempo."
+      );
+      return;
+    }
+
+    if ((newPdfCount > 0 || newXmlCount > 0) && newPdfCount !== newXmlCount) {
+      showAlert?.(
+        "warning",
+        "Archivos incompletos",
+        "Cada factura debe tener su PDF y XML correspondiente."
+      );
+      return;
+    }
 
     try {
       const fd = new FormData();
@@ -213,18 +285,39 @@ export function useEditPurchaseOrder({
       fd.append("fecha", String(form.date || ""));
       fd.append("observaciones", String(form.observaciones || ""));
 
-      if (form.ocPdfFile) fd.append("archivoOrden", form.ocPdfFile);
+      fd.append("ocPdfRemoved", String(!!form.ocPdfRemoved));
+      fd.append(
+        "removedInvoicePdfNames",
+        JSON.stringify(form.removedInvoicePdfNames || [])
+      );
+      fd.append(
+        "removedInvoiceXmlNames",
+        JSON.stringify(form.removedInvoiceXmlNames || [])
+      );
 
-      (form.facturaPdfFiles || []).forEach((f) => fd.append("archivoFacturaPdf", f));
-      (form.facturaXmlFiles || []).forEach((f) => fd.append("archivoFacturaXml", f));
+      if (form.ocPdfFile) {
+        fd.append("archivoOrden", form.ocPdfFile);
+      }
+
+      (form.facturaPdfFiles || []).forEach((f) =>
+        fd.append("archivoFacturaPdf", f)
+      );
+      (form.facturaXmlFiles || []).forEach((f) =>
+        fd.append("archivoFacturaXml", f)
+      );
 
       await PurchaseOrdersAPI.update(selectedRow.id, fd);
 
-      showAlert?.("success", "Actualizado", "La orden se actualizó correctamente.");
+      showAlert?.(
+        "success",
+        "Actualizado",
+        "La orden se actualizó correctamente."
+      );
       close();
       onSaved?.();
     } catch (err) {
-      const msg = err?.response?.data?.error || "No se pudieron guardar los cambios.";
+      const msg =
+        err?.response?.data?.error || "No se pudieron guardar los cambios.";
       showAlert?.("error", "Error", msg);
     }
   }, [selectedRow, canSave, form, showAlert, close, onSaved]);
@@ -239,14 +332,16 @@ export function useEditPurchaseOrder({
     setForm,
     currentFiles,
 
-    onPickFile,  
-    onPickMany,   
-    removeAt,    
-    clearFiles,   
+    onPickFile,
+    onPickMany,
+    removeAt,
+    clearFiles,
 
     canSave,
     save,
 
     maxMb,
+    hasInvoiceRemovalMismatch,
+    hasNewInvoiceMismatch,
   };
 }

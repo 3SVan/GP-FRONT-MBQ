@@ -47,72 +47,76 @@ import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import PublicOnlyRoute from "./routes/PublicOnlyRoute.jsx";
 
 function App() {
-   return (
-      <Routes>
-         {/* Públicas solo si no hay sesión */}
-         <Route element={<PublicOnlyRoute />}>
-            <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/autentificacion" element={<Autentificacion />} />
-         </Route>
+  return (
+    <Routes>
+      {/* Públicas solo si no hay sesión */}
+      <Route element={<PublicOnlyRoute />}>
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/autentificacion" element={<Autentificacion />} />
+      </Route>
 
-         {/* Cambio de contraseña: requiere sesión */}
-         <Route element={<ProtectedRoute />}>
-            <Route path="/cambio-pass" element={<CambioPass />} />
-         </Route>
+      {/* Cambio de contraseña: requiere sesión */}
+      <Route path="/cambio-pass" element={<CambioPass />} />
 
-         {/* ADMIN */}
-         <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-            <Route path="/admin" element={<DashboardAdmin />} />
-            <Route path="/admin/proveedores" element={<GestionProveedores />} />
-            <Route path="/admin/usuarios" element={<Usuarios />} />
-            <Route path="/admin/verificacion" element={<VerificacionR />} />
-            <Route path="/admin/historial-actividad" element={<HistorialActividad />} />
-            <Route
-               path="/admin/reactivacion-proveedores"
-               element={<ReactivacionProveedores />}
-            />
-            <Route path="/admin/actualizacion-sat" element={<ActualizacionListaSAT />} />
+      {/* ADMIN */}
+      <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+        <Route path="/admin" element={<DashboardAdmin />} />
+        <Route path="/admin/proveedores" element={<GestionProveedores />} />
+        <Route path="/admin/usuarios" element={<Usuarios />} />
+        <Route path="/admin/verificacion" element={<VerificacionR />} />
+        <Route
+          path="/admin/historial-actividad"
+          element={<HistorialActividad />}
+        />
+        <Route
+          path="/admin/reactivacion-proveedores"
+          element={<ReactivacionProveedores />}
+        />
+        <Route
+          path="/admin/actualizacion-sat"
+          element={<ActualizacionListaSAT />}
+        />
 
-            <Route path="/admin/pagos" element={<GestionPagos />} />
-            <Route path="/admin/pagos/historial" element={<HistorialPagos />} />
-            <Route path="/admin/pagos/aprobacion" element={<AprobaciondePagos />} />
+        <Route path="/admin/pagos" element={<GestionPagos />} />
+        <Route path="/admin/pagos/historial" element={<HistorialPagos />} />
+        <Route path="/admin/pagos/aprobacion" element={<AprobaciondePagos />} />
 
-            <Route path="/admin/expedientes" element={<ExpedientesDigitales />} />
-         </Route>
+        <Route path="/admin/expedientes" element={<ExpedientesDigitales />} />
+      </Route>
 
-         {/* APPROVER */}
-         <Route element={<ProtectedRoute allowedRoles={["APPROVER"]} />}>
-            <Route path="/approver" element={<DashboardApro />} />
-            <Route path="/approver/documentos" element={<Documents />} />
-            <Route path="/approver/reportes" element={<Reportes />} />
-            <Route
-               path="/approver/solicitudes-acceso"
-               element={<SolicitudesAcceso />}
-            />
-         </Route>
+      {/* APPROVER */}
+      <Route element={<ProtectedRoute allowedRoles={["APPROVER"]} />}>
+        <Route path="/approver" element={<DashboardApro />} />
+        <Route path="/approver/documentos" element={<Documents />} />
+        <Route path="/approver/reportes" element={<Reportes />} />
+        <Route
+          path="/approver/solicitudes-acceso"
+          element={<SolicitudesAcceso />}
+        />
+      </Route>
 
-         {/* PROVIDER */}
-         <Route element={<ProtectedRoute allowedRoles={["PROVIDER"]} />}>
-            <Route path="/provider" element={<DashboardProvider />} />
-            <Route path="/provider/datos" element={<GestionDatosPro />} />
-            <Route path="/provider/ordenes-compra" element={<OrdenCompraPro />} />
-            <Route path="/provider/documentos" element={<DocumentosPro />} />
-            <Route path="/provider/estatus-pago" element={<EstatusPago />} />
-            <Route path="/provider/xml-viewer/:orderId" element={<XmlViewer />} />
-            <Route path="/xml-viewer/:orderId" element={<XmlViewer />} />
-         </Route>
+      {/* PROVIDER */}
+      <Route element={<ProtectedRoute allowedRoles={["PROVIDER"]} />}>
+        <Route path="/provider" element={<DashboardProvider />} />
+        <Route path="/provider/datos" element={<GestionDatosPro />} />
+        <Route path="/provider/ordenes-compra" element={<OrdenCompraPro />} />
+        <Route path="/provider/documentos" element={<DocumentosPro />} />
+        <Route path="/provider/estatus-pago" element={<EstatusPago />} />
+        <Route path="/provider/xml-viewer/:orderId" element={<XmlViewer />} />
+        <Route path="/xml-viewer/:orderId" element={<XmlViewer />} />
+      </Route>
 
-         {/* Compartidas, pero con sesión */}
-         <Route element={<ProtectedRoute />}>
-            <Route path="/graficas" element={<Graficas />} />
-            <Route path="/test-api" element={<TestApi />} />
-         </Route>
+      {/* Compartidas, pero con sesión */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/graficas" element={<Graficas />} />
+        <Route path="/test-api" element={<TestApi />} />
+      </Route>
 
-         {/* fallback */}
-         <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-   );
+      {/* fallback */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
 }
 
 export default App;

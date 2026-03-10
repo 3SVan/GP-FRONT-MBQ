@@ -1,6 +1,13 @@
 // src/pages/provider/components/EditPurchaseOrderModal.jsx
 import React, { useMemo, useRef } from "react";
-import { X, FileText, Save, CalendarDays } from "lucide-react";
+import {
+  X,
+  FileText,
+  Save,
+  CalendarDays,
+  AlertTriangle,
+  Link2,
+} from "lucide-react";
 import UploadCard from "./UploadCard";
 
 function Field({ label, children }) {
@@ -67,25 +74,57 @@ export default function EditPurchaseOrderModal({
 
   if (!open || !row) return null;
 
-  const orderFilesUI =
-    (currentFiles?.orderFiles || []).filter((f) => !form?.ocPdfRemoved);
+  const orderFilesUI = (currentFiles?.orderFiles || []).filter(
+    (f) => !form?.ocPdfRemoved,
+  );
 
-  const invoicePdfUI =
-    (currentFiles?.invoicePdfFiles || []).filter(
-      (f) => !(form?.removedInvoicePdfNames || []).includes(f.name)
-    );
+  const invoicePdfUI = (currentFiles?.invoicePdfFiles || []).filter(
+    (f) => !(form?.removedInvoicePdfNames || []).includes(f.name),
+  );
 
-  const invoiceXmlUI =
-    (currentFiles?.invoiceXmlFiles || []).filter(
-      (f) => !(form?.removedInvoiceXmlNames || []).includes(f.name)
-    );
+  const invoiceXmlUI = (currentFiles?.invoiceXmlFiles || []).filter(
+    (f) => !(form?.removedInvoiceXmlNames || []).includes(f.name),
+  );
+
+  const removedPdfCount = (form?.removedInvoicePdfNames || []).length;
+  const removedXmlCount = (form?.removedInvoiceXmlNames || []).length;
+  const newPdfCount = (form?.facturaPdfFiles || []).length;
+  const newXmlCount = (form?.facturaXmlFiles || []).length;
+
+  const showInvoiceWarning =
+    removedPdfCount > 0 ||
+    removedXmlCount > 0 ||
+    newPdfCount > 0 ||
+    newXmlCount > 0;
+
+  const hasMismatch =
+    removedPdfCount !== removedXmlCount ||
+    ((newPdfCount > 0 || newXmlCount > 0) && newPdfCount !== newXmlCount);
+
+  const markInvoicePairRemoved = (idx) => {
+    const pdfFile = invoicePdfUI[idx];
+    const xmlFile = invoiceXmlUI[idx];
+
+    setForm((p) => ({
+      ...p,
+      removedInvoicePdfNames: pdfFile?.name
+        ? Array.from(
+            new Set([...(p.removedInvoicePdfNames || []), pdfFile.name]),
+          )
+        : p.removedInvoicePdfNames || [],
+      removedInvoiceXmlNames: xmlFile?.name
+        ? Array.from(
+            new Set([...(p.removedInvoiceXmlNames || []), xmlFile.name]),
+          )
+        : p.removedInvoiceXmlNames || [],
+    }));
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-1000/20 backdrop-blur-[3px]">
       <div className="absolute inset-0" onClick={onClose} />
 
       <div className="relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl">
-        {/* Header */}
         <div className="flex items-center justify-between gap-4 bg-darkBlue px-6 py-5 text-white">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
@@ -93,9 +132,7 @@ export default function EditPurchaseOrderModal({
             </div>
 
             <div>
-              <h3 className="text-2xl font-bold leading-tight">
-                Editar orden
-              </h3>
+              <h3 className="text-2xl font-bold leading-tight">Editar orden</h3>
               <p className="mt-1 text-sm text-white/75">
                 Actualiza la información y reemplaza los archivos necesarios.
               </p>
@@ -112,10 +149,8 @@ export default function EditPurchaseOrderModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto bg-beige px-6 py-6">
           <div className="space-y-6">
-            {/* Resumen */}
             <div className="rounded-2xl border border-lightBlue bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -132,7 +167,6 @@ export default function EditPurchaseOrderModal({
               </div>
             </div>
 
-            {/* Formulario */}
             <div className="rounded-2xl border border-lightBlue bg-white p-5 shadow-sm">
               <div className="mb-4">
                 <h4 className="text-lg font-semibold text-darkBlue">
@@ -214,7 +248,6 @@ export default function EditPurchaseOrderModal({
               </div>
             </div>
 
-            {/* Inputs hidden */}
             <input
               ref={ocInputRef}
               type="file"
@@ -235,7 +268,7 @@ export default function EditPurchaseOrderModal({
                 onPickMany?.(
                   "facturaPdfFiles",
                   Array.from(e.target.files || []),
-                  "pdf"
+                  "pdf",
                 )
               }
             />
@@ -250,12 +283,11 @@ export default function EditPurchaseOrderModal({
                 onPickMany?.(
                   "facturaXmlFiles",
                   Array.from(e.target.files || []),
-                  "xml"
+                  "xml",
                 )
               }
             />
 
-            {/* Archivos */}
             <div className="rounded-2xl border border-lightBlue bg-white p-5 shadow-sm">
               <div className="mb-4">
                 <h4 className="text-lg font-semibold text-darkBlue">
@@ -266,6 +298,54 @@ export default function EditPurchaseOrderModal({
                   archivo.
                 </p>
               </div>
+
+              {showInvoiceWarning ? (
+                <div
+                  className={`rounded-2xl px-6 py-2 mb-4 shadow-sm ${
+                    hasMismatch
+                      ? "border border-amber-200 bg-amber-50"
+                      : "border border-blue-200 bg-blue-50"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ${
+                        hasMismatch
+                          ? "text-amber-600 ring-amber-200"
+                          : "text-blue-600 ring-blue-200"
+                      }`}
+                    >
+                      {hasMismatch ? (
+                        <AlertTriangle className="h-5 w-5" />
+                      ) : (
+                        <Link2 className="h-5 w-5" />
+                      )}
+                    </div>
+
+                    <div>
+                      <p
+                        className={`text-sm font-semibold ${
+                          hasMismatch ? "text-amber-800" : "text-blue-800"
+                        }`}
+                      >
+                        {hasMismatch
+                          ? "Factura pendiente de completarse"
+                          : "Las facturas se reemplazan en pareja"}
+                      </p>
+
+                      <p
+                        className={`mt-1 text-sm ${
+                          hasMismatch ? "text-amber-700" : "text-blue-700"
+                        }`}
+                      >
+                        Si eliminas un PDF o XML de factura, también debe
+                        reemplazarse su archivo relacionado. Cada factura debe
+                        conservar siempre su par: <strong>PDF + XML</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
                 <UploadCard
@@ -295,14 +375,7 @@ export default function EditPurchaseOrderModal({
                   required={false}
                   currentFilesList={invoicePdfUI}
                   onRemoveCurrentAt={(idx) => {
-                    const f = invoicePdfUI[idx];
-                    if (!f?.name) return;
-                    setForm((p) => ({
-                      ...p,
-                      removedInvoicePdfNames: Array.from(
-                        new Set([...(p.removedInvoicePdfNames || []), f.name])
-                      ),
-                    }));
+                    markInvoicePairRemoved(idx);
                   }}
                   maxMb={maxMb}
                 />
@@ -317,14 +390,7 @@ export default function EditPurchaseOrderModal({
                   required={false}
                   currentFilesList={invoiceXmlUI}
                   onRemoveCurrentAt={(idx) => {
-                    const f = invoiceXmlUI[idx];
-                    if (!f?.name) return;
-                    setForm((p) => ({
-                      ...p,
-                      removedInvoiceXmlNames: Array.from(
-                        new Set([...(p.removedInvoiceXmlNames || []), f.name])
-                      ),
-                    }));
+                    markInvoicePairRemoved(idx);
                   }}
                   maxMb={maxMb}
                 />
@@ -333,7 +399,6 @@ export default function EditPurchaseOrderModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="border-t border-lightBlue bg-white px-6 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-gray-500">

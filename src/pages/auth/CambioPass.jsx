@@ -1,16 +1,38 @@
 // src/pages/auth/CambioPass.jsx
-import React, { useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
+
+function normalizeRoles(rawRoles) {
+  if (!Array.isArray(rawRoles)) return [];
+
+  return rawRoles
+    .map((r) => {
+      if (typeof r === "string") return r.toUpperCase();
+      if (r && typeof r === "object" && r.name) return String(r.name).toUpperCase();
+      return "";
+    })
+    .filter(Boolean);
+}
 
 function CambioPass() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
-  const email = location.state?.email || "";
-  const token = location.state?.token || "";
+  const emailFromState = location.state?.email || "";
+  const tokenFromState = location.state?.token || "";
 
-  const isResetMode = Boolean(email && token);
+  const emailFromQuery = searchParams.get("email") || "";
+  const tokenFromQuery = searchParams.get("token") || "";
+  const modeFromQuery = searchParams.get("mode") || "";
+
+  const email = emailFromQuery || emailFromState;
+  const token = tokenFromQuery || tokenFromState;
+
+  const isResetMode = modeFromQuery === "reset" || Boolean(email && token);
+
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   const [formData, setFormData] = useState({
     nuevaPassword: "",
@@ -24,6 +46,41 @@ function CambioPass() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const validateAccess = async () => {
+      if (isResetMode) {
+        if (!email || !token) {
+          if (mounted) {
+            setErrors({
+              general:
+                "La liga de recuperación es inválida o incompleta. Solicita un nuevo código.",
+            });
+            setCheckingAccess(false);
+          }
+          return;
+        }
+
+        if (mounted) setCheckingAccess(false);
+        return;
+      }
+
+      try {
+        await AuthAPI.me();
+        if (mounted) setCheckingAccess(false);
+      } catch (err) {
+        navigate("/login", { replace: true });
+      }
+    };
+
+    validateAccess();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isResetMode, email, token, navigate]);
+
   const goToDashboardByRole = (roles = []) => {
     if (roles.includes("ADMIN")) return navigate("/admin", { replace: true });
     if (roles.includes("APPROVER")) return navigate("/approver", { replace: true });
@@ -33,9 +90,16 @@ function CambioPass() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-    if (errors.general) setErrors((prev) => ({ ...prev, general: "" }));
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+
+    if (errors.general) {
+      setErrors((prev) => ({ ...prev, general: "" }));
+    }
   };
 
   const validatePassword = (password) => {
@@ -46,7 +110,12 @@ function CambioPass() {
 
     return {
       isValid: hasMinLength && hasLetters && hasNumbers && hasSpecialChar,
-      requirements: { minLength: hasMinLength, hasLetters, hasNumbers, hasSpecialChar },
+      requirements: {
+        minLength: hasMinLength,
+        hasLetters,
+        hasNumbers,
+        hasSpecialChar,
+      },
     };
   };
 
@@ -71,7 +140,8 @@ function CambioPass() {
     }
 
     if (isResetMode && (!email || !token)) {
-      newErrors.general = "Falta información para recuperación. Vuelve a solicitar el código.";
+      newErrors.general =
+        "Falta información para recuperación. Vuelve a solicitar el código.";
     }
 
     return newErrors;
@@ -112,8 +182,16 @@ function CambioPass() {
 
       setShowSuccess(true);
 
-      const meRes = await AuthAPI.me();
-      const roles = meRes?.data?.user?.roles || [];
+      let roles = [];
+
+      try {
+        const meRes = await AuthAPI.me();
+        roles = normalizeRoles(meRes?.data?.user?.roles || meRes?.user?.roles || []);
+      } catch (err) {
+        if (err?.response?.status !== 401) {
+          throw err;
+        }
+      }
 
       setTimeout(() => {
         goToDashboardByRole(roles);
@@ -121,12 +199,31 @@ function CambioPass() {
     } catch (err) {
       setShowSuccess(false);
       setErrors({
-        general: err?.message || "No se pudo cambiar la contraseña",
+        general:
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "No se pudo cambiar la contraseña",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-beige p-6">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-lightBlue">
+          <div className="p-8 text-center">
+            <div className="inline-flex items-center gap-3 text-midBlue">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-midBlue"></div>
+              <span>Validando acceso...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-beige p-6">
@@ -136,6 +233,7 @@ function CambioPass() {
             <h1 className="text-2xl font-bold text-darkBlue mb-3">
               {isResetMode ? "Recuperar Contraseña" : "Cambiar Contraseña"}
             </h1>
+
             <p className="text-midBlue text-sm">
               {isResetMode
                 ? "Crea una nueva contraseña para tu cuenta"
@@ -156,7 +254,6 @@ function CambioPass() {
           ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Nueva contraseña */}
             <div className="space-y-2">
               <label className="block text-darkBlue font-semibold text-sm">
                 Nueva contraseña
@@ -183,14 +280,32 @@ function CambioPass() {
                   aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
+                        clipRule="evenodd"
+                      />
                       <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
                     </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
                       <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   )}
                 </button>
@@ -198,10 +313,22 @@ function CambioPass() {
 
               {formData.nuevaPassword ? (
                 <div className="space-y-1 mt-2">
-                  <Req ok={passwordValidation.requirements.minLength} text="Mínimo 8 caracteres" />
-                  <Req ok={passwordValidation.requirements.hasLetters} text="Incluir letras" />
-                  <Req ok={passwordValidation.requirements.hasNumbers} text="Incluir números" />
-                  <Req ok={passwordValidation.requirements.hasSpecialChar} text="Incluir carácter especial (!@#$% etc.)" />
+                  <Req
+                    ok={passwordValidation.requirements.minLength}
+                    text="Mínimo 8 caracteres"
+                  />
+                  <Req
+                    ok={passwordValidation.requirements.hasLetters}
+                    text="Incluir letras"
+                  />
+                  <Req
+                    ok={passwordValidation.requirements.hasNumbers}
+                    text="Incluir números"
+                  />
+                  <Req
+                    ok={passwordValidation.requirements.hasSpecialChar}
+                    text="Incluir carácter especial (!@#$% etc.)"
+                  />
                 </div>
               ) : null}
 
@@ -210,7 +337,6 @@ function CambioPass() {
               ) : null}
             </div>
 
-            {/* Confirmar */}
             <div className="space-y-2">
               <label className="block text-darkBlue font-semibold text-sm">
                 Confirmar contraseña
@@ -234,17 +360,37 @@ function CambioPass() {
                   type="button"
                   onClick={() => setShowConfirmPassword((s) => !s)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-darkBlue focus:outline-none"
-                  aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-label={
+                    showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                  }
                 >
                   {showConfirmPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
+                        clipRule="evenodd"
+                      />
                       <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
                     </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
                       <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   )}
                 </button>
@@ -259,7 +405,9 @@ function CambioPass() {
               type="submit"
               disabled={isLoading}
               className={`w-full py-3 rounded-lg font-semibold transition-colors duration-200 ${
-                isLoading ? "bg-midBlue opacity-70 cursor-not-allowed" : "bg-midBlue hover:bg-darkBlue text-white"
+                isLoading
+                  ? "bg-midBlue opacity-70 cursor-not-allowed text-white"
+                  : "bg-midBlue hover:bg-darkBlue text-white"
               }`}
             >
               {isLoading ? "Cambiando contraseña..." : "Cambiar contraseña"}
@@ -286,9 +434,7 @@ function CambioPass() {
                 Tu contraseña ha sido actualizada exitosamente.
               </p>
 
-              <div className="text-center text-midBlue text-xs">
-                Redirigiendo...
-              </div>
+              <div className="text-center text-midBlue text-xs">Redirigiendo...</div>
             </div>
           </div>
         </div>
@@ -309,7 +455,9 @@ function Req({ ok, text }) {
   return (
     <div className="flex items-center gap-2">
       <div className={`w-2 h-2 rounded-full ${ok ? "bg-green-500" : "bg-red-500"}`} />
-      <span className={`text-xs ${ok ? "text-green-600" : "text-red-600"}`}>{text}</span>
+      <span className={`text-xs ${ok ? "text-green-600" : "text-red-600"}`}>
+        {text}
+      </span>
     </div>
   );
 }
