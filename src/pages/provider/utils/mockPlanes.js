@@ -45,7 +45,6 @@ export const mockPlanes = [
         estado: "RECHAZADA",
         evidencia: { pdfName: "factura_parcialidad3.pdf", xmlName: "" },
 
-        // ✅ NUEVO
         rejectionType: "INVOICE_ERROR",
         rejectionComment:
           "La factura enviada contiene error. Cancela en SAT y adjunta acuse + nuevas facturas.",
@@ -61,11 +60,9 @@ export const mockPlanes = [
         estado: "RECHAZADA",
         evidencia: { pdfName: "factura_parcialidad4.pdf", xmlName: "factura_parcialidad4.xml" },
 
-        // ✅ NUEVO (Rechazo GENERAL)
         rejectionType: "GENERAL",
         rejectionComment: "El PDF está ilegible / incompleto. Vuelve a adjuntar PDF/XML correctos.",
 
-        // (opcional) si aún usas este campo en algún lado, déjalo
         rechazoMotivo: "El PDF está ilegible / incompleto.",
 
         comentariosProveedor: "Adjunto evidencia nuevamente.",
@@ -154,7 +151,6 @@ export function formatDateISO(iso) {
 }
 
 export function diffDays(a, b) {
-  // b - a en días
   const A = new Date(a);
   const B = new Date(b);
   const ms = B.getTime() - A.getTime();

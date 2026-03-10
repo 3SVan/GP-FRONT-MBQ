@@ -39,7 +39,6 @@ export function useEditPurchaseOrder({
   const [open, setOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
 
-  // ✅ CAMBIO: facturas ahora son arrays (multi)
   const [form, setForm] = useState({
     number: "",
     total: "",
@@ -47,9 +46,9 @@ export function useEditPurchaseOrder({
     rfc: "",
     observaciones: "",
 
-    ocPdfFile: null,          // (single)
-    facturaPdfFiles: [],      // ✅ (multi)
-    facturaXmlFiles: [],      // ✅ (multi)
+    ocPdfFile: null,       
+    facturaPdfFiles: [],     
+    facturaXmlFiles: [],      
   });
 
   const [currentFiles, setCurrentFiles] = useState({
@@ -123,8 +122,8 @@ export function useEditPurchaseOrder({
         observaciones: row?.purchaseOrder?.observaciones || "",
 
         ocPdfFile: null,
-        facturaPdfFiles: [],   // ✅ reset multi
-        facturaXmlFiles: [],   // ✅ reset multi
+        facturaPdfFiles: [], 
+        facturaXmlFiles: [],   
       });
 
       setCurrentFiles(buildCurrentFiles(row));
@@ -168,7 +167,6 @@ export function useEditPurchaseOrder({
     [maxMb, showAlert]
   );
 
-  // ✅ SINGLE (Orden PDF)
   const onPickFile = useCallback(
     (key, file, type) => {
       if (!validateFile(file, type)) return;
@@ -177,7 +175,6 @@ export function useEditPurchaseOrder({
     [validateFile]
   );
 
-  // ✅ MULTI (Facturas PDF/XML)
   const onPickMany = useCallback(
     (key, picked, type) => {
       const list = Array.isArray(picked) ? picked : [];
@@ -216,10 +213,8 @@ export function useEditPurchaseOrder({
       fd.append("fecha", String(form.date || ""));
       fd.append("observaciones", String(form.observaciones || ""));
 
-      // OC (single)
       if (form.ocPdfFile) fd.append("archivoOrden", form.ocPdfFile);
 
-      // ✅ Facturas (multi): repetir la key
       (form.facturaPdfFiles || []).forEach((f) => fd.append("archivoFacturaPdf", f));
       (form.facturaXmlFiles || []).forEach((f) => fd.append("archivoFacturaXml", f));
 
@@ -244,11 +239,10 @@ export function useEditPurchaseOrder({
     setForm,
     currentFiles,
 
-    // file
-    onPickFile,   // single
-    onPickMany,   // ✅ multi
-    removeAt,     // ✅ multi
-    clearFiles,   // ✅ multi
+    onPickFile,  
+    onPickMany,   
+    removeAt,    
+    clearFiles,   
 
     canSave,
     save,

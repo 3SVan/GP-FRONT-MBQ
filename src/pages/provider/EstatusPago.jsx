@@ -47,7 +47,6 @@ const EstatusPago = () => {
           <p className="text-xl text-midBlue">Días de tardanza en cada etapa del proceso</p>
         </div>
 
-        {/* Cuadritos de Estatus - Más grandes */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {tiemposEstatus.map((item, index) => {
             const Icono = item.icono;
@@ -57,18 +56,14 @@ const EstatusPago = () => {
                 key={index} 
                 className={`p-8 rounded-xl border-2 ${item.color} text-center transition-all duration-300 hover:scale-105 hover:shadow-lg`}
               >
-                {/* Icono Principal - Más grande */}
                 <div className={`p-4 rounded-2xl ${item.bgIcon} inline-flex items-center justify-center mb-6`}>
                   <Icono className={`w-12 h-12 ${item.iconColor}`} />
                 </div>
 
-                {/* Tiempo - Texto más grande */}
                 <div className="text-4xl font-bold text-gray-800 mb-4">{item.tiempo}</div>
 
-                {/* Nombre del Estatus - Texto más grande */}
                 <h3 className="text-lg font-semibold text-darkBlue leading-tight">{item.estatus}</h3>
 
-                {/* Línea decorativa */}
                 <div className={`h-1 w-16 mx-auto mt-4 rounded-full ${item.bgIcon.replace('bg-', 'bg-').replace('100', '300')}`}></div>
               </div>
             );

@@ -142,7 +142,6 @@ export default function ExpedientesTable({
   onViewPurchaseOrderPdf,
   onDownloadPurchaseOrderPdf,
 
-  // ahora soportan (row, file)
   onViewInvoicePdf,
   onDownloadInvoicePdf,
 
@@ -155,7 +154,6 @@ export default function ExpedientesTable({
   const [filesTab, setFilesTab] = useState("PDF");
 
   const { pdfs, xmls } = useMemo(() => {
-    // no se usa directo aquí por fila; sólo para evitar warning
     return { pdfs: [], xmls: [] };
   }, []);
 
@@ -209,7 +207,6 @@ export default function ExpedientesTable({
 
                 const { pdfs: invoicePdfs, xmls: invoiceXmls } = normalizeInvoiceFiles(row);
 
-                // fallback por si aún sólo tienes flags
                 const pdfCount =
                   invoicePdfs.length > 0 ? invoicePdfs.length : (row.hasInvoicePdf ? 1 : 0);
                 const xmlCount =
@@ -220,7 +217,6 @@ export default function ExpedientesTable({
                     key={row.id}
                     className="border-b border-lightBlue hover:bg-[#f7fbff] transition"
                   >
-                    {/* Fecha + status */}
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
                         <span className="text-darkBlue font-medium">{formatDate(row.fecha)}</span>
@@ -254,7 +250,6 @@ export default function ExpedientesTable({
                       </div>
                     </td>
 
-                    {/* OC: SOLO PDF */}
                     <td className="px-4 py-4">
                       <IconCell
                         enabled={!!row.id}
@@ -263,7 +258,6 @@ export default function ExpedientesTable({
                       />
                     </td>
 
-                    {/* Factura: MULTI PDF + MULTI XML (sin saturar) */}
                     <td className="px-4 py-4">
                       <div className="grid grid-cols-2 gap-3">
                         <FileCountButton
@@ -334,7 +328,6 @@ export default function ExpedientesTable({
         </table>
       </div>
 
-      {/* Modal global (1 solo) */}
       <InvoiceFilesModal
         open={filesOpen}
         onClose={closeFiles}

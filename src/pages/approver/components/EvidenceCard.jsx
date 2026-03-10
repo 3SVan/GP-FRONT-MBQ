@@ -13,7 +13,6 @@ export default function EvidenceCard({
 }) {
   return (
     <div className="rounded-2xl border border-lightBlue bg-white shadow-sm p-5">
-      {/* HEADER (título + badge alineado) */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

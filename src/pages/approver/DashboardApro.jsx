@@ -332,7 +332,6 @@ function DashboardApro() {
         onConfirm={alertConfig.onConfirm}
       />
 
-      {/* Overlay para cerrar menú usuario */}
       {userMenuOpen && (
         <div
           className="fixed inset-0 z-40"

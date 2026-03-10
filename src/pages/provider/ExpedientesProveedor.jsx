@@ -58,9 +58,6 @@ export default function ExpedientesProveedor({ showAlert }) {
     edit.openForRow(row);
   };
 
-  // =========================
-  // ✅ CONFIRM SUBMIT (verde)
-  // =========================
   const [submitOpen, setSubmitOpen] = React.useState(false);
   const [submitTarget, setSubmitTarget] = React.useState(null);
   const [submitLoading, setSubmitLoading] = React.useState(false);
@@ -96,9 +93,6 @@ export default function ExpedientesProveedor({ showAlert }) {
     }
   };
 
-  // =========================
-  // ✅ CONFIRM DELETE (rojo)
-  // =========================
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteTarget, setDeleteTarget] = React.useState(null);
   const [deleteLoading, setDeleteLoading] = React.useState(false);
@@ -152,8 +146,8 @@ export default function ExpedientesProveedor({ showAlert }) {
           canSubmit={canSubmit}
           canDelete={canDelete}
           onEdit={handleEdit}
-          onSubmit={requestSubmit} // ✅ ahora abre confirm verde
-          onDelete={requestDelete} // ✅ ahora abre confirm rojo
+          onSubmit={requestSubmit} 
+          onDelete={requestDelete} 
 
           onViewPurchaseOrderPdf={viewPurchaseOrderPdf}
           onDownloadPurchaseOrderPdf={downloadPurchaseOrderPdf}
@@ -176,8 +170,8 @@ export default function ExpedientesProveedor({ showAlert }) {
         onClose={edit.close}
         onSave={edit.save}
         onPickFile={edit.onPickFile}
-        onPickMany={edit.onPickMany}     // ✅
-        removeAt={edit.removeAt}         // ✅
+        onPickMany={edit.onPickMany}    
+        removeAt={edit.removeAt}  
         maxMb={edit.maxMb}
       />
 

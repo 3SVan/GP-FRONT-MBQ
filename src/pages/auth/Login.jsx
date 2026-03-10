@@ -297,7 +297,7 @@ function Login() {
             alt="Logo"
             className="w-24 h-24 object-contain mx-auto mb-4"
             onError={(e) => {
-              console.log("Error cargando imagen");
+              // console.log("Error cargando imagen");
               e.target.style.display = "none";
             }}
           />

@@ -118,7 +118,6 @@ function DatosAprobador({ showAlert }) {
   return (
     <div className="p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Header del formulario */}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold text-darkBlue">Mis Datos</h2>
@@ -153,10 +152,8 @@ function DatosAprobador({ showAlert }) {
           )}
         </div>
 
-        {/* Formulario en dos columnas */}
         <div className="bg-white rounded-lg border border-lightBlue p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Columna 1 */}
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-darkBlue mb-2">Nombre Completo *</label>
@@ -205,7 +202,6 @@ function DatosAprobador({ showAlert }) {
               </div>
             </div>
 
-            {/* Columna 2 */}
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-darkBlue mb-2">Área/Departamento *</label>

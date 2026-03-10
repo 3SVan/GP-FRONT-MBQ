@@ -5,23 +5,19 @@ import { ProvidersAPI } from "../../api/providers.api";
 
 const GestionDatosPro = ({ onClose }) => {
   const [formData, setFormData] = useState({
-    // Datos Fiscales (UI)
     razonSocial: "",
     rfc: "",
     domicilioFiscal: "",
 
-    // Datos de Contacto (UI)
     nombreContacto: "",
     cargo: "",
     correo: "",
     telefono: "",
     direccionEntrega: "",
 
-    // Datos Bancarios (UI)
     cuentaClabe: "",
     banco: "",
 
-    // Interno
     bankAccountId: null,
   });
 
@@ -189,10 +185,6 @@ const GestionDatosPro = ({ onClose }) => {
     );
   };
 
-  // =========================
-  // CARGA INICIAL DESDE BACK
-  // GET /api/providers/me
-  // =========================
   useEffect(() => {
     let alive = true;
 
@@ -204,8 +196,6 @@ const GestionDatosPro = ({ onClose }) => {
 
         if (!alive) return;
 
-        // data viene de tu backend getMyProviderData:
-        // businessName, rfc, fiscalAddress, fullName, contactPosition, email, phone, deliveryAddress, clabe, bankName, bankAccountId
         setFormData((prev) => ({
           ...prev,
           razonSocial: data?.businessName || "",
@@ -296,15 +286,12 @@ const GestionDatosPro = ({ onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Marcar todos como tocados
     const allTouched = {};
     Object.keys(formData).forEach((key) => {
-      // no marcamos bankAccountId como campo "visible"
       if (key !== "bankAccountId") allTouched[key] = true;
     });
     setTouched(allTouched);
 
-    // Validar todos los visibles
     const newErrors = {};
     const fieldsToValidate = [
       "razonSocial",
@@ -335,11 +322,8 @@ const GestionDatosPro = ({ onClose }) => {
       return;
     }
 
-    // Guardar
     setSaving(true);
     try {
-      // Backend updateMyProviderData espera:
-      // businessName, rfc, fiscalAddress, fullName, contactPosition, phone, clabe, bankName, bankAccountId
       const payload = {
         businessName: formData.razonSocial.trim(),
         rfc: formData.rfc.trim().toUpperCase(),
@@ -358,7 +342,6 @@ const GestionDatosPro = ({ onClose }) => {
 
       showAlert("success", "Datos Guardados", "Los datos del proveedor se han guardado correctamente.");
     } catch (err) {
-      // backend puede responder {error: "..."}
       const msg =
         err?.response?.data?.error ||
         err?.message ||
@@ -665,7 +648,6 @@ const GestionDatosPro = ({ onClose }) => {
               </div>
             </div>
 
-            {/* Botón de acción - SOLO GUARDAR CAMBIOS */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-lightBlue">
               <button
                 type="submit"

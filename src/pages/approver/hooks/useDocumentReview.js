@@ -28,7 +28,7 @@ const onOpenFiles = async (aprobacion) => {
     ? data.data
     : [];
 
-  console.log("Archivos de", aprobacion.id, files);
+  // console.log("Archivos de", aprobacion.id, files);
 
   return files; 
 };

@@ -50,7 +50,7 @@ function formatMb(bytes = 0) {
 }
 
 // =========================
-// Toast (notificación fija)
+// Toast
 // =========================
 function Toast({ alert, onClose }) {
   if (!alert) return null;
@@ -89,9 +89,6 @@ function Toast({ alert, onClose }) {
   );
 }
 
-// =========================
-// UI: “Píldora” del archivo 
-// =========================
 function FilePill({ name, onRemove }) {
   return (
     <div className="mt-3 w-full">
@@ -211,7 +208,6 @@ function UploadCardSingle({
             Agregar archivos
           </button>
 
-          {/* Píldora (solo quitar) */}
           {file?.name ? (
             <FilePill name={file.name} onRemove={onRemove} />
           ) : null}
@@ -292,7 +288,6 @@ function UploadCardMulti({
             <div className="mt-1 text-xs text-red-600">{errorText}</div>
           ) : null}
 
-          {/* Píldoras (solo quitar) */}
           <FilePillList files={files} onRemoveAt={onRemoveAt} />
         </div>
       </div>
@@ -324,9 +319,8 @@ export default function OrdenCompraPro() {
   const [loadingList, setLoadingList] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [items, setItems] = useState([]);
-  const [alert, setAlert] = useState(null); // {type:'success'|'error'|'info', msg:''}
+  const [alert, setAlert] = useState(null); 
 
-  // errores por tarjeta (texto)
   const [errors, setErrors] = useState({
     archivoOrden: "",
     facturasPdf: "",
@@ -438,7 +432,6 @@ export default function OrdenCompraPro() {
       return { ...s, [key]: arr };
     });
 
-    // Si ya no hay archivos, limpia error
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
@@ -487,10 +480,8 @@ export default function OrdenCompraPro() {
       if (form.observaciones?.trim())
         fd.append("observaciones", form.observaciones.trim());
 
-      // OC (1)
       fd.append("archivoOrden", files.archivoOrden);
 
-      // Facturas (multi): repetimos la key
       files.facturasPdf.forEach((f) => fd.append("archivoFacturaPdf", f));
       files.facturasXml.forEach((f) => fd.append("archivoFacturaXml", f));
 
@@ -533,7 +524,6 @@ export default function OrdenCompraPro() {
   // =========================
   return (
     <div className="w-full h-full p-4">
-      {/* TOAST (notificación fija) */}
       <Toast alert={alert} onClose={clearAlert} />
 
       {/* FORM */}

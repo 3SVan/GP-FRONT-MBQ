@@ -11,13 +11,13 @@ export default function UploadCard({
   newFileName = "",
 
   // MULTI
-  newFiles = null, // array de File
-  onRemoveNewAt = null, // (idx) => void
+  newFiles = null, 
+  onRemoveNewAt = null, 
 
   required = false,
   typeLabel,
   currentFilesList = [],
-  onRemoveCurrentAt = null, // ✅ NUEVO: (idx) => void  (solo UI, sin endpoint)
+  onRemoveCurrentAt = null, 
   maxMb = 10,
 }) {
   const hasCurrent = Array.isArray(currentFilesList) && currentFilesList.length > 0;
@@ -39,9 +39,7 @@ export default function UploadCard({
         Máximo {maxMb}MB - Solo archivos {acceptLabel}
       </div>
 
-      {/* ✅ ZONA DE LISTAS */}
       <div className="mt-3 space-y-3">
-        {/* ✅ 1) ARCHIVOS ACTUALES (SIEMPRE SE VEN) */}
         {hasCurrent ? (
           <div className="text-left bg-lightBlue/30 border border-lightBlue rounded-xl p-3 text-xs">
             <div className="font-semibold text-midBlue mb-2">
@@ -68,7 +66,6 @@ export default function UploadCard({
                     </button>
                   )}
 
-                  {/* ✅ NUEVO: eliminar actual (solo UI, sin endpoint) */}
                   {typeof onRemoveCurrentAt === "function" && (
                     <button
                       type="button"
@@ -90,7 +87,6 @@ export default function UploadCard({
           </div>
         )}
 
-        {/* ✅ 2) ARCHIVOS NUEVOS (DEBAJO DE LOS ACTUALES) */}
         {hasNewMulti ? (
           <div className="text-left bg-lightBlue/30 border border-lightBlue rounded-xl p-3 text-xs">
             <div className="font-semibold text-midBlue mb-2">

@@ -252,7 +252,7 @@ function DashboardProvider() {
         const nombreEmpresa = pickCompanyName(me);
         setDatosProveedor({ nombreEmpresa });
 
-        console.log("providers/me =>", me);
+        // console.log("providers/me =>", me);
       } catch (err) {
         console.warn("No se pudo cargar provider/me:", err?.message || err);
         setDatosProveedor({ nombreEmpresa: "Proveedor" });

@@ -339,7 +339,6 @@ export default function ProviderFilesModal({
 
   return ReactDOM.createPortal(
     <>
-      {/* Overlay del modal principal */}
       <div
         className="fixed inset-0 bg-black/50 z-[9998] backdrop-blur-sm"
         onClick={onClose}
@@ -352,7 +351,6 @@ export default function ProviderFilesModal({
                      flex flex-col overflow-hidden relative"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ✅ Toast local (sin oscurecer nada) */}
           {toast && (
             <div className="absolute top-4 right-4 z-20">
               <div className={toastBoxClass(toast.type)}>
@@ -522,7 +520,6 @@ export default function ProviderFilesModal({
                                     </div>
                                   </div>
 
-                                  {/* ✅ Reject inline editor (sin overlays) */}
                                   {isEditingReject && (
                                     <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3">
                                       <label className="block text-xs font-semibold text-red-800">

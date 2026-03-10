@@ -3,7 +3,6 @@ import React from "react";
 import { AlertTriangle, Clock } from "lucide-react";
 
 export default function UrgencyChip({ kind, text }) {
-  // kind: "POR_VENCER" | "VENCIDA" | "HOY" | null
   if (!kind) return null;
 
   const K = String(kind).toUpperCase();

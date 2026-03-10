@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PurchaseOrdersAPI } from "../../../api/purchaseOrders.api";
 import { DigitalFilesAPI } from "../../../api/digitalFiles.api";
 
-// ✅ IDs ocultos en UI (para “ocultar” filas localmente)
 const HIDDEN_KEY = "po_hidden_ids_v1";
 
 function safeUpper(s) {
@@ -78,7 +77,6 @@ export function useExpedientesProveedor({ showAlert } = {}) {
     const normalized = list.map((po) => {
       const invoices = Array.isArray(po?.poInvoices) ? po.poInvoices : [];
 
-      // ✅ listas MULTI (nombre + url + raw)
       const invoicePdfs = invoices
         .filter((inv) => inv?.pdfUrl || inv?.pdfStorageKey)
         .map((inv) => ({
@@ -101,7 +99,6 @@ export function useExpedientesProveedor({ showAlert } = {}) {
           type: "XML",
         }));
 
-      // ✅ fallback legacy si no hay hijas
       if (invoicePdfs.length === 0 && (po?.invoicePdfUrl || po?.invoiceStorageKey)) {
         invoicePdfs.push({
           id: null,
@@ -170,7 +167,6 @@ export function useExpedientesProveedor({ showAlert } = {}) {
           invoiceXmlStorageKey: po?.invoiceXmlStorageKey || null,
         },
 
-        // ✅ NUEVO: para el modal multi
         invoicePdfs,
         invoiceXmls,
 
@@ -226,7 +222,6 @@ export function useExpedientesProveedor({ showAlert } = {}) {
   );
 
   // =========================
-  // ✅ Ver/Descargar
   // MULTI: (row, file)
   // =========================
   const viewPurchaseOrderPdf = useCallback((row) => {
@@ -242,13 +237,11 @@ export function useExpedientesProveedor({ showAlert } = {}) {
   const viewInvoicePdf = useCallback((row, file) => {
     if (!row?.id || !row?.hasInvoicePdf) return;
 
-    // ✅ si hay url del archivo seleccionado, abre ese
     if (file?.url) {
       window.open(file.url, "_blank", "noopener,noreferrer");
       return;
     }
 
-    // fallback legacy por orderId
     DigitalFilesAPI.openInvoicePdf(row.id);
   }, []);
 
@@ -257,13 +250,11 @@ export function useExpedientesProveedor({ showAlert } = {}) {
       if (!row?.id || !row?.hasInvoicePdf) return;
 
       try {
-        // ✅ descarga el archivo seleccionado
         if (file?.url) {
           await downloadAsBlob(file.url, file?.name || "factura.pdf");
           return;
         }
 
-        // fallback legacy
         DigitalFilesAPI.downloadInvoicePdf(row.id);
       } catch (e) {
         console.error(e);
@@ -281,7 +272,6 @@ export function useExpedientesProveedor({ showAlert } = {}) {
       return;
     }
 
-    // fallback legacy (tu viewer por id)
     window.open(`/provider/xml-viewer/${row.id}`, "_blank", "noopener,noreferrer");
   }, []);
 
@@ -295,7 +285,6 @@ export function useExpedientesProveedor({ showAlert } = {}) {
           return;
         }
 
-        // fallback legacy
         DigitalFilesAPI.downloadInvoiceXml(row.id);
       } catch (e) {
         console.error(e);
@@ -305,9 +294,6 @@ export function useExpedientesProveedor({ showAlert } = {}) {
     [showAlert]
   );
 
-  // =========================
-  // ✅ Acciones: enviar / eliminar
-  // =========================
   const submitRow = useCallback(
     async (row) => {
       if (!row?.id) return;

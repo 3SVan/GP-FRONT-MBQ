@@ -24,25 +24,21 @@ function Graficas({
   tableEnabled = true,
   tableScope = "admin",
 }) {
-  // ✅ showAlert estable (evita loops infinitos)
   const showAlertRef = useRef(showAlert);
   useEffect(() => {
     showAlertRef.current = showAlert;
   }, [showAlert]);
 
-  // Tabla
   const [tableData, setTableData] = useState([]);
   const [loadingTable, setLoadingTable] = useState(false);
   const [tableQuery, setTableQuery] = useState("");
 
-  // Debounce para query (evita pegarle al back en cada tecla)
   const [debouncedQuery, setDebouncedQuery] = useState("");
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(tableQuery), 350);
     return () => clearTimeout(t);
   }, [tableQuery]);
 
-  // Roles (para proteger llamadas admin)
   const [roles, setRoles] = useState([]);
   useEffect(() => {
     let alive = true;
@@ -52,7 +48,6 @@ function Graficas({
         if (!alive) return;
         setRoles(me?.data?.user?.roles || []);
       } catch {
-        // Si no hay sesión/cookie todavía, no matamos la UI
         if (!alive) return;
         setRoles([]);
       }
@@ -64,14 +59,11 @@ function Graficas({
 
   const isAdmin = roles.includes("ADMIN");
 
-  // ✅ fetch tabla desde BD (SIN LOOP)
   useEffect(() => {
     let alive = true;
 
-    // Si la tabla está apagada o no aplica, salimos
     if (!tableEnabled || tableScope === "none") return;
 
-    // Si pidieron tabla admin pero NO eres admin → NO llames al endpoint
     if (tableScope === "admin" && !isAdmin) {
       setLoadingTable(false);
       setTableData([]);
@@ -82,7 +74,6 @@ function Graficas({
       try {
         setLoadingTable(true);
 
-        // Solo soportamos tabla admin aquí
         const data = await ProvidersAPI.getAdminTable(debouncedQuery);
         if (!alive) return;
 
@@ -183,7 +174,6 @@ function Graficas({
     );
   };
 
-  // Export (igual que lo traías)
   const generarExcelConFormato = (datos, cabeceras, titulo, nombreArchivo) => {
     const html = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -459,7 +449,6 @@ function Graficas({
     </div>
   );
 
-  // Comentarios (local UI)
   const [editingComment, setEditingComment] = useState(null);
   const [commentText, setCommentText] = useState("");
 
@@ -610,7 +599,6 @@ function Graficas({
     );
   };
 
-  // UI guard para stats
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-lightBlue shadow-lg p-6">
@@ -637,7 +625,6 @@ function Graficas({
         <PieChart title="Órdenes de Compra" data={chartData.ordenesCompra} chartType="ordenesCompra" />
       </div>
 
-      {/* TABLA (solo si aplica) */}
       {/* {tableEnabled && tableScope !== "none" && (
         <div className="bg-white rounded-xl border border-lightBlue shadow-lg overflow-hidden">
           <div className="p-6 border-b border-lightBlue">

@@ -32,8 +32,6 @@ export default function EditPurchaseOrderModal({
 
   if (!open || !row) return null;
 
-  // ✅ (UI) helpers para “ocultar” archivos actuales sin endpoint
-  // Guardamos en form flags: ocPdfRemoved, removedInvoicePdfNames, removedInvoiceXmlNames
   const orderFilesUI =
     (currentFiles?.orderFiles || []).filter((f) => !form?.ocPdfRemoved);
 
@@ -185,15 +183,13 @@ export default function EditPurchaseOrderModal({
               title="Haz clic para reemplazar la orden en PDF"
               acceptLabel="PDF"
               onPick={() => ocInputRef.current?.click()}
-              newFileName={form.ocPdfFile?.name || ""} // (single)
+              newFileName={form.ocPdfFile?.name || ""} 
               required={false}
               currentFilesList={orderFilesUI}
-              // ✅ NUEVO: quitar actual (solo UI)
               onRemoveCurrentAt={() => {
-                // Aquí normalmente solo hay 1 archivo de orden
                 setForm((p) => ({
                   ...p,
-                  ocPdfRemoved: true, // flag UI
+                  ocPdfRemoved: true,
                 }));
               }}
               maxMb={maxMb}
@@ -208,7 +204,6 @@ export default function EditPurchaseOrderModal({
               onRemoveNewAt={(idx) => removeAt?.("facturaPdfFiles", idx)}
               required={false}
               currentFilesList={invoicePdfUI}
-              // ✅ NUEVO: quitar actual (solo UI)
               onRemoveCurrentAt={(idx) => {
                 const f = invoicePdfUI[idx];
                 if (!f?.name) return;
@@ -231,7 +226,6 @@ export default function EditPurchaseOrderModal({
               onRemoveNewAt={(idx) => removeAt?.("facturaXmlFiles", idx)}
               required={false}
               currentFilesList={invoiceXmlUI}
-              // ✅ NUEVO: quitar actual (solo UI)
               onRemoveCurrentAt={(idx) => {
                 const f = invoiceXmlUI[idx];
                 if (!f?.name) return;

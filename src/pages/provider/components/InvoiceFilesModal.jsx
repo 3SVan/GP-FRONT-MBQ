@@ -38,7 +38,7 @@ export default function InvoiceFilesModal({
   open,
   onClose,
   row,
-  initialTab = "PDF", // "PDF" | "XML"
+  initialTab = "PDF", 
   pdfFiles = [],
   xmlFiles = [],
   onViewPdf,

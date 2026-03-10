@@ -451,7 +451,6 @@ const DocumentosPro = () => {
                                     </div>
                                   </div>
 
-                                  {/* ✅ Botones ocultos si está bloqueado */}
                                   {!isLocked && (
                                     <div className="flex items-center gap-2">
                                       {local ? (
@@ -497,7 +496,6 @@ const DocumentosPro = () => {
                                     Máximo 10MB - Solo archivos PDF
                                   </p>
 
-                                  {/* ✅ No permite seleccionar si está bloqueado */}
                                   {!isLocked ? (
                                     <>
                                       <input
@@ -561,7 +559,6 @@ const DocumentosPro = () => {
                 </div>
               )}
 
-            {/* Botón Enviar (oculto si isLocked) */}
             <div className="flex justify-end space-x-3 pt-4 border-t border-lightBlue">
               {isLocked ? (
                 <div className="text-sm text-midBlue font-medium">
