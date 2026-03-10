@@ -153,16 +153,8 @@ const DocumentosPro = () => {
         return;
       }
 
-<<<<<<< Updated upstream
-      if (file.size > 10 * 1024 * 1024) {
-        setErrors((prev) => ({
-          ...prev,
-          [documentoCode]: "El archivo no puede ser mayor a 10MB",
-        }));
-=======
       if (file.size > 30 * 1024 * 1024) {
         setErrors((prev) => ({ ...prev, [documentoCode]: "El archivo no puede ser mayor a 30MB" }));
->>>>>>> Stashed changes
         return;
       }
 
