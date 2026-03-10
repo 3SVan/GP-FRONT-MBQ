@@ -1,7 +1,6 @@
-// src/pages/admin/DashboardAdmin.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthAPI } from "../../api/auth.api";
+import { useAuth } from "../../context/AuthContext";
 import { UsersAPI } from "../../api/users.api";
 import { AnalyticsAPI } from "../../api/analytics.api";
 import { NotificationsAPI } from "../../api/notifications.api";
@@ -106,8 +105,8 @@ function mapAccessRequestToNotification(req) {
     ? personType === "FISICA"
       ? "Persona Física"
       : personType === "MORAL"
-        ? "Persona Moral"
-        : "Sin definir"
+      ? "Persona Moral"
+      : "Sin definir"
     : department || "Sin área asignada";
 
   const nombreMostrar =
@@ -139,6 +138,8 @@ function mapAccessRequestToNotification(req) {
 
 function DashboardAdmin() {
   const navigate = useNavigate();
+  const { loading: authLoading, isAuthenticated, roles, logout } = useAuth();
+  const isAdmin = roles.includes("ADMIN");
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -188,7 +189,7 @@ function DashboardAdmin() {
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.readAt).length,
-    [notifications],
+    [notifications]
   );
 
   const showAlert = (
@@ -196,7 +197,7 @@ function DashboardAdmin() {
     title,
     message,
     showConfirm = false,
-    onConfirm = null,
+    onConfirm = null
   ) => {
     setAlertConfig({ type, title, message, showConfirm, onConfirm });
     setAlertOpen(true);
@@ -212,7 +213,7 @@ function DashboardAdmin() {
     try {
       setUserMenuOpen(false);
       setNotificationsOpen(false);
-      await AuthAPI.logout();
+      await logout();
     } catch (err) {
       console.warn("Error al cerrar sesión:", err?.message || err);
     } finally {
@@ -221,6 +222,10 @@ function DashboardAdmin() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (!isAdmin) return;
+
     let alive = true;
 
     (async () => {
@@ -242,31 +247,34 @@ function DashboardAdmin() {
         const rawAccessRequests = Array.isArray(accessReqsRes?.data)
           ? accessReqsRes.data
           : Array.isArray(accessReqsRes?.data?.data)
-            ? accessReqsRes.data.data
-            : Array.isArray(accessReqsRes)
-              ? accessReqsRes
-              : [];
+          ? accessReqsRes.data.data
+          : Array.isArray(accessReqsRes)
+          ? accessReqsRes
+          : [];
 
         const accessRequestNotifications = rawAccessRequests.map(
-          mapAccessRequestToNotification,
+          mapAccessRequestToNotification
         );
 
         const mergedNotifications = [
           ...accessRequestNotifications,
           ...(Array.isArray(notifs) ? notifs : []),
         ].sort(
-          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
         );
 
         setDashboardStats(stats);
         setNotifications(mergedNotifications);
         setCurrentUser(me);
       } catch (err) {
+        if (!alive) return;
+        if (err?.response?.status === 401) return;
+
         console.error(err);
         showAlert(
           "error",
           "Dashboard",
-          "No se pudieron cargar los datos del dashboard.",
+          "No se pudieron cargar los datos del dashboard."
         );
       } finally {
         if (alive) setLoadingDashboard(false);
@@ -276,8 +284,7 @@ function DashboardAdmin() {
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authLoading, isAuthenticated, isAdmin]);
 
   const markAsRead = async (id) => {
     try {
@@ -286,7 +293,6 @@ function DashboardAdmin() {
 
       const readAt = new Date().toISOString();
 
-      // Actualización visual inmediata
       setNotifications((prev) =>
         prev.map((n) =>
           n.id === id
@@ -294,20 +300,20 @@ function DashboardAdmin() {
                 ...n,
                 readAt: n.readAt || readAt,
               }
-            : n,
-        ),
+            : n
+        )
       );
 
-      // Las solicitudes de acceso solo existen en frontend
       if (notif.source === "access_request") {
         return;
       }
 
       await NotificationsAPI.markRead(notif.sourceId || id);
     } catch (err) {
+      if (err?.response?.status === 401) return;
+
       console.error(err);
 
-      // Revertir si falla
       setNotifications((prev) =>
         prev.map((n) =>
           n.id === id
@@ -315,8 +321,8 @@ function DashboardAdmin() {
                 ...n,
                 readAt: null,
               }
-            : n,
-        ),
+            : n
+        )
       );
 
       showAlert("error", "Notificaciones", "No se pudo marcar como leída.");
@@ -331,14 +337,16 @@ function DashboardAdmin() {
         prev.map((n) => ({
           ...n,
           readAt: n.readAt || new Date().toISOString(),
-        })),
+        }))
       );
     } catch (err) {
+      if (err?.response?.status === 401) return;
+
       console.error(err);
       showAlert(
         "error",
         "Notificaciones",
-        "No se pudieron marcar todas como leídas.",
+        "No se pudieron marcar todas como leídas."
       );
     }
   };
@@ -726,10 +734,10 @@ function DashboardAdmin() {
                                   type === "success"
                                     ? "bg-green-100 text-green-600"
                                     : type === "warning"
-                                      ? "bg-yellow-100 text-yellow-600"
-                                      : type === "error"
-                                        ? "bg-red-100 text-red-600"
-                                        : "bg-blue-100 text-blue-600"
+                                    ? "bg-yellow-100 text-yellow-600"
+                                    : type === "error"
+                                    ? "bg-red-100 text-red-600"
+                                    : "bg-blue-100 text-blue-600"
                                 }`}
                               >
                                 {type === "success" ? (
@@ -822,7 +830,7 @@ function DashboardAdmin() {
                         () => {
                           setAlertOpen(false);
                           handleLogout();
-                        },
+                        }
                       )
                     }
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"

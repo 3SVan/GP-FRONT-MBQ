@@ -29,9 +29,9 @@ import ExpedientesProveedor from "./ExpedientesProveedor.jsx";
 
 import PlanesPagoShell from "./planesPago/PlanesPagoShell.jsx";
 
-import { AuthAPI } from "../../api/auth.api";
 import { ProvidersAPI } from "../../api/providers.api";
 import SystemAlert from "../../components/ui/SystemAlert";
+import { useAuth } from "../../context/AuthContext";
 
 function toDateKey(value) {
   if (!value) return "";
@@ -83,8 +83,8 @@ function buildDashboardCalendarEvents(payments = []) {
         String(pay?.status || "").toUpperCase() === "PAID"
           ? "verde"
           : String(pay?.status || "").toUpperCase() === "APPROVED"
-            ? "azul"
-            : "verde";
+          ? "azul"
+          : "verde";
 
       if (!byDay[pagoDate]) byDay[pagoDate] = [];
       byDay[pagoDate].push({
@@ -102,8 +102,8 @@ function buildDashboardCalendarEvents(payments = []) {
         String(pay?.status || "").toUpperCase() === "REJECTED"
           ? "rojo"
           : String(pay?.status || "").toUpperCase() === "PENDING"
-            ? "amarillo"
-            : "amarillo";
+          ? "amarillo"
+          : "amarillo";
 
       if (!byDay[cierreDate]) byDay[cierreDate] = [];
       byDay[cierreDate].push({
@@ -122,6 +122,8 @@ function buildDashboardCalendarEvents(payments = []) {
 
 function DashboardProvider() {
   const navigate = useNavigate();
+  const { loading: authLoading, isAuthenticated, roles, logout } = useAuth();
+  const isProvider = roles.includes("PROVIDER");
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -199,7 +201,7 @@ function DashboardProvider() {
   const handleLogout = async () => {
     try {
       setUserMenuOpen(false);
-      await AuthAPI.logout();
+      await logout();
     } catch (e) {
       console.warn("logout error:", e?.message || e);
     } finally {
@@ -208,6 +210,10 @@ function DashboardProvider() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (!isProvider) return;
+
     let alive = true;
 
     (async () => {
@@ -237,6 +243,9 @@ function DashboardProvider() {
           },
         });
       } catch (err) {
+        if (!alive) return;
+        if (err?.response?.status === 401) return;
+
         const msg =
           err?.userMessage ||
           "No se pudieron cargar las métricas del dashboard";
@@ -249,9 +258,13 @@ function DashboardProvider() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [authLoading, isAuthenticated, isProvider]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (!isProvider) return;
+
     let alive = true;
 
     (async () => {
@@ -264,6 +277,9 @@ function DashboardProvider() {
         const nombreEmpresa = pickCompanyName(me);
         setDatosProveedor({ nombreEmpresa });
       } catch (err) {
+        if (!alive) return;
+        if (err?.response?.status === 401) return;
+
         console.warn("No se pudo cargar provider/me:", err?.message || err);
         setDatosProveedor({ nombreEmpresa: "Proveedor" });
       }
@@ -272,9 +288,13 @@ function DashboardProvider() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [authLoading, isAuthenticated, isProvider]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (!isProvider) return;
+
     let alive = true;
 
     (async () => {
@@ -288,6 +308,9 @@ function DashboardProvider() {
         if (!alive) return;
         setProviderCalendarEvents(mapped);
       } catch (err) {
+        if (!alive) return;
+        if (err?.response?.status === 401) return;
+
         console.error("Error cargando calendario del dashboard:", err);
         if (alive) setProviderCalendarEvents({});
       } finally {
@@ -298,7 +321,7 @@ function DashboardProvider() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [authLoading, isAuthenticated, isProvider]);
 
   const menuItems = [
     {
@@ -605,8 +628,8 @@ function DashboardProvider() {
                       esHoy && !tieneEventos
                         ? "bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]"
                         : tieneEventos
-                          ? "text-white"
-                          : "text-darkBlue"
+                        ? "text-white"
+                        : "text-darkBlue"
                     }`}
                   >
                     {fecha}

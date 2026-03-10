@@ -13,15 +13,31 @@ const AuthContext = createContext(null);
 function normalizeRoles(rawRoles) {
     if (!Array.isArray(rawRoles)) return [];
 
-    const mapped = rawRoles
-        .map((r) => {
-            if (typeof r === "string") return r.toUpperCase();
-            if (r && typeof r === "object" && r.name) return String(r.name).toUpperCase();
-            return "";
-        })
-        .filter(Boolean);
+    return [
+        ...new Set(
+            rawRoles
+                .map((r) => {
+                    if (typeof r === "string") return r.toUpperCase();
+                    if (r && typeof r === "object" && r.name) return String(r.name).toUpperCase();
+                    return "";
+                })
+                .filter(Boolean)
+        ),
+    ];
+}
 
-    return [...new Set(mapped)];
+function extractUser(response) {
+    if (!response) return null;
+    if (response.data?.user) return response.data.user;
+    if (response.user) return response.user;
+    return null;
+}
+
+export function getDashboardByRole(roles = []) {
+    if (roles.includes("ADMIN")) return "/admin";
+    if (roles.includes("APPROVER")) return "/approver";
+    if (roles.includes("PROVIDER")) return "/provider";
+    return "/login";
 }
 
 export function AuthProvider({ children }) {
@@ -32,7 +48,7 @@ export function AuthProvider({ children }) {
     const fetchMe = useCallback(async () => {
         try {
             const res = await AuthAPI.me();
-            const meUser = res?.data?.user || null;
+            const meUser = extractUser(res);
             const normalizedRoles = normalizeRoles(meUser?.roles || []);
 
             setUser(meUser);
@@ -53,7 +69,7 @@ export function AuthProvider({ children }) {
 
     const refreshAuth = useCallback(async () => {
         setLoading(true);
-        return fetchMe();
+        return await fetchMe();
     }, [fetchMe]);
 
     const logout = useCallback(async () => {
@@ -62,8 +78,10 @@ export function AuthProvider({ children }) {
         } catch {
             // no-op
         } finally {
+            // limpiar auth inmediatamente para desmontar rutas protegidas cuanto antes
             setUser(null);
             setRoles([]);
+            setLoading(false);
         }
     }, []);
 

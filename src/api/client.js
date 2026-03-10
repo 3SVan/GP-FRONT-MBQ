@@ -10,13 +10,15 @@ export const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message =
-      error?.response?.data?.message ||
-      error?.response?.data?.error ||
-      error?.message ||
-      "Error en la solicitud";
+    const status = error?.response?.status;
+    const currentPath = window.location.pathname;
 
-    error.userMessage = message; 
+    const publicPaths = ["/", "/login", "/autentificacion"];
+
+    if (status === 401 && !publicPaths.includes(currentPath)) {
+      window.location.replace("/login");
+    }
+
     return Promise.reject(error);
   }
 );

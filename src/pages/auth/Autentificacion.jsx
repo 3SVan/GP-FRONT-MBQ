@@ -1,10 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth, getDashboardByRole } from "../../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthAPI } from "../../api/auth.api";
+
+function normalizeRoles(rawRoles) {
+  if (!Array.isArray(rawRoles)) return [];
+
+  return rawRoles
+    .map((r) => {
+      if (typeof r === "string") return r.toUpperCase();
+      if (r && typeof r === "object" && r.name) return String(r.name).toUpperCase();
+      return "";
+    })
+    .filter(Boolean);
+}
 
 export default function Autentificacion() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshAuth } = useAuth();
 
   const email = location.state?.email || "";
   const mode = location.state?.mode || "login"; // "login" | "reset-password"
@@ -94,18 +108,12 @@ export default function Autentificacion() {
     inputRefs.current[focusIndex]?.focus();
   };
 
-  const goToDashboardByRole = (roles) => {
-    if (roles.includes("ADMIN")) return navigate("/admin");
-    if (roles.includes("APPROVER")) return navigate("/approver");
-    if (roles.includes("PROVIDER")) return navigate("/provider");
-    return navigate("/login");
-  };
-
   const verifyCode = async () => {
     if (!email) {
       setAlert("error", "Falta el correo. Regresa a iniciar sesión.");
       return;
     }
+
     if (codeStr.length !== 6 || code.includes("")) {
       setAlert("error", "Ingresa los 6 caracteres del código.");
       return;
@@ -121,29 +129,35 @@ export default function Autentificacion() {
         navigate("/cambio-pass", {
           state: {
             email,
-            token: codeStr, 
+            token: codeStr,
           },
           replace: true,
         });
         return;
       }
 
-      // === modo login normal ===
+      // LOGIN NORMAL
       await AuthAPI.loginVerify({ email, code: codeStr });
 
-        const meRes = await AuthAPI.me();
-        const user = meRes?.data?.user;
-        const roles = user?.roles || [];
+      // Refresca el contexto ya con sesión/cookie creada
+      const me = await refreshAuth();
 
-        setAlert("success", "Acceso concedido. Redirigiendo...");
+      if (!me) {
+        setAlert("error", "No se pudo recuperar la sesión. Inicia sesión de nuevo.");
+        navigate("/login", { replace: true });
+        return;
+      }
 
-        if (user?.mustChangePassword) {
-          navigate("/cambio-pass", { replace: true });
-          return;
-        }
+      const roles = normalizeRoles(me?.roles || []);
 
-        goToDashboardByRole(roles);
+      setAlert("success", "Acceso concedido. Redirigiendo...");
 
+      if (me?.mustChangePassword) {
+        navigate("/cambio-pass", { replace: true });
+        return;
+      }
+
+      navigate(getDashboardByRole(roles), { replace: true });
     } catch (err) {
       setAlert("error", "Código incorrecto o expirado. Intenta de nuevo.");
       clearCode();
@@ -169,12 +183,11 @@ export default function Autentificacion() {
         return;
       }
 
-      // === login normal ===
       await AuthAPI.loginResend({ email });
       setAlert("success", "Código reenviado. Revisa tu correo.");
       clearCode();
     } catch (err) {
-      setAlert("error", err?.message || "No se pudo reenviar el código.");
+      setAlert("error", err?.response?.data?.error || err?.message || "No se pudo reenviar el código.");
     } finally {
       setLoadingResend(false);
     }
@@ -209,8 +222,7 @@ export default function Autentificacion() {
 
             {email ? (
               <p className="text-sm sm:text-base text-midBlue mt-2">
-                Correo:{" "}
-                <span className="font-semibold text-darkBlue">{email}</span>
+                Correo: <span className="font-semibold text-darkBlue">{email}</span>
               </p>
             ) : null}
           </div>

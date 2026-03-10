@@ -1,4 +1,3 @@
-// src/pages/approver/DashboardApro.jsx
 import React, { useState, useCallback, useEffect } from "react";
 import {
   User,
@@ -12,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
-import { AuthAPI } from "../../api/auth.api";
+import { useAuth } from "../../context/AuthContext";
 import { AnalyticsAPI } from "../../api/analytics.api";
 
 import Documents from "./Documents.jsx";
@@ -32,6 +31,8 @@ import SystemAlert from "../../components/ui/SystemAlert";
 
 function DashboardApro() {
   const navigate = useNavigate();
+  const { loading: authLoading, isAuthenticated, roles, logout } = useAuth();
+  const isApprover = roles.includes("APPROVER");
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -74,6 +75,10 @@ function DashboardApro() {
   const { currentUser } = useCurrentUser();
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) return;
+    if (!isApprover) return;
+
     let alive = true;
 
     const loadDashboardStats = async () => {
@@ -86,9 +91,10 @@ function DashboardApro() {
 
         setStats(data || null);
       } catch (error) {
-        console.error("Error cargando métricas del aprobador:", error);
-
         if (!alive) return;
+        if (error?.response?.status === 401) return;
+
+        console.error("Error cargando métricas del aprobador:", error);
 
         setStats(null);
         showAlert(
@@ -106,7 +112,7 @@ function DashboardApro() {
     return () => {
       alive = false;
     };
-  }, [showAlert]);
+  }, [authLoading, isAuthenticated, isApprover, showAlert]);
 
   const handleAprobacionChange = (nuevasAprobaciones) =>
     setAprobaciones(nuevasAprobaciones);
@@ -114,7 +120,7 @@ function DashboardApro() {
   const handleLogout = async () => {
     try {
       setUserMenuOpen(false);
-      await AuthAPI.logout();
+      await logout();
     } catch (e) {
       console.warn("logout error:", e?.message || e);
     } finally {
@@ -172,15 +178,16 @@ function DashboardApro() {
             const arr = Array.isArray(files)
               ? files
               : Array.isArray(files?.files)
-                ? files.files
-                : Array.isArray(files?.data?.files)
-                  ? files.data.files
-                  : Array.isArray(files?.data)
-                    ? files.data
-                    : [];
+              ? files.files
+              : Array.isArray(files?.data?.files)
+              ? files.data.files
+              : Array.isArray(files?.data)
+              ? files.data
+              : [];
 
             return arr;
           } catch (e) {
+            if (e?.response?.status === 401) return [];
             console.error(e);
             showAlert?.(
               "error",
