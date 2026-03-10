@@ -5,12 +5,10 @@ import {
   Download,
   FileCode2,
   ArrowLeft,
-  Info,
   AlertTriangle,
   CheckCircle2,
   XCircle,
   Landmark,
-  Loader2,
 } from "lucide-react";
 
 import { PaymentsAPI } from "../../api/payments.api";
@@ -21,6 +19,11 @@ import StatusBadge from "./components/StatusBadge.jsx";
 import UrgencyChip from "./components/UrgencyChip.jsx";
 import EvidenceCard from "./components/EvidenceCard.jsx";
 import Chip from "./components/Chip.jsx";
+
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import SectionCard from "../../components/ui/SectionCard.jsx";
+import LoadingState from "../../components/ui/LoadingState.jsx";
+import SystemAlert from "../../components/ui/SystemAlert.jsx";
 
 import { safeUpper, formatDate, formatMoney } from "./utils/format.js";
 import { getUrgency } from "./utils/urgency.js";
@@ -39,7 +42,9 @@ function MethodBadge({ label = "Transferencia" }) {
 }
 
 function normalizeMethodLabel(method) {
-  const key = String(method || "").trim().toUpperCase();
+  const key = String(method || "")
+    .trim()
+    .toUpperCase();
 
   switch (key) {
     case "TRANSFER":
@@ -56,7 +61,9 @@ function normalizeMethodLabel(method) {
 }
 
 function normalizeRejectionTypeLabel(type) {
-  const key = String(type || "").trim().toUpperCase();
+  const key = String(type || "")
+    .trim()
+    .toUpperCase();
 
   switch (key) {
     case "GENERAL":
@@ -105,7 +112,10 @@ function mapPaymentDetail(payment, fallback = {}) {
   return {
     id: payment?.id ?? fallback.id ?? null,
     providerName:
-      provider?.businessName || fallback.providerName || fallback.proveedor || "—",
+      provider?.businessName ||
+      fallback.providerName ||
+      fallback.proveedor ||
+      "—",
     ocNumber:
       purchaseOrder?.number ||
       fallback.purchaseOrderNumber ||
@@ -118,13 +128,16 @@ function mapPaymentDetail(payment, fallback = {}) {
         ? `${payment.installmentNo}/${payment.installmentOf}`
         : `#${payment?.id ?? fallback.id ?? "—"}`),
     amount: Number(payment?.amount ?? fallback.amount ?? 0),
-    scheduledAt: payment?.paidAt || fallback.paidAt || fallback.scheduledAt || null,
+    scheduledAt:
+      payment?.paidAt || fallback.paidAt || fallback.scheduledAt || null,
     closeAt: fallback.closeAt || payment?.paidAt || null,
     paymentMethod: payment?.method || fallback.paymentMethod || "TRANSFER",
     paymentMethodLabel: normalizeMethodLabel(
       payment?.method || fallback.paymentMethod || fallback.paymentMethodLabel,
     ),
-    status: String(payment?.status || fallback.status || "PENDING").toUpperCase(),
+    status: String(
+      payment?.status || fallback.status || "PENDING",
+    ).toUpperCase(),
 
     decisionComment: payment?.decisionComment || fallback.decisionComment || "",
     rejectionType: payment?.rejectionType || fallback.rejectionType || "",
@@ -231,7 +244,9 @@ export default function RevisionParcialidad({
         const mapped = mapPaymentDetail(
           {
             ...payment,
-            evidences: activeEvidence.length ? activeEvidence : payment.evidences,
+            evidences: activeEvidence.length
+              ? activeEvidence
+              : payment.evidences,
           },
           base,
         );
@@ -254,8 +269,8 @@ export default function RevisionParcialidad({
             "error",
             "No se pudo cargar la parcialidad",
             error?.response?.data?.error ||
-            error?.message ||
-            "Ocurrió un error al cargar el detalle.",
+              error?.message ||
+              "Ocurrió un error al cargar el detalle.",
           );
         }
       } finally {
@@ -360,8 +375,8 @@ export default function RevisionParcialidad({
         "error",
         "No se pudo abrir el PDF",
         error?.response?.data?.error ||
-        error?.message ||
-        "No se pudo generar la URL del archivo.",
+          error?.message ||
+          "No se pudo generar la URL del archivo.",
       );
     } finally {
       setPdfLoading(false);
@@ -396,8 +411,8 @@ export default function RevisionParcialidad({
         "error",
         "No se pudo abrir el XML",
         error?.response?.data?.error ||
-        error?.message ||
-        "No se pudo generar la URL del archivo.",
+          error?.message ||
+          "No se pudo generar la URL del archivo.",
       );
     } finally {
       setXmlLoading(false);
@@ -425,8 +440,8 @@ export default function RevisionParcialidad({
         "error",
         "No se pudo descargar el archivo",
         error?.response?.data?.error ||
-        error?.message ||
-        "Ocurrió un problema al descargar la evidencia.",
+          error?.message ||
+          "Ocurrió un problema al descargar la evidencia.",
       );
     }
   };
@@ -449,8 +464,8 @@ export default function RevisionParcialidad({
         "error",
         "No se pudo aprobar",
         error?.response?.data?.error ||
-        error?.message ||
-        "Ocurrió un problema al aprobar la parcialidad.",
+          error?.message ||
+          "Ocurrió un problema al aprobar la parcialidad.",
       );
     } finally {
       setWorking(false);
@@ -480,8 +495,8 @@ export default function RevisionParcialidad({
         "error",
         "No se pudo rechazar",
         error?.response?.data?.error ||
-        error?.message ||
-        "Ocurrió un problema al rechazar la parcialidad.",
+          error?.message ||
+          "Ocurrió un problema al rechazar la parcialidad.",
       );
     } finally {
       setWorking(false);
@@ -511,8 +526,8 @@ export default function RevisionParcialidad({
         "error",
         "No se pudo rechazar",
         error?.response?.data?.error ||
-        error?.message ||
-        "Ocurrió un problema al rechazar por error en factura.",
+          error?.message ||
+          "Ocurrió un problema al rechazar por error en factura.",
       );
     } finally {
       setWorking(false);
@@ -521,77 +536,80 @@ export default function RevisionParcialidad({
 
   if (loading) {
     return (
-      <div className="bg-beige p-6">
-        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 rounded-2xl border border-lightBlue bg-white shadow-sm">
-          <Loader2 className="h-8 w-8 animate-spin text-midBlue" />
-          <p className="text-sm text-gray-500">
-            Cargando revisión de parcialidad...
-          </p>
-        </div>
+      <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"></div>
+        <p className="text-sm text-gray-500">
+          Cargando revisión de parcialidad...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-beige p-6">
-      {/* Header */}
-      <div className="rounded-2xl border border-lightBlue bg-white p-6 shadow-sm">
+    <div className="space-y-6 bg-beige px-6 py-6">
+      <PageHeader
+        title={`Revisión de parcialidad ${p.partialLabel || `#${p.id || "—"}`}`}
+        subtitle="Revisa evidencias, valida la información y emite tu dictamen."
+        action={
+          <button
+            onClick={onClose}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Regresar a bandeja
+          </button>
+        }
+      />
+
+      <SectionCard className="p-6">
         <div className="flex flex-col gap-3">
           <p className="text-xs text-gray-500">
             Aprobador / Parcialidades /{" "}
-            <span className="font-semibold text-darkBlue">Revisar</span>
+            <span className="font-semibold text-gray-800">Revisar</span>
           </p>
 
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-darkBlue">
-                Revisión de parcialidad{" "}
-                <span className="text-midBlue">
-                  {p.partialLabel || `#${p.id || "—"}`}
+          <div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusBadge status={p.status} icon={CheckCircle2} />
+              <UrgencyChip cierre={p.closeAt} />
+              <MethodBadge label={paymentMethodLabel} />
+
+              {urgency.kind !== "NONE" && (
+                <span className="text-xs text-gray-500">
+                  {urgency.kind === "OVERDUE"
+                    ? "Cierre vencido"
+                    : urgency.kind === "SOON"
+                      ? "Cierre próximo"
+                      : "Dentro de tiempo"}
                 </span>
-              </h2>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StatusBadge status={p.status} icon={CheckCircle2} />
-                <UrgencyChip cierre={p.closeAt} />
-                <MethodBadge label={paymentMethodLabel} />
-
-                {urgency.kind !== "NONE" && (
-                  <span className="text-xs text-gray-500">
-                    {urgency.kind === "OVERDUE"
-                      ? "Cierre vencido"
-                      : urgency.kind === "SOON"
-                        ? "Cierre próximo"
-                        : "Dentro de tiempo"}
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
           {status === "PENDING" && (
             <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-              Esta parcialidad aún no ha sido enviada por el proveedor.
-              No se puede dictaminar hasta que el proveedor cargue sus evidencias.
+              Esta parcialidad aún no ha sido enviada por el proveedor. No se
+              puede dictaminar hasta que el proveedor cargue sus evidencias.
             </div>
           )}
 
-          {(status === "APPROVED" || status === "REJECTED" || status === "PAID") && (
+          {(status === "APPROVED" ||
+            status === "REJECTED" ||
+            status === "PAID") && (
             <div className="mt-2 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-              Esta parcialidad ya fue dictaminada. Las acciones están deshabilitadas.
+              Esta parcialidad ya fue dictaminada. Las acciones están
+              deshabilitadas.
             </div>
           )}
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Layout */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-2xl border border-lightBlue bg-white p-6 shadow-sm">
+          <SectionCard className="p-6">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-midBlue" />
-              <h3 className="font-semibold text-darkBlue">Evidencias</h3>
+              <FileText className="h-5 w-5 text-gray-600" />
+              <h3 className="font-semibold text-gray-800">Evidencias</h3>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -627,95 +645,86 @@ export default function RevisionParcialidad({
                 busy={xmlLoading}
               />
             </div>
+          </SectionCard>
 
-            <div className="mt-4 flex gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <div className="text-blue-700">
-                <Info className="h-5 w-5" />
-              </div>
-              <div className="text-sm text-blue-800">
-                Aquí ya se consultan evidencias reales desde backend y bucket.
-              </div>
-            </div>
-          </div>
-
-          {/* Comentarios */}
-          <div className="rounded-2xl border border-lightBlue bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-darkBlue">
+          <SectionCard className="p-6">
+            <h3 className="font-semibold text-gray-800">
               Comentarios del aprobador
             </h3>
             <p className="mt-1 text-xs text-gray-500">
-              Este comentario se mostrará al proveedor (especialmente si se
-              rechaza).
+              Este comentario se mostrará al proveedor, especialmente si se
+              rechaza.
             </p>
 
             <textarea
               value={approverComment}
               onChange={(e) => setApproverComment(e.target.value)}
               disabled={decided || working}
-              className="mt-3 min-h-[140px] w-full rounded-xl border border-lightBlue bg-white px-4 py-3 text-sm text-darkBlue outline-none focus:ring-2 focus:ring-midBlue disabled:cursor-not-allowed disabled:bg-gray-50"
+              className="mt-3 min-h-[140px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
               placeholder="Escribe tus comentarios aquí…"
             />
-          </div>
+          </SectionCard>
         </div>
 
-        {/* Right */}
         <div className="space-y-4 lg:col-span-1">
-          <div className="rounded-2xl border border-lightBlue bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-darkBlue">Datos de la parcialidad</h3>
+          <SectionCard className="p-6">
+            <h3 className="font-semibold text-gray-800">
+              Datos de la parcialidad
+            </h3>
 
             <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Proveedor</span>
-                <span className="text-right font-medium text-darkBlue">
+                <span className="text-right font-medium text-gray-800">
                   {p.providerName || "—"}
                 </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">OC</span>
-                <span className="text-right font-medium text-darkBlue">
+                <span className="text-right font-medium text-gray-800">
                   {p.ocNumber || "—"}
                 </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Parcialidad</span>
-                <span className="text-right font-medium text-darkBlue">
+                <span className="text-right font-medium text-gray-800">
                   {p.partialLabel || "—"}
                 </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Monto</span>
-                <span className="text-right font-semibold text-darkBlue">
+                <span className="text-right font-semibold text-gray-800">
                   {formatMoney(p.amount)}
                 </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Fecha programada</span>
-                <span className="text-right font-medium text-darkBlue">
+                <span className="text-right font-medium text-gray-800">
                   {formatDate(p.scheduledAt)}
                 </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Fecha cierre</span>
-                <span className="text-right font-medium text-darkBlue">
+                <span className="text-right font-medium text-gray-800">
                   {formatDate(p.closeAt)}
                 </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Método</span>
-                <span className="text-right font-medium text-darkBlue">
+                <span className="text-right font-medium text-gray-800">
                   {paymentMethodLabel}
                 </span>
               </div>
 
               <div className="flex justify-between gap-3">
                 <span className="text-gray-500">Estado</span>
-                <span className="text-right font-medium text-darkBlue">
+                <span className="text-right font-medium text-gray-800">
                   {safeUpper(p.status) || "—"}
                 </span>
               </div>
@@ -742,11 +751,10 @@ export default function RevisionParcialidad({
                 </div>
               )}
             </div>
-          </div>
+          </SectionCard>
 
-          {/* Actions */}
-          <div className="rounded-2xl border border-lightBlue bg-white p-6 shadow-sm lg:sticky lg:top-6">
-            <h3 className="font-semibold text-darkBlue">Acciones</h3>
+          <SectionCard className="p-6 lg:sticky lg:top-6">
+            <h3 className="font-semibold text-gray-800">Acciones</h3>
             <p className="mt-1 text-xs text-gray-500">
               Dictamina la parcialidad después de revisar evidencias.
             </p>
@@ -755,26 +763,24 @@ export default function RevisionParcialidad({
               <button
                 disabled={decided || working}
                 onClick={() => setConfirmApproveOpen(true)}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition ${decided || working
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition ${
+                  decided || working
                     ? "cursor-not-allowed bg-gray-100 text-gray-400"
                     : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
+                }`}
               >
-                {working ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
+                <CheckCircle2 className="h-4 w-4" />
                 Aprobar
               </button>
 
               <button
                 disabled={decided || working}
                 onClick={() => setRejectGeneralOpen(true)}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition ${decided || working
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium transition ${
+                  decided || working
                     ? "cursor-not-allowed bg-gray-100 text-gray-400"
                     : "bg-red-600 text-white hover:bg-red-700"
-                  }`}
+                }`}
               >
                 <XCircle className="h-4 w-4" />
                 Rechazar (General)
@@ -783,10 +789,11 @@ export default function RevisionParcialidad({
               <button
                 disabled={decided || working}
                 onClick={() => setRejectInvoiceOpen(true)}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2 font-medium transition ${decided || working
+                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2 font-medium transition ${
+                  decided || working
                     ? "cursor-not-allowed border-gray-200 text-gray-400"
                     : "border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
-                  }`}
+                }`}
               >
                 <AlertTriangle className="h-4 w-4" />
                 Rechazar por error en factura
@@ -794,304 +801,226 @@ export default function RevisionParcialidad({
 
               <button
                 onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-midBlue px-4 py-2 font-medium text-midBlue transition hover:bg-midBlue hover:text-white"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Regresar a bandeja
               </button>
             </div>
-          </div>
+          </SectionCard>
         </div>
       </div>
 
-      {/* Confirm Approve */}
-      <MiniModal
-        isOpen={confirmApproveOpen}
-        title={`Confirmar aprobación — ${p.partialLabel || ""}`}
+      <SystemAlert
+        open={confirmApproveOpen}
         onClose={() => setConfirmApproveOpen(false)}
-        maxW="max-w-md"
-      >
-        <div className="p-6">
-          <p className="font-semibold text-darkBlue">
-            ¿Confirmas aprobar esta parcialidad?
-          </p>
-          <p className="mt-2 text-sm text-gray-600">
-            Al confirmar, el estado cambiará a <b>APROBADA</b>.
-          </p>
+        type="success"
+        title={`Confirmar aprobación`}
+        message={`¿Confirmas aprobar la parcialidad ${p.partialLabel || ""}?`}
+        showConfirm
+        onConfirm={handleApprove}
+        confirmText={working ? "Procesando..." : "Confirmar"}
+        cancelText="Cancelar"
+      />
 
-          <div className="mt-5 flex justify-end gap-3">
-            <button
-              onClick={() => setConfirmApproveOpen(false)}
-              className="rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleApprove}
-              disabled={working}
-              className="rounded-xl bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Confirmar
-            </button>
-          </div>
-        </div>
-      </MiniModal>
-
-      {/* Rechazo General */}
-      <MiniModal
-        isOpen={rejectGeneralOpen}
-        title="Rechazar parcialidad"
+      <SystemAlert
+        open={rejectGeneralOpen}
         onClose={() => setRejectGeneralOpen(false)}
-        maxW="max-w-2xl"
+        type="error"
+        title="Rechazar parcialidad"
+        message="Selecciona al menos un motivo o elige “Otro” para escribir el detalle."
+        showConfirm
+        onConfirm={confirmRejectGeneral}
+        confirmText={working ? "Procesando..." : "Confirmar rechazo"}
+        cancelText="Cancelar"
       >
-        <div className="p-6">
-          <p className="font-semibold text-darkBlue">Motivo (obligatorio)</p>
-          <p className="mt-1 text-xs text-gray-500">
-            Puedes usar motivos rápidos o seleccionar <b>Otro</b> para escribir
-            detalle.
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Chip
+            active={generalQuick.noCoincide}
+            onClick={() =>
+              setGeneralQuick((s) => ({ ...s, noCoincide: !s.noCoincide }))
+            }
+          >
+            Datos no coinciden
+          </Chip>
+
+          <Chip
+            active={generalQuick.noCorresponde}
+            onClick={() =>
+              setGeneralQuick((s) => ({
+                ...s,
+                noCorresponde: !s.noCorresponde,
+              }))
+            }
+          >
+            Documento no corresponde
+          </Chip>
+
+          <Chip
+            active={generalQuick.ilegible}
+            onClick={() =>
+              setGeneralQuick((s) => ({ ...s, ilegible: !s.ilegible }))
+            }
+          >
+            Archivo ilegible
+          </Chip>
+
+          <Chip
+            active={generalQuick.alterado}
+            onClick={() =>
+              setGeneralQuick((s) => ({ ...s, alterado: !s.alterado }))
+            }
+          >
+            Documento alterado
+          </Chip>
+
+          <Chip
+            active={generalQuick.otro}
+            onClick={() => {
+              setGeneralQuick((s) => ({ ...s, otro: !s.otro }));
+              if (generalQuick.otro) setGeneralReason("");
+            }}
+          >
+            Otro
+          </Chip>
+        </div>
+
+        {generalQuick.otro && (
+          <textarea
+            value={generalReason}
+            onChange={(e) => setGeneralReason(e.target.value)}
+            className="mt-4 min-h-[140px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
+            placeholder="Escribe el motivo del rechazo…"
+          />
+        )}
+
+        {!canRejectGeneral && (
+          <p className="mt-2 text-xs text-red-600">
+            Debes seleccionar al menos un motivo o elegir <b>Otro</b> y escribir
+            el detalle.
           </p>
+        )}
+      </SystemAlert>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Chip
-              active={generalQuick.noCoincide}
-              onClick={() =>
-                setGeneralQuick((s) => ({ ...s, noCoincide: !s.noCoincide }))
-              }
-            >
-              Datos no coinciden
-            </Chip>
-
-            <Chip
-              active={generalQuick.noCorresponde}
-              onClick={() =>
-                setGeneralQuick((s) => ({
+      <SystemAlert
+        open={rejectInvoiceOpen}
+        onClose={() => setRejectInvoiceOpen(false)}
+        type="warning"
+        title="Rechazar por error en la factura"
+        message="Este tipo de rechazo solicitará al proveedor: acuse de cancelación SAT + nuevas facturas (PDF/XML)."
+        showConfirm
+        onConfirm={confirmRejectInvoice}
+        confirmText={working ? "Procesando..." : "Confirmar rechazo"}
+        cancelText="Cancelar"
+      >
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={invoiceChecklist.rfcIncorrecto}
+              onChange={(e) =>
+                setInvoiceChecklist((s) => ({
                   ...s,
-                  noCorresponde: !s.noCorresponde,
+                  rfcIncorrecto: e.target.checked,
                 }))
               }
-            >
-              Documento no corresponde
-            </Chip>
+              className="accent-blue-600"
+            />
+            RFC incorrecto
+          </label>
 
-            <Chip
-              active={generalQuick.ilegible}
-              onClick={() =>
-                setGeneralQuick((s) => ({ ...s, ilegible: !s.ilegible }))
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={invoiceChecklist.uuidNoCorresponde}
+              onChange={(e) =>
+                setInvoiceChecklist((s) => ({
+                  ...s,
+                  uuidNoCorresponde: e.target.checked,
+                }))
               }
-            >
-              Archivo ilegible
-            </Chip>
+              className="accent-blue-600"
+            />
+            UUID no corresponde
+          </label>
 
-            <Chip
-              active={generalQuick.alterado}
-              onClick={() =>
-                setGeneralQuick((s) => ({ ...s, alterado: !s.alterado }))
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={invoiceChecklist.montoConceptoIncorrecto}
+              onChange={(e) =>
+                setInvoiceChecklist((s) => ({
+                  ...s,
+                  montoConceptoIncorrecto: e.target.checked,
+                }))
               }
-            >
-              Documento alterado
-            </Chip>
+              className="accent-blue-600"
+            />
+            Monto/Concepto incorrecto
+          </label>
 
-            <Chip
-              active={generalQuick.otro}
-              onClick={() => {
-                setGeneralQuick((s) => ({ ...s, otro: !s.otro }));
-                if (generalQuick.otro) setGeneralReason("");
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={invoiceChecklist.facturaDuplicada}
+              onChange={(e) =>
+                setInvoiceChecklist((s) => ({
+                  ...s,
+                  facturaDuplicada: e.target.checked,
+                }))
+              }
+              className="accent-blue-600"
+            />
+            Factura duplicada
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={invoiceChecklist.facturaCancelada}
+              onChange={(e) =>
+                setInvoiceChecklist((s) => ({
+                  ...s,
+                  facturaCancelada: e.target.checked,
+                }))
+              }
+              className="accent-blue-600"
+            />
+            Factura cancelada/no vigente
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={invoiceChecklist.otro}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setInvoiceChecklist((s) => ({ ...s, otro: checked }));
+                if (!checked) setInvoiceReason("");
               }}
-            >
-              Otro
-            </Chip>
-          </div>
-
-          {generalQuick.otro && (
-            <textarea
-              value={generalReason}
-              onChange={(e) => setGeneralReason(e.target.value)}
-              className="mt-4 min-h-[140px] w-full rounded-xl border border-lightBlue bg-white px-4 py-3 text-sm text-darkBlue outline-none focus:ring-2 focus:ring-midBlue"
-              placeholder="Escribe el motivo del rechazo…"
+              className="accent-blue-600"
             />
-          )}
-
-          {!canRejectGeneral && (
-            <p className="mt-2 text-xs text-red-600">
-              Debes seleccionar al menos un motivo o elegir <b>Otro</b> y
-              escribir el detalle.
-            </p>
-          )}
-
-          <div className="mt-5 flex justify-end gap-3">
-            <button
-              onClick={() => setRejectGeneralOpen(false)}
-              className="rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-
-            <button
-              disabled={!canRejectGeneral || working}
-              onClick={confirmRejectGeneral}
-              className={`rounded-xl px-4 py-2 font-medium transition ${canRejectGeneral && !working
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "cursor-not-allowed bg-gray-100 text-gray-400"
-                }`}
-            >
-              Confirmar rechazo
-            </button>
-          </div>
+            Otro
+          </label>
         </div>
-      </MiniModal>
 
-      {/* Rechazo Factura */}
-      <MiniModal
-        isOpen={rejectInvoiceOpen}
-        title="Rechazar por error en la factura"
-        onClose={() => setRejectInvoiceOpen(false)}
-        maxW="max-w-2xl"
-      >
-        <div className="p-6">
-          <div className="flex gap-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
-            <div className="text-yellow-700">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-            <div className="text-sm text-yellow-800">
-              Este tipo de rechazo solicitará al proveedor:{" "}
-              <b>acuse de cancelación SAT</b> + nuevas facturas (PDF/XML).
-            </div>
-          </div>
+        {invoiceChecklist.otro && (
+          <textarea
+            value={invoiceReason}
+            onChange={(e) => setInvoiceReason(e.target.value)}
+            className="mt-4 min-h-[140px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-700 outline-none focus:border-transparent focus:ring-2 focus:ring-blue-500"
+            placeholder="Describe el error en la factura…"
+          />
+        )}
 
-          <p className="mt-4 font-semibold text-darkBlue">
-            Motivo del error en factura (obligatorio)
+        {!canRejectInvoice && (
+          <p className="mt-2 text-xs text-red-600">
+            Debes seleccionar al menos una opción o elegir <b>Otro</b> y
+            escribir el detalle.
           </p>
+        )}
+      </SystemAlert>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm text-darkBlue">
-              <input
-                type="checkbox"
-                checked={invoiceChecklist.rfcIncorrecto}
-                onChange={(e) =>
-                  setInvoiceChecklist((s) => ({
-                    ...s,
-                    rfcIncorrecto: e.target.checked,
-                  }))
-                }
-                className="accent-midBlue"
-              />
-              RFC incorrecto
-            </label>
-
-            <label className="flex items-center gap-2 text-sm text-darkBlue">
-              <input
-                type="checkbox"
-                checked={invoiceChecklist.uuidNoCorresponde}
-                onChange={(e) =>
-                  setInvoiceChecklist((s) => ({
-                    ...s,
-                    uuidNoCorresponde: e.target.checked,
-                  }))
-                }
-                className="accent-midBlue"
-              />
-              UUID no corresponde
-            </label>
-
-            <label className="flex items-center gap-2 text-sm text-darkBlue">
-              <input
-                type="checkbox"
-                checked={invoiceChecklist.montoConceptoIncorrecto}
-                onChange={(e) =>
-                  setInvoiceChecklist((s) => ({
-                    ...s,
-                    montoConceptoIncorrecto: e.target.checked,
-                  }))
-                }
-                className="accent-midBlue"
-              />
-              Monto/Concepto incorrecto
-            </label>
-
-            <label className="flex items-center gap-2 text-sm text-darkBlue">
-              <input
-                type="checkbox"
-                checked={invoiceChecklist.facturaDuplicada}
-                onChange={(e) =>
-                  setInvoiceChecklist((s) => ({
-                    ...s,
-                    facturaDuplicada: e.target.checked,
-                  }))
-                }
-                className="accent-midBlue"
-              />
-              Factura duplicada
-            </label>
-
-            <label className="flex items-center gap-2 text-sm text-darkBlue sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={invoiceChecklist.facturaCancelada}
-                onChange={(e) =>
-                  setInvoiceChecklist((s) => ({
-                    ...s,
-                    facturaCancelada: e.target.checked,
-                  }))
-                }
-                className="accent-midBlue"
-              />
-              Factura cancelada/no vigente
-            </label>
-
-            <label className="flex items-center gap-2 text-sm text-darkBlue sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={invoiceChecklist.otro}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setInvoiceChecklist((s) => ({ ...s, otro: checked }));
-                  if (!checked) setInvoiceReason("");
-                }}
-                className="accent-midBlue"
-              />
-              Otro
-            </label>
-          </div>
-
-          {invoiceChecklist.otro && (
-            <textarea
-              value={invoiceReason}
-              onChange={(e) => setInvoiceReason(e.target.value)}
-              className="mt-4 min-h-[140px] w-full rounded-xl border border-lightBlue bg-white px-4 py-3 text-sm text-darkBlue outline-none focus:ring-2 focus:ring-midBlue"
-              placeholder="Describe el error en la factura…"
-            />
-          )}
-
-          {!canRejectInvoice && (
-            <p className="mt-2 text-xs text-red-600">
-              Debes seleccionar al menos una opción o elegir <b>Otro</b> y
-              escribir el detalle.
-            </p>
-          )}
-
-          <div className="mt-5 flex justify-end gap-3">
-            <button
-              onClick={() => setRejectInvoiceOpen(false)}
-              className="rounded-xl border border-gray-300 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-
-            <button
-              disabled={!canRejectInvoice || working}
-              onClick={confirmRejectInvoice}
-              className={`rounded-xl px-4 py-2 font-medium transition ${canRejectInvoice && !working
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "cursor-not-allowed bg-gray-100 text-gray-400"
-                }`}
-            >
-              Confirmar rechazo por factura
-            </button>
-          </div>
-        </div>
-      </MiniModal>
-
-      {/* PDF Viewer */}
       <MiniModal
         isOpen={pdfModalOpen}
         title={`Factura PDF — ${p.partialLabel || ""}`}
@@ -1108,10 +1037,11 @@ export default function RevisionParcialidad({
                 )
               }
               disabled={!p.pdfEvidenceId}
-              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 font-medium transition ${p.pdfEvidenceId
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 font-medium transition ${
+                p.pdfEvidenceId
                   ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white"
                   : "cursor-not-allowed border-gray-200 text-gray-400"
-                }`}
+              }`}
             >
               <Download className="h-4 w-4" />
               Descargar
@@ -1134,7 +1064,6 @@ export default function RevisionParcialidad({
         </div>
       </MiniModal>
 
-      {/* XML Viewer */}
       <MiniModal
         isOpen={xmlModalOpen}
         title={`Factura XML — ${p.partialLabel || ""}`}
@@ -1151,10 +1080,11 @@ export default function RevisionParcialidad({
                 )
               }
               disabled={!p.xmlEvidenceId}
-              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 font-medium transition ${p.xmlEvidenceId
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 font-medium transition ${
+                p.xmlEvidenceId
                   ? "border-midBlue text-midBlue hover:bg-midBlue hover:text-white"
                   : "cursor-not-allowed border-gray-200 text-gray-400"
-                }`}
+              }`}
             >
               <Download className="h-4 w-4" />
               Descargar
@@ -1173,7 +1103,8 @@ export default function RevisionParcialidad({
                   XML disponible
                 </p>
                 <p className="mt-1 text-sm text-gray-500">
-                  No se pudo previsualizar como texto, pero sí puedes descargarlo.
+                  No se pudo previsualizar como texto, pero sí puedes
+                  descargarlo.
                 </p>
               </div>
             ) : (

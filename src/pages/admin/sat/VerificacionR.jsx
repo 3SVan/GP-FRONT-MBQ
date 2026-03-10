@@ -87,8 +87,8 @@ function VerificacionR() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="mx-auto max-w-3xl">
+    <div className="min-h-screen bg-beige p-4">
+      <div className="mx-auto max-w-5xl">
         <PageHeader
           title="Verificación de RFC"
           subtitle="Consulta si un proveedor se encuentra dentro de la lista negra del SAT."

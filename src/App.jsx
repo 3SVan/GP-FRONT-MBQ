@@ -95,6 +95,7 @@ function App() {
       <Route path="/provider/documentos" element={<DocumentosPro />} />
       <Route path="/provider/estatus-pago" element={<EstatusPago />} />
       <Route path="/provider/xml-viewer/:orderId" element={<XmlViewer />} />
+      <Route path="/xml-viewer/:orderId" element={<XmlViewer />} />
 
       {/* SHARED */}
       <Route path="/graficas" element={<Graficas />} />

@@ -1,14 +1,7 @@
 // src/pages/approver/Parcialidades.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
-import {
-  Search,
-  Eye,
-  RefreshCcw,
-  FileWarning,
-  Loader2,
-  Receipt,
-} from "lucide-react";
+import { Search, Eye, RefreshCcw, FileWarning, Receipt } from "lucide-react";
 
 import { PaymentsAPI } from "../../api/payments.api";
 import StatusBadge from "./components/StatusBadge.jsx";
@@ -17,6 +10,13 @@ import RevisionParcialidad from "./RevisionParcialidad.jsx";
 
 import { mapPaymentToApproverRow } from "./utils/mapApproverPayments.js";
 import { formatMoney, formatDate } from "./utils/format.js";
+
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import SectionCard from "../../components/ui/SectionCard.jsx";
+import TableContainer from "../../components/ui/TableContainer.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import LoadingState from "../../components/ui/LoadingState.jsx";
+import InlineLoading from "../../components/ui/InlineLoading.jsx";
 
 const STATUS_OPTIONS = [
   { value: "SUBMITTED", label: "En revisión" },
@@ -46,8 +46,8 @@ export default function Parcialidades({ showAlert }) {
       ALL_STATUSES.map((st) =>
         PaymentsAPI.listForApproval({
           status: st,
-        })
-      )
+        }),
+      ),
     );
 
     const merged = [];
@@ -105,7 +105,7 @@ export default function Parcialidades({ showAlert }) {
         setError(
           err?.response?.data?.error ||
             err?.message ||
-            "No se pudieron cargar las parcialidades."
+            "No se pudieron cargar las parcialidades.",
         );
         setAllRows([]);
         setRows([]);
@@ -114,7 +114,7 @@ export default function Parcialidades({ showAlert }) {
         setRefreshing(false);
       }
     },
-    [fetchCountsData, fetchTableData]
+    [fetchCountsData, fetchTableData],
   );
 
   useEffect(() => {
@@ -144,73 +144,84 @@ export default function Parcialidades({ showAlert }) {
   }, [selectedRow]);
 
   const filteredRows = useMemo(() => {
-  const q = search.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
 
-  let base = rows;
+    let base = rows;
 
-  if (q) {
-    base = rows.filter((row) => {
-      return (
-        String(row.providerName || "").toLowerCase().includes(q) ||
-        String(row.providerRfc || "").toLowerCase().includes(q) ||
-        String(row.purchaseOrderNumber || "").toLowerCase().includes(q) ||
-        String(row.partialityLabel || "").toLowerCase().includes(q) ||
-        String(row.paymentMethodLabel || "").toLowerCase().includes(q) ||
-        String(row.statusLabel || "").toLowerCase().includes(q)
-      );
+    if (q) {
+      base = rows.filter((row) => {
+        return (
+          String(row.providerName || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(row.providerRfc || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(row.purchaseOrderNumber || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(row.partialityLabel || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(row.paymentMethodLabel || "")
+            .toLowerCase()
+            .includes(q) ||
+          String(row.statusLabel || "")
+            .toLowerCase()
+            .includes(q)
+        );
+      });
+    }
+
+    return [...base].sort((a, b) => {
+      const now = Date.now();
+
+      const aDate = new Date(a.paidAt || 0).getTime();
+      const bDate = new Date(b.paidAt || 0).getTime();
+
+      const aDiff = aDate - now;
+      const bDiff = bDate - now;
+
+      if (aDiff < 0 && bDiff >= 0) return -1;
+      if (bDiff < 0 && aDiff >= 0) return 1;
+
+      return aDate - bDate;
     });
-  }
-
-  return [...base].sort((a, b) => {
-    const now = Date.now();
-
-    const aDate = new Date(a.paidAt || 0).getTime();
-    const bDate = new Date(b.paidAt || 0).getTime();
-
-    const aDiff = aDate - now;
-    const bDiff = bDate - now;
-
-    if (aDiff < 0 && bDiff >= 0) return -1;
-    if (bDiff < 0 && aDiff >= 0) return 1;
-
-    return aDate - bDate;
-  });
-
-}, [rows, search]);
+  }, [rows, search]);
 
   const submittedCount = useMemo(
     () => allRows.filter((row) => row.status === "SUBMITTED").length,
-    [allRows]
+    [allRows],
   );
 
   const approvedCount = useMemo(
     () => allRows.filter((row) => row.status === "APPROVED").length,
-    [allRows]
+    [allRows],
   );
 
   const rejectedCount = useMemo(
     () => allRows.filter((row) => row.status === "REJECTED").length,
-    [allRows]
+    [allRows],
   );
 
   const paidCount = useMemo(
     () => allRows.filter((row) => row.status === "PAID").length,
-    [allRows]
+    [allRows],
   );
 
   const pendingCount = useMemo(
     () => allRows.filter((row) => row.status === "PENDING").length,
-    [allRows]
+    [allRows],
   );
 
-const handleRefresh = async () => {
-  await fetchQueue({ silent: true });
-  showAlert?.(
-    "success",
-    "Actualizado",
-    "La lista de parcialidades fue actualizada."
-  );
-};
+  const handleRefresh = async () => {
+    await fetchQueue({ silent: true });
+    showAlert?.(
+      "success",
+      "Actualizado",
+      "La lista de parcialidades fue actualizada.",
+    );
+  };
 
   const handleOpenReview = (row) => {
     setSelectedRow(row);
@@ -220,55 +231,54 @@ const handleRefresh = async () => {
     setSelectedRow(null);
   };
 
-const handleDecisionSuccess = async ({ decision, rejectionType }) => {
-  const isApprove = decision === "APPROVE";
+  const handleDecisionSuccess = async ({ decision, rejectionType }) => {
+    const isApprove = decision === "APPROVE";
 
-  const title = isApprove
-    ? "Parcialidad aprobada"
-    : rejectionType === "INVOICE_ERROR"
-      ? "Rechazo por error en factura"
-      : "Parcialidad rechazada";
+    const title = isApprove
+      ? "Parcialidad aprobada"
+      : rejectionType === "INVOICE_ERROR"
+        ? "Rechazo por error en factura"
+        : "Parcialidad rechazada";
 
-  const message = isApprove
-    ? "La parcialidad fue aprobada correctamente."
-    : rejectionType === "INVOICE_ERROR"
-      ? "La parcialidad fue rechazada por error en factura."
-      : "La parcialidad fue rechazada correctamente.";
+    const message = isApprove
+      ? "La parcialidad fue aprobada correctamente."
+      : rejectionType === "INVOICE_ERROR"
+        ? "La parcialidad fue rechazada por error en factura."
+        : "La parcialidad fue rechazada correctamente.";
 
-  showAlert?.("success", title, message);
+    showAlert?.("success", title, message);
 
-  setSelectedRow(null);
-  await fetchQueue({ silent: true });
-};
+    setSelectedRow(null);
+    await fetchQueue({ silent: true });
+  };
 
   return (
     <>
-      <div className="space-y-5">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">Parcialidades</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Revisa evidencias de pago, valida documentos y emite tu dictamen.
-              </p>
-            </div>
-
+      <div className="space-y-6 bg-beige px-6 py-6">
+        <PageHeader
+          title="Parcialidades"
+          subtitle="Revisa evidencias de pago, valida documentos y emite tu dictamen."
+          action={
             <button
               type="button"
               onClick={handleRefresh}
               disabled={refreshing || loading}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {refreshing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <InlineLoading text="Actualizando..." />
               ) : (
-                <RefreshCcw className="h-4 w-4" />
+                <>
+                  <RefreshCcw className="h-4 w-4" />
+                  Actualizar
+                </>
               )}
-              Actualizar
             </button>
-          </div>
+          }
+        />
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <SectionCard className="p-5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <StatCard
               title="En revisión"
               value={submittedCount}
@@ -300,18 +310,18 @@ const handleDecisionSuccess = async ({ decision, rejectionType }) => {
               onClick={() => setStatus("PENDING")}
             />
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <SectionCard className="p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative w-full lg:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por proveedor, RFC, OC o parcialidad..."
-                className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-400"
               />
             </div>
 
@@ -319,7 +329,7 @@ const handleDecisionSuccess = async ({ decision, rejectionType }) => {
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-slate-400"
               >
                 {STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -329,13 +339,10 @@ const handleDecisionSuccess = async ({ decision, rejectionType }) => {
               </select>
             </div>
           </div>
+        </SectionCard>
 
-          {loading ? (
-            <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 text-slate-500">
-              <Loader2 className="h-7 w-7 animate-spin" />
-              <p className="text-sm">Cargando parcialidades...</p>
-            </div>
-          ) : error ? (
+        {error && !loading ? (
+          <SectionCard className="p-6">
             <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
               <FileWarning className="h-8 w-8 text-rose-500" />
               <div>
@@ -348,66 +355,78 @@ const handleDecisionSuccess = async ({ decision, rejectionType }) => {
               <button
                 type="button"
                 onClick={() => fetchQueue()}
-                className="rounded-2xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
               >
                 Reintentar
               </button>
             </div>
-          ) : filteredRows.length === 0 ? (
-            <div className="mt-5 flex min-h-[260px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-              <Receipt className="h-8 w-8 text-slate-400" />
-              <div>
-                <p className="text-sm font-semibold text-slate-700">
-                  No hay parcialidades para mostrar
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Intenta con otro filtro o espera nuevos envíos del proveedor.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-5 overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-y-3">
-                <thead>
-                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2">Proveedor</th>
-                    <th className="px-3 py-2">Orden de compra</th>
-                    <th className="px-3 py-2">Parcialidad</th>
-                    <th className="px-3 py-2">Monto</th>
-                    <th className="px-3 py-2">Fecha programada</th>
-                    <th className="px-3 py-2">Método</th>
-                    <th className="px-3 py-2">Urgencia</th>
-                    <th className="px-3 py-2">Estado</th>
-                    <th className="px-3 py-2 text-right">Acción</th>
+          </SectionCard>
+        ) : (
+          <TableContainer
+            loading={loading}
+            loadingTitle="Cargando parcialidades..."
+            loadingSubtitle="Estamos preparando la bandeja de revisión."
+          >
+            {!loading && filteredRows.length > 0 ? (
+              <table className="min-w-full">
+                <thead className="bg-gray-50">
+                  <tr className="border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Proveedor
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Orden de compra
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Parcialidad
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Monto
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Fecha programada
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Método
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Urgencia
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Estado
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-600">
+                      Acción
+                    </th>
                   </tr>
                 </thead>
 
-                <tbody>
+                <tbody className="divide-y divide-gray-200 bg-white">
                   {filteredRows.map((row) => (
                     <tr
                       key={row.id}
-                      className="rounded-2xl bg-slate-50 text-sm text-slate-700 shadow-sm"
+                      className="transition-colors hover:bg-gray-50"
                     >
-                      <td className="rounded-l-2xl px-3 py-4 align-middle">
-                        <div className="font-semibold text-slate-900">
+                      <td className="px-4 py-4 align-middle">
+                        <div className="font-semibold text-gray-900">
                           {row.providerName}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-xs text-gray-500">
                           RFC: {row.providerRfc}
                         </div>
                       </td>
 
-                      <td className="px-3 py-4 align-middle">
-                        <div className="font-medium text-slate-800">
+                      <td className="px-4 py-4 align-middle">
+                        <div className="font-medium text-gray-800">
                           {row.purchaseOrderNumber}
                         </div>
                       </td>
 
-                      <td className="px-3 py-4 align-middle">
-                        <div className="font-medium text-slate-800">
+                      <td className="px-4 py-4 align-middle">
+                        <div className="font-medium text-gray-800">
                           {row.partialityLabel}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-1 text-xs text-gray-500">
                           {row.hasPdf || row.hasXml
                             ? `${row.hasPdf ? "PDF" : ""}${
                                 row.hasPdf && row.hasXml ? " · " : ""
@@ -416,31 +435,31 @@ const handleDecisionSuccess = async ({ decision, rejectionType }) => {
                         </div>
                       </td>
 
-                      <td className="px-3 py-4 align-middle font-semibold text-slate-900">
+                      <td className="px-4 py-4 align-middle font-semibold text-gray-900">
                         {formatMoney(row.amount)}
                       </td>
 
-                      <td className="px-3 py-4 align-middle">
+                      <td className="px-4 py-4 align-middle text-gray-700">
                         {formatDate(row.paidAt)}
                       </td>
 
-                      <td className="px-3 py-4 align-middle">
+                      <td className="px-4 py-4 align-middle text-gray-700">
                         {row.paymentMethodLabel}
                       </td>
 
-                      <td className="px-3 py-4 align-middle">
+                      <td className="px-4 py-4 align-middle">
                         <UrgencyChip date={row.paidAt} status={row.status} />
                       </td>
 
-                      <td className="px-3 py-4 align-middle">
+                      <td className="px-4 py-4 align-middle">
                         <StatusBadge status={row.status} />
                       </td>
 
-                      <td className="rounded-r-2xl px-3 py-4 text-right align-middle">
+                      <td className="px-4 py-4 text-right align-middle">
                         <button
                           type="button"
                           onClick={() => handleOpenReview(row)}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                          className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-600"
                         >
                           <Eye className="h-4 w-4" />
                           {row.status === "SUBMITTED" ? "Revisar" : "Ver"}
@@ -450,14 +469,20 @@ const handleDecisionSuccess = async ({ decision, rejectionType }) => {
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-        </div>
+            ) : !loading ? (
+              <EmptyState
+                icon={Receipt}
+                title="No hay parcialidades para mostrar"
+                subtitle="Intenta con otro filtro o espera nuevos envíos del proveedor."
+              />
+            ) : null}
+          </TableContainer>
+        )}
       </div>
 
       {selectedRow
         ? ReactDOM.createPortal(
-            <div className="fixed inset-0 z-[9999] bg-slate-900/45">
+            <div className="fixed inset-0 z-[9999] bg-slate-900/40">
               <div
                 className="absolute inset-0"
                 onClick={handleCloseReview}
@@ -465,17 +490,19 @@ const handleDecisionSuccess = async ({ decision, rejectionType }) => {
               />
 
               <div className="relative z-[10000] flex h-full w-full items-center justify-center p-3 sm:p-4 md:p-6">
-                <div className="relative h-[94vh] w-full max-w-[1220px] overflow-y-auto rounded-[28px] bg-white shadow-2xl">
-                  <RevisionParcialidad
-                    parcialidad={selectedRow}
-                    onClose={handleCloseReview}
-                    onDecisionSuccess={handleDecisionSuccess}
-                    showAlert={showAlert}
-                  />
+                <div className="relative h-[94vh] w-full max-w-[1150px] overflow-y-auto rounded-[28px] bg-beige shadow-2xl">
+                  <div className="flex min-h-full items-center justify-center">
+                    <RevisionParcialidad
+                      parcialidad={selectedRow}
+                      onClose={handleCloseReview}
+                      onDecisionSuccess={handleDecisionSuccess}
+                      showAlert={showAlert}
+                    />
+                  </div>
                 </div>
               </div>
             </div>,
-            document.body
+            document.body,
           )
         : null}
     </>
@@ -487,10 +514,10 @@ function StatCard({ title, value, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border p-4 text-left transition ${
+      className={`rounded-xl border p-4 text-left transition ${
         active
-          ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          ? "border-slate-700 bg-slate-700 text-white shadow-sm"
+          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
       }`}
     >
       <div className="text-xs font-semibold uppercase tracking-wide opacity-80">

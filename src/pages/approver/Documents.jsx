@@ -1,55 +1,49 @@
 // src/pages/approver/Documents.jsx
-import React, { useMemo, useState } from "react";
-import { Search, Clock, Eye } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Search, Eye, FileText } from "lucide-react";
 import { getSolicitudText } from "./utils/aprobacionDocs.js";
 
 import ProviderFilesModal from "./components/ProviderFilesModal.jsx";
 import { groupApprovalsByProvider } from "./utils/groupApprovalsByProvider.js";
 import { dedupFiles } from "./utils/groupFilesBySolicitud.js";
 
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import SectionCard from "../../components/ui/SectionCard.jsx";
+import TableContainer from "../../components/ui/TableContainer.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import StatusBadge, {
+  statusToneFromText,
+} from "../../components/ui/StatusBadge.jsx";
+
 function Documents({
   aprobaciones,
   onAprobacionChange,
   showAlert,
-  onOpenFiles, // (aprobacion) => MUST return files[]
+  onOpenFiles,
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstatus, setFiltroEstatus] = useState("");
 
-  // Modal archivos por proveedor
   const [modalArchivos, setModalArchivos] = useState(false);
   const [archivosLoading, setArchivosLoading] = useState(false);
   const [archivos, setArchivos] = useState([]);
   const [grupoSeleccionado, setGrupoSeleccionado] = useState(null);
 
-  // Solicitudes chips: expand/collapse
   const [solicitudesOpen, setSolicitudesOpen] = useState({});
+
+  const [loadingTabla, setLoadingTabla] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoadingTabla(false);
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const toggleSolicitudes = (id) =>
-    setSolicitudesOpen((p) => ({ ...p, [id]: !p[id] }));
+    setSolicitudesOpen((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  // ===== UI helpers =====
-  const getEstadoColor = (estado) => {
-    switch (estado) {
-      case "Aprobado":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "Rechazado":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "Pendiente":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  const getEstadoIcono = (estado) => {
-    switch (estado) {
-      case "Pendiente":
-      default:
-        return <Clock className="w-3 h-3" />;
-    }
-  };
-
-  // ===== filtro =====
   const aprobacionesSafe = Array.isArray(aprobaciones) ? aprobaciones : [];
 
   const aprobacionesFiltradas = useMemo(() => {
@@ -85,7 +79,6 @@ function Documents({
     return groupApprovalsByProvider(aprobacionesFiltradas, getProveedorKey);
   }, [aprobacionesFiltradas]);
 
-  // ===== abrir archivos por proveedor =====
   const abrirArchivosProveedor = async (grupo) => {
     try {
       setGrupoSeleccionado(grupo);
@@ -190,94 +183,109 @@ function Documents({
     setArchivosLoading(false);
   };
 
+  const limpiarFiltros = () => {
+    setBusqueda("");
+    setFiltroEstatus("");
+  };
+
   return (
-    <div>
-      {/* Barra */}
-      <div className="bg-white rounded-lg border border-lightBlue p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-          <div className="flex-1 w-full lg:w-auto">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-midBlue w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Buscar por proveedor o solicitud..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
-              />
-            </div>
+    <div className="space-y-6 bg-beige px-6 py-6">
+      <PageHeader
+        title="Revisión de documentos"
+        subtitle="Consulta solicitudes agrupadas por proveedor, revisa su estatus y abre los archivos relacionados."
+      />
+
+      <SectionCard className="p-4">
+        <div className="flex flex-col gap-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por proveedor, solicitud o ID..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             <select
               value={filtroEstatus}
               onChange={(e) => setFiltroEstatus(e.target.value)}
-              className="px-3 py-2 border border-lightBlue rounded-lg focus:ring-2 focus:ring-midBlue focus:border-midBlue text-darkBlue"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos los estados</option>
               <option value="Pendiente">Pendiente</option>
               <option value="Aprobado">Aprobado</option>
               <option value="Rechazado">Rechazado</option>
             </select>
+
+            <button
+              type="button"
+              onClick={limpiarFiltros}
+              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              Limpiar filtros
+            </button>
           </div>
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Tabla */}
-      <div className="bg-white rounded-lg border border-lightBlue overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-lightBlue border-b border-midBlue">
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+      <TableContainer
+        loading={loadingTabla}
+        loadingTitle="Cargando documentos..."
+        loadingSubtitle="Estamos preparando la información de revisión."
+      >
+        {grupos.length > 0 ? (
+          <table className="w-full min-w-[980px]">
+            <thead className="bg-gray-50">
+              <tr className="border-b border-gray-200">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                   ID
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
-                  Nombre del Proveedor
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
+                  Nombre del proveedor
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                   Solicitudes
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                   Estado
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                   Fecha
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-darkBlue uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600">
                   Documentos
                 </th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-lightBlue">
+            <tbody className="divide-y divide-gray-200 bg-white">
               {grupos.map((g, idx) => (
                 <tr
                   key={g.proveedorId ?? idx}
-                  className="hover:bg-beige transition-colors align-top"
+                  className="align-top transition-colors hover:bg-gray-50"
                 >
-                  {/* ID */}
-                  <td className="px-6 py-5">
-                    <div className="text-sm font-medium text-darkBlue">
+                  <td className="px-4 py-4">
+                    <div className="text-sm font-semibold text-gray-800">
                       #{String(g.proveedorId)}
                     </div>
                   </td>
 
-                  {/* Proveedor */}
-                  <td className="px-6 py-5">
-                    <div className="text-sm font-semibold text-darkBlue">
+                  <td className="px-4 py-4">
+                    <div className="text-sm font-semibold text-gray-800">
                       {g.proveedorNombre}
                     </div>
                   </td>
 
-                  {/* Solicitudes */}
-                  <td className="px-6 py-5">
+                  <td className="px-4 py-4">
                     {(() => {
                       const list = Array.isArray(g.solicitudes)
                         ? g.solicitudes
                         : [];
 
-                      const MAX_VISIBLE = 8; 
+                      const MAX_VISIBLE = 8;
                       const isOpen = !!solicitudesOpen[g.proveedorId];
                       const visible = isOpen
                         ? list
@@ -292,24 +300,24 @@ function Documents({
                           {visible.map((s) => (
                             <span
                               key={s}
-                              className="inline-flex items-center rounded-full border border-lightBlue bg-white px-3 py-1 text-[11px] font-medium text-darkBlue shadow-sm hover:bg-beige transition"
                               title={s}
+                              className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-medium text-gray-700"
                             >
                               {s}
                             </span>
                           ))}
 
-                          {/* contador bonito si está cerrado */}
                           {!isOpen && hiddenCount > 0 && (
-                            <span className="inline-flex items-center rounded-full border border-lightBlue bg-white px-3 py-1 text-[11px] font-semibold text-midBlue shadow-sm">
+                            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700">
                               +{hiddenCount} más
                             </span>
                           )}
 
                           {list.length > MAX_VISIBLE && (
                             <button
+                              type="button"
                               onClick={() => toggleSolicitudes(g.proveedorId)}
-                              className="mt-2 text-[11px] font-semibold text-midBlue hover:text-darkBlue transition"
+                              className="text-[11px] font-semibold text-blue-600 transition hover:text-blue-700"
                             >
                               {isOpen ? "Ocultar" : "Ver todas"}
                             </button>
@@ -319,39 +327,34 @@ function Documents({
                     })()}
                   </td>
 
-                  {/* Estado */}
-                  <td className="px-6 py-5">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${getEstadoColor(
-                        g.estado,
-                      )}`}
-                    >
-                      {getEstadoIcono(g.estado)}
-                      {g.estado}
+                  <td className="px-4 py-4">
+                    <StatusBadge tone={statusToneFromText(g.estado)}>
+                      {g.estado || "Pendiente"}
+                    </StatusBadge>
+                  </td>
+
+                  <td className="px-4 py-4">
+                    <span className="text-sm text-gray-600">
+                      {g.fecha
+                        ? new Date(g.fecha).toLocaleDateString("es-MX")
+                        : "—"}
                     </span>
                   </td>
 
-                  {/* Fecha */}
-                  <td className="px-6 py-5 text-sm text-midBlue">
-                    {g.fecha
-                      ? new Date(g.fecha).toLocaleDateString("es-MX")
-                      : "—"}
-                  </td>
-
-                  {/* Documentos */}
-                  <td className="px-6 py-5">
+                  <td className="px-4 py-4">
                     <div className="inline-flex flex-col items-start gap-2">
-                      <span className="text-[11px] text-midBlue">
+                      <span className="text-xs text-gray-500">
                         {g.totalArchivos ?? 0} archivo
                         {(g.totalArchivos ?? 0) === 1 ? "" : "s"}
                       </span>
 
                       <button
+                        type="button"
                         onClick={() => abrirArchivosProveedor(g)}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-lightBlue bg-white text-darkBlue hover:bg-beige transition text-xs font-semibold shadow-sm"
                         title="Ver documentos del proveedor"
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="h-4 w-4" />
                         Ver
                       </button>
                     </div>
@@ -360,24 +363,24 @@ function Documents({
               ))}
             </tbody>
           </table>
-        </div>
-
-        {grupos.length === 0 && (
-          <div className="text-center py-8">
-            <div className="text-midBlue mb-2">
-              <Search className="w-12 h-12 mx-auto" />
-            </div>
-            <p className="text-darkBlue text-lg">
-              No se encontraron solicitudes
-            </p>
-            <p className="text-midBlue">
-              Intenta ajustar los filtros de búsqueda
-            </p>
-          </div>
+        ) : (
+          <EmptyState
+            icon={FileText}
+            title="No se encontraron solicitudes"
+            subtitle="No hay coincidencias con los filtros aplicados."
+            action={
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                Limpiar filtros
+              </button>
+            }
+          />
         )}
-      </div>
+      </TableContainer>
 
-      {/* Modal archivos */}
       <ProviderFilesModal
         open={modalArchivos}
         onClose={cerrarArchivos}

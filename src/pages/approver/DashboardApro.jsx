@@ -23,11 +23,11 @@ import PurchaseOrdersApproval from "./PurchaseOrdersApproval.jsx";
 
 import logo from "../../assets/logo-relleno.png";
 
-import DashboardAlert from "./components/DashboardAlert.jsx";
 import DashboardModal from "./components/DashboardModal.jsx";
 import { useDocumentReviews } from "./hooks/useDocumentReview.js";
 import { useCurrentUser } from "./hooks/useCurrentUser.js";
 import { pickUserDisplayName, getInitials } from "./utils/userDisplay.js";
+import SystemAlert from "../../components/ui/SystemAlert";
 
 function DashboardApro() {
   const navigate = useNavigate();
@@ -133,12 +133,12 @@ function DashboardApro() {
             const arr = Array.isArray(files)
               ? files
               : Array.isArray(files?.files)
-              ? files.files
-              : Array.isArray(files?.data?.files)
-              ? files.data.files
-              : Array.isArray(files?.data)
-              ? files.data
-              : [];
+                ? files.files
+                : Array.isArray(files?.data?.files)
+                  ? files.data.files
+                  : Array.isArray(files?.data)
+                    ? files.data
+                    : [];
 
             return arr;
           } catch (e) {
@@ -173,13 +173,17 @@ function DashboardApro() {
     parcialidades: {
       component: Parcialidades,
       title: "Parcialidades",
-      props: {},
+      props: {
+        showAlert,
+      },
     },
 
     reportes: {
       component: Reportes,
       title: "Reportes Generales",
-      props: {},
+      props: {
+        showAlert,
+      },
     },
   };
 
@@ -197,7 +201,6 @@ function DashboardApro() {
 
   return (
     <div className="min-h-screen flex bg-beige">
-      {/* SIDEBAR */}
       <aside
         className={`bg-white border-r border-lightBlue shadow-lg transition-all duration-300 flex flex-col ${
           sidebarOpen ? "w-64" : "w-20"
@@ -254,7 +257,6 @@ function DashboardApro() {
         </nav>
       </aside>
 
-      {/* MAIN */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-darkBlue">
@@ -312,7 +314,6 @@ function DashboardApro() {
         </section>
       </main>
 
-      {/* MODAL */}
       <DashboardModal
         isOpen={modalOpen}
         onClose={closeModal}
@@ -321,15 +322,17 @@ function DashboardApro() {
         showAlert={showAlert}
       />
 
-      {/* ALERT */}
-      <DashboardAlert
-        isOpen={alertOpen}
+      <SystemAlert
+        open={alertOpen}
         onClose={() => setAlertOpen(false)}
         type={alertConfig.type}
         title={alertConfig.title}
         message={alertConfig.message}
         showConfirm={alertConfig.showConfirm}
         onConfirm={alertConfig.onConfirm}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        acceptText="Aceptar"
       />
 
       {userMenuOpen && (

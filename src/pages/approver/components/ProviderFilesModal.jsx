@@ -47,7 +47,6 @@ function formatBytes(bytes) {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-// ---- ESTADOS EN ESPAÑOL ----
 function normalizeStatus(statusRaw) {
   const s = String(statusRaw || "").toUpperCase();
   if (s.includes("APPROV") || s === "APROBADO") return "APPROVED";
@@ -340,7 +339,7 @@ export default function ProviderFilesModal({
   return ReactDOM.createPortal(
     <>
       <div
-        className="fixed inset-0 bg-black/50 z-[9998] backdrop-blur-sm"
+        className="fixed inset-0 bg-black/20 z-[9998]"
         onClick={onClose}
       />
 
@@ -386,12 +385,40 @@ export default function ProviderFilesModal({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto bg-gray-100 p-6">
             {loading ? (
-              <div className="space-y-3">
-                <div className="h-10 rounded-xl bg-gray-100 animate-pulse" />
-                <div className="h-24 rounded-xl bg-gray-100 animate-pulse" />
-                <div className="h-24 rounded-xl bg-gray-100 animate-pulse" />
+              <div className="flex flex-col items-center justify-center text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-50">
+                  <svg
+                    className="h-7 w-7 animate-spin text-midBlue"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-20"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    />
+                    <path
+                      className="opacity-90"
+                      d="M22 12a10 10 0 0 0-10-10"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+
+                <h3 className="mt-4 text-base font-semibold text-darkBlue">
+                  Cargando archivos...
+                </h3>
+                <p className="mt-1 max-w-md text-sm text-midBlue">
+                  Estamos preparando la información de los documentos del
+                  proveedor.
+                </p>
               </div>
             ) : !files?.length ? (
               <div className="text-center py-10">

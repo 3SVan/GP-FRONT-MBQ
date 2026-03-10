@@ -173,7 +173,7 @@ export default function PlanesPagoCreate({
     "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-beige p-4">
       <div className="mx-auto max-w-full">
         <PageHeader
           title="Crear Plan de Pago"
@@ -449,7 +449,7 @@ export default function PlanesPagoCreate({
             <div className="flex gap-3">
               <button
                 onClick={onCancel}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 bg-white transition hover:bg-gray-50"
               >
                 Cancelar
               </button>

@@ -1,5 +1,6 @@
 // src/pages/approver/components/ModalShell.jsx
-import React from "react";
+import React, { useEffect } from "react";
+import ReactDOM from "react-dom";
 import { X } from "lucide-react";
 
 export default function ModalShell({
@@ -10,34 +11,58 @@ export default function ModalShell({
   maxW = "max-w-6xl",
   contentClassName = "p-0",
 }) {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/50"
         onClick={onClose}
       />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <div
-          className={`bg-white rounded-xl shadow-2xl w-full ${maxW} max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-95 hover:scale-100`}
+          className={`w-full ${maxW} max-h-[90vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-gradient-to-r from-midBlue to-darkBlue px-6 py-4 flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-white">{title}</h2>
+          {/* Header */}
+          <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-6 py-4">
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-semibold text-gray-800">
+                {title}
+              </h2>
+            </div>
+
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
+              aria-label="Cerrar modal"
             >
-              <X className="w-5 h-5 text-white" />
+              <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className={`${contentClassName} overflow-y-auto max-h-[80vh]`}>
+          {/* Content */}
+          <div className={`${contentClassName} max-h-[calc(90vh-73px)] overflow-y-auto bg-white`}>
             {children}
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
