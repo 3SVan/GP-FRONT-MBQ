@@ -6,6 +6,10 @@ export const PurchaseOrdersAPI = {
     return api.get("/purchase-orders/me").then((r) => r.data);
   },
 
+  list(params = {}) {
+    return api.get("/purchase-orders", { params }).then((r) => r.data);
+  },
+  
   createForMe(formData) {
     return api
       .post("/purchase-orders/me", formData, {
