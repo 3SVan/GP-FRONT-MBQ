@@ -4,27 +4,63 @@ import CalendarSimple from "../components/CalendarSimple";
 import PlanCard from "../components/PlanCard";
 import { PaymentsAPI } from "../../../api/payments.api";
 
+function parseLocalDate(value) {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+
+  // YYYY-MM-DD
+  const onlyDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (onlyDate) {
+    const year = Number(onlyDate[1]);
+    const month = Number(onlyDate[2]) - 1;
+    const day = Number(onlyDate[3]);
+    return new Date(year, month, day);
+  }
+
+  // ISO u otro formato válido
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toLocalISO(value) {
+  const d = parseLocalDate(value);
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function diffDays(fromISO, toISO) {
-  const a = new Date(fromISO);
-  const b = new Date(toISO);
-  const ms = 1000 * 60 * 60 * 24;
-  return Math.floor(
-    (b.setHours(0, 0, 0, 0) - a.setHours(0, 0, 0, 0)) / ms
-  );
+  const a = parseLocalDate(fromISO);
+  const b = parseLocalDate(toISO);
+  if (!a || !b) return 0;
+
+  const a0 = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+  const b0 = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+
+  return Math.floor((b0 - a0) / (1000 * 60 * 60 * 24));
 }
 
 function isBeforeToday(dateStr) {
+  const d = parseLocalDate(dateStr);
+  if (!d) return false;
+
   const today = new Date();
-  const t = new Date(
+  const todayStart = new Date(
     today.getFullYear(),
     today.getMonth(),
     today.getDate()
   ).getTime();
 
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return false;
+  const dateStart = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate()
+  ).getTime();
 
-  return d.setHours(0, 0, 0, 0) < t;
+  return dateStart < todayStart;
 }
 
 function backendStatusToUi(status) {
@@ -47,9 +83,11 @@ function backendStatusToUi(status) {
 }
 
 function derivePlanStatus(parcialidades = []) {
-  const statuses = parcialidades.map((p) => String(p.estado || "").toUpperCase());
+  const statuses = parcialidades.map((p) =>
+    String(p.estado || "").toUpperCase()
+  );
 
-  if (statuses.every((s) => s === "PAGADA")) return "PAGADA";
+  if (statuses.length && statuses.every((s) => s === "PAGADA")) return "PAGADA";
   if (statuses.some((s) => s === "ENVIADA")) return "EN REVISIÓN";
   if (statuses.some((s) => s === "RECHAZADA")) return "CON OBSERVACIONES";
   if (statuses.some((s) => s === "PENDIENTE")) return "PENDIENTE";
@@ -89,10 +127,14 @@ function groupPaymentsIntoPlans(payments = []) {
       numero: pay.installmentNo || 1,
       totalParcialidades: pay.installmentOf || 1,
       monto: Number(pay.amount || 0),
-      fechaPago: pay.paidAt,
-      fechaCierre: pay.paidAt,
+
+      // ✅ importante: convertir a ISO local seguro
+      fechaPago: toLocalISO(pay.paidAt),
+      fechaCierre: toLocalISO(pay.closeDate || pay.paidAt),
+
       estado: backendStatusToUi(pay.status),
       rejectionType: pay.rejectionType || "",
+      rejectionComment: pay.decisionComment || "",
       comentariosProveedor: "",
       evidencia: {
         pdfName: pdf?.fileName || "",
@@ -125,29 +167,33 @@ function buildEvents(planes) {
         (st === "PENDIENTE" || st === "RECHAZADA") &&
         !isBeforeToday(p.fechaCierre);
 
-      out.push({
-        id: `${plan.id}-${p.id}-cierre`,
-        date: p.fechaCierre,
-        kind: "CIERRE",
-        planId: plan.id,
-        planOC: plan.ordenCompra,
-        parcialidadId: p.id,
-        parcialidadNumero: p.numero,
-        estado: st,
-        cta: allowUpload ? "SUBIR" : "VER",
-      });
+      if (p.fechaCierre) {
+        out.push({
+          id: `${plan.id}-${p.id}-cierre`,
+          date: p.fechaCierre,
+          kind: "CIERRE",
+          planId: plan.id,
+          planOC: plan.ordenCompra,
+          parcialidadId: p.id,
+          parcialidadNumero: p.numero,
+          estado: st,
+          cta: allowUpload ? "SUBIR" : "VER",
+        });
+      }
 
-      out.push({
-        id: `${plan.id}-${p.id}-pago`,
-        date: p.fechaPago,
-        kind: "PAGO",
-        planId: plan.id,
-        planOC: plan.ordenCompra,
-        parcialidadId: p.id,
-        parcialidadNumero: p.numero,
-        estado: st,
-        cta: "VER",
-      });
+      if (p.fechaPago) {
+        out.push({
+          id: `${plan.id}-${p.id}-pago`,
+          date: p.fechaPago,
+          kind: "PAGO",
+          planId: plan.id,
+          planOC: plan.ordenCompra,
+          parcialidadId: p.id,
+          parcialidadNumero: p.numero,
+          estado: st,
+          cta: "VER",
+        });
+      }
     }
   }
 
@@ -191,6 +237,7 @@ export default function MisPlanes({ onOpenPlan, onOpenUpload, showAlert }) {
     }
 
     loadPlans();
+
     return () => {
       cancelled = true;
     };
@@ -211,6 +258,7 @@ export default function MisPlanes({ onOpenPlan, onOpenUpload, showAlert }) {
     for (const plan of planes) {
       for (const p of plan.parcialidades) {
         const st = String(p.estado || "").toUpperCase();
+
         if (st === "ENVIADA") enRevision++;
 
         const d = diffDays(todayISO, p.fechaCierre);

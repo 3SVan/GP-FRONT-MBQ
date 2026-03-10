@@ -1,5 +1,6 @@
 // src/pages/provider/DashboardProvider.jsx
 import { AnalyticsAPI } from "../../api/analytics.api";
+import { PaymentsAPI } from "../../api/payments.api";
 import React, { useEffect, useState } from "react";
 import {
   User,
@@ -34,6 +35,93 @@ import PlanesPagoShell from "./planesPago/PlanesPagoShell.jsx";
 import { AuthAPI } from "../../api/auth.api";
 import { ProvidersAPI } from "../../api/providers.api";
 
+function toDateKey(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function backendStatusToUi(status) {
+  const st = String(status || "").toUpperCase();
+
+  switch (st) {
+    case "PENDING":
+      return "PENDIENTE";
+    case "SUBMITTED":
+      return "EN REVISIÓN";
+    case "APPROVED":
+      return "AUTORIZADO";
+    case "REJECTED":
+      return "RECHAZADA";
+    case "PAID":
+      return "PAGADO";
+    default:
+      return "PENDIENTE";
+  }
+}
+
+function buildDashboardCalendarEvents(payments = []) {
+  const byDay = {};
+
+  for (const pay of payments) {
+    const purchaseOrder = pay?.purchaseOrder || {};
+    const statusUi = backendStatusToUi(pay?.status);
+    const pagoDate = toDateKey(pay?.paidAt);
+    const cierreDate = toDateKey(pay?.paidAt);
+
+    const paymentLabel = `Pago parcialidad #${pay?.installmentNo || 1} · ${
+      purchaseOrder?.number || "OC"
+    }`;
+    const cierreLabel = `Cierre parcialidad #${pay?.installmentNo || 1} · ${
+      purchaseOrder?.number || "OC"
+    }`;
+
+    if (pagoDate) {
+      const pagoColor =
+        String(pay?.status || "").toUpperCase() === "PAID"
+          ? "verde"
+          : String(pay?.status || "").toUpperCase() === "APPROVED"
+            ? "azul"
+            : "verde";
+
+      if (!byDay[pagoDate]) byDay[pagoDate] = [];
+      byDay[pagoDate].push({
+        tipo: "PAGO",
+        evento: paymentLabel,
+        color: pagoColor,
+        status: statusUi,
+        planId: purchaseOrder?.id || null,
+        parcialidadId: pay?.id || null,
+      });
+    }
+
+    if (cierreDate) {
+      const cierreColor =
+        String(pay?.status || "").toUpperCase() === "REJECTED"
+          ? "rojo"
+          : String(pay?.status || "").toUpperCase() === "PENDING"
+            ? "amarillo"
+            : "amarillo";
+
+      if (!byDay[cierreDate]) byDay[cierreDate] = [];
+      byDay[cierreDate].push({
+        tipo: "CIERRE",
+        evento: cierreLabel,
+        color: cierreColor,
+        status: statusUi,
+        planId: purchaseOrder?.id || null,
+        parcialidadId: pay?.id || null,
+      });
+    }
+  }
+
+  return byDay;
+}
+
 function DashboardProvider() {
   const navigate = useNavigate();
 
@@ -42,7 +130,6 @@ function DashboardProvider() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentModal, setCurrentModal] = useState("");
 
-  // Alerts
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: "",
@@ -52,14 +139,16 @@ function DashboardProvider() {
     onConfirm: null,
   });
 
-  // Datos del proveedor desde backend (para nombre empresa arriba)
   const [datosProveedor, setDatosProveedor] = useState({
     nombreEmpresa: "Proveedor",
   });
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-    function pickCompanyName(p) {
+  const [providerCalendarEvents, setProviderCalendarEvents] = useState({});
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
+  function pickCompanyName(p) {
     if (!p) return "Proveedor";
 
     const x = typeof p?.provider === "object" && p.provider ? p.provider : p;
@@ -83,7 +172,7 @@ function DashboardProvider() {
     const parts = n.split(/\s+/).filter(Boolean);
     const a = (parts[0]?.[0] || "").toUpperCase();
     const b = (parts[1]?.[0] || "").toUpperCase();
-    return (a + b) || a || "PR";
+    return a + b || a || "PR";
   }
 
   const showAlert = (type, title, message, showConfirm = false, onConfirm = null) => {
@@ -106,7 +195,6 @@ function DashboardProvider() {
     }
   };
 
-  // ✅ Cargar /api/providers/me para mostrar nombre real en header
   useEffect(() => {
     let alive = true;
 
@@ -117,7 +205,6 @@ function DashboardProvider() {
 
         if (!alive) return;
 
-        // Normaliza por si viene algo incompleto
         setChartData({
           facturas: {
             retrasadas: Number(data?.facturas?.retrasadas ?? 0),
@@ -132,12 +219,15 @@ function DashboardProvider() {
           ordenesCompra: {
             retrasadas: Number(data?.ordenesCompra?.retrasadas ?? 0),
             cerradas: Number(data?.ordenesCompra?.cerradas ?? 0),
-            "volumen activo": Number(data?.ordenesCompra?.["volumen activo"] ?? 0),
+            "volumen activo": Number(
+              data?.ordenesCompra?.["volumen activo"] ?? 0
+            ),
           },
         });
       } catch (err) {
-        // si falla, no truena el dashboard
-        const msg = err?.userMessage || "No se pudieron cargar las métricas del dashboard";
+        const msg =
+          err?.userMessage ||
+          "No se pudieron cargar las métricas del dashboard";
         showAlert("warning", "Dashboard", msg);
       } finally {
         if (alive) setStatsLoading(false);
@@ -149,7 +239,6 @@ function DashboardProvider() {
     };
   }, []);
 
-  // ✅ Cargar proveedor actual para mostrar nombre real en header
   useEffect(() => {
     let alive = true;
 
@@ -163,7 +252,6 @@ function DashboardProvider() {
         const nombreEmpresa = pickCompanyName(me);
         setDatosProveedor({ nombreEmpresa });
 
-        // 🔍 Debug rápido (quítalo cuando ya jale)
         console.log("providers/me =>", me);
       } catch (err) {
         console.warn("No se pudo cargar provider/me:", err?.message || err);
@@ -176,71 +264,81 @@ function DashboardProvider() {
     };
   }, []);
 
-  // MENÚ PARA PROVEEDOR
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        setCalendarLoading(true);
+
+        const res = await PaymentsAPI.listMyPlans();
+        const payments = Array.isArray(res?.payments) ? res.payments : [];
+        const mapped = buildDashboardCalendarEvents(payments);
+
+        if (!alive) return;
+        setProviderCalendarEvents(mapped);
+      } catch (err) {
+        console.error("Error cargando calendario del dashboard:", err);
+        if (alive) setProviderCalendarEvents({});
+      } finally {
+        if (alive) setCalendarLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const menuItems = [
-    { id: "gestion-datos", title: "Gestión de Datos", icon: <User className="w-5 h-5" /> },
-    { id: "ordenes-compra", title: "Órdenes de Compra", icon: <ClipboardList className="w-5 h-5" /> },
-    { id: "carga-documentos", title: "Carga de Documentos", icon: <Upload className="w-5 h-5" /> },
-    { id: "gestion-pagos", title: "Estatus de Pago", icon: <DollarSign className="w-5 h-5" /> },
-
-    // ✅ NUEVO: Planes de pago
-    { id: "planes-pago", title: "Planes de pago", icon: <Calendar className="w-5 h-5" /> },
-
-    { id: "expedientes-digitales", title: "Expedientes Digitales", icon: <FileText className="w-5 h-5" /> },
+    {
+      id: "gestion-datos",
+      title: "Gestión de Datos",
+      icon: <User className="w-5 h-5" />,
+    },
+    {
+      id: "ordenes-compra",
+      title: "Órdenes de Compra",
+      icon: <ClipboardList className="w-5 h-5" />,
+    },
+    {
+      id: "carga-documentos",
+      title: "Carga de Documentos",
+      icon: <Upload className="w-5 h-5" />,
+    },
+    {
+      id: "gestion-pagos",
+      title: "Estatus de Pago",
+      icon: <DollarSign className="w-5 h-5" />,
+    },
+    {
+      id: "planes-pago",
+      title: "Planes de pago",
+      icon: <Calendar className="w-5 h-5" />,
+    },
+    {
+      id: "expedientes-digitales",
+      title: "Expedientes Digitales",
+      icon: <FileText className="w-5 h-5" />,
+    },
   ];
 
-  // -------------------------
-  // CALENDARIO (tu lógica)
-  // -------------------------
   const obtenerEventosDelMes = (mes, año) => {
     const eventos = {};
-    const ultimoDia = new Date(año, mes + 1, 0);
-    const totalDias = ultimoDia.getDate();
 
-    const diasPago = [
-      Math.max(1, Math.floor(totalDias * 0.2)),
-      Math.max(1, Math.floor(totalDias * 0.5)),
-      Math.max(1, Math.floor(totalDias * 0.8)),
-    ]
-      .filter((dia, index, array) => dia >= 1 && dia <= totalDias && array.indexOf(dia) === index)
-      .slice(0, 3);
+    Object.entries(providerCalendarEvents || {}).forEach(([dateKey, items]) => {
+      const d = new Date(dateKey);
+      if (Number.isNaN(d.getTime())) return;
 
-    diasPago.forEach((dia) => {
-      const fecha = new Date(año, mes, dia);
-      const diaSemana = fecha.getDay();
-      if (diaSemana >= 1 && diaSemana <= 5) {
-        eventos[dia] = [{ tipo: "", evento: "Pago a proveedores", color: "verde" }];
+      if (d.getMonth() === mes && d.getFullYear() === año) {
+        const dia = d.getDate();
+        eventos[dia] = items;
       }
     });
-
-    let diaCierre = 15;
-    const fechaCierre = new Date(año, mes, 15);
-    const diaSemanaCierre = fechaCierre.getDay();
-
-    if (diaSemanaCierre === 6) diaCierre = 14;
-    else if (diaSemanaCierre === 0) diaCierre = 13;
-
-    if (diaCierre <= totalDias) {
-      const fechaAjustada = new Date(año, mes, diaCierre);
-      if (fechaAjustada.getDay() >= 1 && fechaAjustada.getDay() <= 5) {
-        eventos[diaCierre] = [{ tipo: "", evento: "Cierre de factura", color: "amarillo" }];
-      }
-    }
-
-    let ultimoLunes = new Date(año, mes + 1, 0);
-    while (ultimoLunes.getDay() !== 1 && ultimoLunes.getDate() > 1) {
-      ultimoLunes.setDate(ultimoLunes.getDate() - 1);
-    }
-    if (ultimoLunes.getDay() === 1 && ultimoLunes.getMonth() === mes) {
-      eventos[ultimoLunes.getDate()] = [{ tipo: "", evento: "Fin de recepción", color: "rojo" }];
-    }
 
     return eventos;
   };
 
-  // -------------------------
-  // GRÁFICAS (local por ahora)
-  // -------------------------
   const [chartData, setChartData] = useState({
     facturas: { retrasadas: 0, cerradas: 0, "volumen activo": 0 },
     contratos: { nuevos: 0, "en aviso": 0, vencidos: 0 },
@@ -285,7 +383,9 @@ function DashboardProvider() {
 
     return (
       <div className="bg-white p-6 rounded-xl border border-lightBlue shadow-lg">
-        <h3 className="text-lg font-semibold text-darkBlue mb-4 text-center">{title}</h3>
+        <h3 className="text-lg font-semibold text-darkBlue mb-4 text-center">
+          {title}
+        </h3>
         <div className="flex flex-col lg:flex-row items-center gap-6">
           <div className="relative w-40 h-40 mx-auto">
             <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
@@ -314,7 +414,9 @@ function DashboardProvider() {
               })}
             </svg>
             <div className="absolute inset-0 flex items-center justify-center flex-col">
-              <span className="text-3xl font-bold text-darkBlue">{Object.values(data).reduce((a, b) => a + b, 0)}</span>
+              <span className="text-3xl font-bold text-darkBlue">
+                {Object.values(data).reduce((a, b) => a + b, 0)}
+              </span>
               <span className="text-sm text-midBlue">Total</span>
             </div>
           </div>
@@ -325,11 +427,18 @@ function DashboardProvider() {
               return (
                 <div key={key} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: colors[index] }} />
-                    <span className="text-xs text-darkBlue capitalize">{key}:</span>
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: colors[index] }}
+                    />
+                    <span className="text-xs text-darkBlue capitalize">
+                      {key}:
+                    </span>
                   </div>
                   <div className="text-right flex-shrink-0 ml-2">
-                    <span className="text-xs font-semibold text-midBlue block">{value}</span>
+                    <span className="text-xs font-semibold text-midBlue block">
+                      {value}
+                    </span>
                     <span className="text-xs text-midBlue">{percentage}%</span>
                   </div>
                 </div>
@@ -343,7 +452,13 @@ function DashboardProvider() {
 
   const Calendario = () => {
     const navegarMes = (direccion) => {
-      setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + direccion, 1));
+      setCurrentMonth(
+        new Date(
+          currentMonth.getFullYear(),
+          currentMonth.getMonth() + direccion,
+          1
+        )
+      );
     };
 
     const obtenerDiasDelMes = () => {
@@ -369,13 +484,18 @@ function DashboardProvider() {
       return dias;
     };
 
-    const obtenerNombreMes = () => currentMonth.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+    const obtenerNombreMes = () =>
+      currentMonth.toLocaleDateString("es-ES", {
+        month: "long",
+        year: "numeric",
+      });
 
     const obtenerColorFondoEvento = (color) => {
       const colores = {
         verde: "bg-green-500 text-white",
         amarillo: "bg-yellow-500 text-white",
         rojo: "bg-red-500 text-white",
+        azul: "bg-blue-500 text-white",
       };
       return colores[color] || "bg-gray-500 text-white";
     };
@@ -389,37 +509,56 @@ function DashboardProvider() {
             <div className="p-2 bg-midBlue rounded-lg">
               <Calendar className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-xl font-semibold text-darkBlue">Calendario - {obtenerNombreMes()}</h3>
+            <h3 className="text-xl font-semibold text-darkBlue">
+              Calendario - {obtenerNombreMes()}
+            </h3>
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => navegarMes(-1)} className="p-2 hover:bg-lightBlue rounded-lg transition">
+            <button
+              onClick={() => navegarMes(-1)}
+              className="p-2 hover:bg-lightBlue rounded-lg transition"
+            >
               <ArrowLeft className="w-5 h-5 text-darkBlue" />
             </button>
-            <button onClick={() => navegarMes(1)} className="p-2 hover:bg-lightBlue rounded-lg transition">
+            <button
+              onClick={() => navegarMes(1)}
+              className="p-2 hover:bg-lightBlue rounded-lg transition"
+            >
               <ArrowRight className="w-5 h-5 text-darkBlue" />
             </button>
           </div>
         </div>
 
+        {calendarLoading && (
+          <div className="text-center text-sm text-midBlue mb-4">
+            Cargando eventos...
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-4 mb-6 justify-center">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-green-500 rounded" />
-            <span className="text-xs text-darkBlue">Pago a proveedores</span>
+            <span className="text-xs text-darkBlue">Pago / parcialidad</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-yellow-500 rounded" />
-            <span className="text-xs text-darkBlue">Cierre de factura</span>
+            <span className="text-xs text-darkBlue">Cierre / pendiente</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-red-500 rounded" />
-            <span className="text-xs text-darkBlue">Fin de recepción</span>
+            <span className="text-xs text-darkBlue">
+              Rechazada / requiere atención
+            </span>
           </div>
         </div>
 
         <div className="grid grid-cols-5 gap-2">
           {["Lun", "Mar", "Mié", "Jue", "Vie"].map((dia) => (
-            <div key={dia} className="text-center text-sm font-semibold text-darkBlue py-1 border-b border-lightBlue">
+            <div
+              key={dia}
+              className="text-center text-sm font-semibold text-darkBlue py-1 border-b border-lightBlue"
+            >
               {dia}
             </div>
           ))}
@@ -434,14 +573,29 @@ function DashboardProvider() {
             const tieneEventos = eventos.length > 0;
 
             return (
-              <div
+              <button
                 key={fecha}
-                className={`border rounded-lg p-2 min-h-[80px] transition-colors ${
+                type="button"
+                onClick={() => {
+                  if (!tieneEventos) return;
+                  openModal("planes-pago");
+                }}
+                className={`border rounded-lg p-2 min-h-[80px] transition-colors text-left w-full ${
                   tieneEventos
-                    ? `${obtenerColorFondoEvento(eventos[0].color)} border-transparent`
-                    : `border-lightBlue ${esHoy ? "bg-blue-50 border-blue-300" : "hover:bg-beige"}`
+                    ? `${obtenerColorFondoEvento(
+                        eventos[0].color
+                      )} border-transparent hover:opacity-90`
+                    : `border-lightBlue ${
+                        esHoy ? "bg-blue-50 border-blue-300" : "hover:bg-beige"
+                      }`
                 }`}
-                title={tieneEventos ? eventos[0].evento : ""}
+                title={
+                  tieneEventos
+                    ? eventos
+                        .map((e) => `${e.tipo}: ${e.evento} (${e.status})`)
+                        .join(" | ")
+                    : ""
+                }
               >
                 <div className="flex justify-between items-start mb-1">
                   <span
@@ -449,17 +603,21 @@ function DashboardProvider() {
                       esHoy && !tieneEventos
                         ? "bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]"
                         : tieneEventos
-                        ? "text-white"
-                        : "text-darkBlue"
+                          ? "text-white"
+                          : "text-darkBlue"
                     }`}
                   >
                     {fecha}
                   </span>
-                  <span className={`text-[10px] ${tieneEventos ? "text-white opacity-80" : "text-midBlue"}`}>
+                  <span
+                    className={`text-[10px] ${
+                      tieneEventos ? "text-white opacity-80" : "text-midBlue"
+                    }`}
+                  >
                     {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][diaSemana]}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -467,50 +625,80 @@ function DashboardProvider() {
     );
   };
 
-  // --- CONTENIDO PRINCIPAL ---
   const DashboardContent = () => (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-darkBlue mb-3">Dashboard de Proveedor</h1>
-          <p className="text-midBlue text-lg">Resumen completo de actividades y métricas</p>
+          <h1 className="text-3xl font-bold text-darkBlue mb-3">
+            Dashboard de Proveedor
+          </h1>
+          <p className="text-midBlue text-lg">
+            Resumen completo de actividades y métricas
+          </p>
         </div>
 
-        {/* Resumen */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-darkBlue mb-6 text-center">Resumen de Desempeño</h2>
+          <h2 className="text-2xl font-bold text-darkBlue mb-6 text-center">
+            Resumen de Desempeño
+          </h2>
 
           {statsLoading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-pulse text-midBlue text-lg">Cargando métricas del dashboard...</div>
+              <div className="animate-pulse text-midBlue text-lg">
+                Cargando métricas del dashboard...
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              <PieChart title="Facturas" data={chartData.facturas} chartType="facturas" />
-              <PieChart title="Contratos" data={chartData.contratos} chartType="contratos" />
-              <PieChart title="Órdenes de Compra" data={chartData.ordenesCompra} chartType="ordenesCompra" />
+              <PieChart
+                title="Facturas"
+                data={chartData.facturas}
+                chartType="facturas"
+              />
+              <PieChart
+                title="Contratos"
+                data={chartData.contratos}
+                chartType="contratos"
+              />
+              <PieChart
+                title="Órdenes de Compra"
+                data={chartData.ordenesCompra}
+                chartType="ordenesCompra"
+              />
             </div>
           )}
         </div>
 
-        {/* Calendario */}
         <Calendario />
       </div>
     </div>
   );
 
-  // --- MODALES ---
   const modalComponents = {
-    "gestion-datos": { component: GestionDatosPro, title: "Gestión de Datos" },
-    "ordenes-compra": { component: OrdenCompraPro, title: "Órdenes de Compra" },
-    "carga-documentos": { component: DocumentosPro, title: "Carga de Documentos" },
-    "gestion-pagos": { component: EstatusPago, title: "Estatus de Pago" },
-
-    // ✅ NUEVO: Planes de pago
-    "planes-pago": { component: PlanesPagoShell, title: "Planes de Pago y Parcialidades" },
-
-    "expedientes-digitales": { component: ExpedientesProveedor, title: "Expedientes Digitales" },
+    "gestion-datos": {
+      component: GestionDatosPro,
+      title: "Gestión de Datos",
+    },
+    "ordenes-compra": {
+      component: OrdenCompraPro,
+      title: "Órdenes de Compra",
+    },
+    "carga-documentos": {
+      component: DocumentosPro,
+      title: "Carga de Documentos",
+    },
+    "gestion-pagos": {
+      component: EstatusPago,
+      title: "Estatus de Pago",
+    },
+    "planes-pago": {
+      component: PlanesPagoShell,
+      title: "Planes de Pago y Parcialidades",
+    },
+    "expedientes-digitales": {
+      component: ExpedientesProveedor,
+      title: "Expedientes Digitales",
+    },
   };
 
   const openModal = (sectionId) => {
@@ -523,7 +711,15 @@ function DashboardProvider() {
     setCurrentModal("");
   };
 
-  const Alert = ({ isOpen, onClose, type, title, message, showConfirm = false, onConfirm }) => {
+  const Alert = ({
+    isOpen,
+    onClose,
+    type,
+    title,
+    message,
+    showConfirm = false,
+    onConfirm,
+  }) => {
     if (!isOpen) return null;
 
     const alertStyles = {
@@ -563,12 +759,16 @@ function DashboardProvider() {
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity backdrop-blur-sm" />
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className={`rounded-xl shadow-2xl border-2 ${style.bg} ${style.border} w-full max-w-md`}>
+          <div
+            className={`rounded-xl shadow-2xl border-2 ${style.bg} ${style.border} w-full max-w-md`}
+          >
             <div className="p-6">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">{style.icon}</div>
                 <div className="flex-1">
-                  <h3 className={`text-lg font-semibold ${style.text} mb-2`}>{title}</h3>
+                  <h3 className={`text-lg font-semibold ${style.text} mb-2`}>
+                    {title}
+                  </h3>
                   <p className="text-gray-700 whitespace-pre-line">{message}</p>
 
                   {showConfirm ? (
@@ -597,7 +797,10 @@ function DashboardProvider() {
                 </div>
 
                 {!showConfirm && (
-                  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition flex-shrink-0">
+                  <button
+                    onClick={onClose}
+                    className="text-gray-400 hover:text-gray-600 transition flex-shrink-0"
+                  >
                     <X className="w-5 h-5" />
                   </button>
                 )}
@@ -625,8 +828,12 @@ function DashboardProvider() {
           <div className="w-16 h-16 bg-lightBlue rounded-full flex items-center justify-center mx-auto mb-4">
             <FileText className="w-8 h-8 text-midBlue" />
           </div>
-          <p className="text-midBlue text-lg">{modalConfig?.title || "Contenido no disponible"}</p>
-          <p className="text-darkBlue mt-2">Esta funcionalidad estará disponible próximamente</p>
+          <p className="text-midBlue text-lg">
+            {modalConfig?.title || "Contenido no disponible"}
+          </p>
+          <p className="text-darkBlue mt-2">
+            Esta funcionalidad estará disponible próximamente
+          </p>
         </div>
       );
     };
@@ -643,13 +850,20 @@ function DashboardProvider() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-midBlue to-darkBlue px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-white">{modalConfig?.title || currentModal}</h2>
-              <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition">
+              <h2 className="text-xl font-semibold text-white">
+                {modalConfig?.title || currentModal}
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition"
+              >
                 <X className="w-5 h-5 text-white" />
               </button>
             </div>
 
-            <div className="p-0 overflow-y-auto max-h-[80vh]">{renderModalContent()}</div>
+            <div className="p-0 overflow-y-auto max-h-[80vh]">
+              {renderModalContent()}
+            </div>
           </div>
         </div>
       </>
@@ -658,7 +872,6 @@ function DashboardProvider() {
 
   return (
     <div className="min-h-screen flex bg-beige">
-      {/* SIDEBAR */}
       <aside
         className={`bg-white border-r border-lightBlue shadow-lg transition-all duration-300 flex flex-col ${
           sidebarOpen ? "w-64" : "w-20"
@@ -668,10 +881,15 @@ function DashboardProvider() {
           {sidebarOpen && (
             <div className="flex items-center gap-3">
               <img src={logo} alt="Logo" className="h-8 object-contain" />
-              <span className="font-semibold text-darkBlue">Portal Proveedores</span>
+              <span className="font-semibold text-darkBlue">
+                Portal Proveedores
+              </span>
             </div>
           )}
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-lightBlue transition">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-lightBlue transition"
+          >
             {sidebarOpen ? (
               <ChevronLeft className="w-5 h-5 text-darkBlue" />
             ) : (
@@ -693,19 +911,22 @@ function DashboardProvider() {
               >
                 <div
                   className={`p-1.5 rounded-lg ${
-                    currentModal === item.id ? "bg-midBlue text-white" : "bg-lightBlue text-darkBlue"
+                    currentModal === item.id
+                      ? "bg-midBlue text-white"
+                      : "bg-lightBlue text-darkBlue"
                   }`}
                 >
                   {item.icon}
                 </div>
-                {sidebarOpen && <span className="text-sm font-medium">{item.title}</span>}
+                {sidebarOpen && (
+                  <span className="text-sm font-medium">{item.title}</span>
+                )}
               </button>
             </div>
           ))}
         </nav>
       </aside>
 
-      {/* MAIN */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-darkBlue">Bienvenido</h1>
@@ -716,7 +937,9 @@ function DashboardProvider() {
               className="flex items-center gap-2 hover:bg-lightBlue rounded-lg p-2 transition"
             >
               <div className="text-right">
-                <span className="text-sm font-medium text-darkBlue block">Proveedor</span>
+                <span className="text-sm font-medium text-darkBlue block">
+                  Proveedor
+                </span>
                 <span className="text-xs text-midBlue block max-w-[180px] truncate">
                   {datosProveedor.nombreEmpresa}
                 </span>
@@ -730,10 +953,16 @@ function DashboardProvider() {
               <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-lightBlue py-2 z-50">
                 <button
                   onClick={() =>
-                    showAlert("warning", "Cerrar sesión", "¿Seguro que deseas salir?", true, () => {
-                      setAlertOpen(false);
-                      handleLogout();
-                    })
+                    showAlert(
+                      "warning",
+                      "Cerrar sesión",
+                      "¿Seguro que deseas salir?",
+                      true,
+                      () => {
+                        setAlertOpen(false);
+                        handleLogout();
+                      }
+                    )
                   }
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-darkBlue hover:bg-lightBlue transition"
                 >
@@ -750,10 +979,8 @@ function DashboardProvider() {
         </section>
       </main>
 
-      {/* MODAL */}
       <Modal isOpen={modalOpen} onClose={closeModal} />
 
-      {/* ALERT */}
       <Alert
         isOpen={alertOpen}
         onClose={() => setAlertOpen(false)}
@@ -764,7 +991,12 @@ function DashboardProvider() {
         onConfirm={alertConfig.onConfirm}
       />
 
-      {userMenuOpen && <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />}
+      {userMenuOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setUserMenuOpen(false)}
+        />
+      )}
     </div>
   );
 }

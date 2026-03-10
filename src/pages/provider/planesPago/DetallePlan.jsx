@@ -4,6 +4,29 @@ import { ArrowLeft, Info } from "lucide-react";
 import ParcialidadesTable from "../components/ParcialidadesTable";
 import { PaymentsAPI } from "../../../api/payments.api";
 
+function parseLocalDate(value) {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (m) {
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toLocalISO(value) {
+  const d = parseLocalDate(value);
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function formatCurrency(value, currency = "MXN") {
   const n = Number(value || 0);
   try {
@@ -17,9 +40,8 @@ function formatCurrency(value, currency = "MXN") {
 }
 
 function formatDateISO(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
+  const d = parseLocalDate(value);
+  if (!d) return "—";
   return d.toLocaleDateString("es-MX");
 }
 
@@ -55,131 +77,109 @@ function derivePlanStatus(parcialidades = []) {
   return "PENDIENTE";
 }
 
-function groupPaymentsIntoPlans(payments = []) {
-  const map = new Map();
-
-  for (const pay of payments) {
-    const po = pay.purchaseOrder || {};
-    const poId = po.id;
-    if (!poId) continue;
-
-    if (!map.has(poId)) {
-      map.set(poId, {
-        id: poId,
-        ordenCompra: po.number || `OC-${poId}`,
-        moneda: po.currency || "MXN",
-        total: Number(po.total || 0),
-        status: "PENDIENTE",
-        parcialidades: [],
-      });
-    }
-
-    const evidences = Array.isArray(pay.evidences) ? pay.evidences : [];
-    const pdf = evidences.find(
-      (e) => String(e.kind || "").toUpperCase() === "PDF"
-    );
-    const xml = evidences.find(
-      (e) => String(e.kind || "").toUpperCase() === "XML"
-    );
-
-    map.get(poId).parcialidades.push({
-      id: pay.id,
-      numero: pay.installmentNo || 1,
-      totalParcialidades: pay.installmentOf || 1,
-      monto: Number(pay.amount || 0),
-      fechaPago: pay.paidAt,
-      fechaCierre: pay.paidAt,
-      estado: backendStatusToUi(pay.status),
-      rejectionType: pay.rejectionType || "",
-      rejectionComment: pay.decisionComment || "",
-      rechazoMotivo: pay.decisionComment || "",
-      comentariosProveedor: "",
-      evidencia: {
-        pdfName: pdf?.fileName || "",
-        xmlName: xml?.fileName || "",
-      },
-    });
-  }
-
-  return Array.from(map.values()).map((plan) => {
-    const parcialidades = [...plan.parcialidades].sort(
-      (a, b) => a.numero - b.numero
-    );
-
-    return {
-      ...plan,
-      status: derivePlanStatus(parcialidades),
-      parcialidades,
-    };
-  });
-}
-
-export default function DetallePlan({
-  planId,
-  onBack,
-  onUploadParcialidad,
-  showAlert,
-}) {
-  const [planes, setPlanes] = useState([]);
+export default function DetallePlan({ planId, onBack, onUploadParcialidad }) {
   const [loading, setLoading] = useState(true);
+  const [plan, setPlan] = useState(null);
   const [showReject, setShowReject] = useState(false);
   const [rejectItem, setRejectItem] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPlans() {
+    async function loadPlan() {
       try {
         setLoading(true);
 
         const res = await PaymentsAPI.listMyPlans();
         const payments = Array.isArray(res?.payments) ? res.payments : [];
-        const grouped = groupPaymentsIntoPlans(payments);
 
-        if (!cancelled) {
-          setPlanes(grouped);
+        const poPayments = payments.filter(
+          (p) => Number(p?.purchaseOrder?.id) === Number(planId)
+        );
+
+        if (!poPayments.length) {
+          if (!cancelled) setPlan(null);
+          return;
         }
+
+        const purchaseOrder = poPayments[0]?.purchaseOrder || {};
+
+        const parcialidades = poPayments
+          .map((payment, idx) => {
+            const evidences = Array.isArray(payment.evidences)
+              ? payment.evidences
+              : [];
+
+            const pdf = evidences.find(
+              (e) => String(e.kind || "").toUpperCase() === "PDF"
+            );
+            const xml = evidences.find(
+              (e) => String(e.kind || "").toUpperCase() === "XML"
+            );
+
+            return {
+              id: payment.id,
+              numero: payment.installmentNo || idx + 1,
+              totalParcialidades:
+                payment.installmentOf || poPayments.length || 1,
+              monto: Number(payment.amount || 0),
+              fechaPago: toLocalISO(payment.paidAt),
+              fechaCierre: toLocalISO(payment.closeDate || payment.paidAt),
+              estado: backendStatusToUi(payment.status),
+              rejectionType: payment.rejectionType || "",
+              rejectionComment: payment.decisionComment || "",
+              rechazoMotivo: payment.decisionComment || "",
+              evidencia: {
+                pdfName: pdf?.fileName || "",
+                xmlName: xml?.fileName || "",
+              },
+            };
+          })
+          .sort((a, b) => a.numero - b.numero);
+
+        const mappedPlan = {
+          id: purchaseOrder.id,
+          ordenCompra: purchaseOrder.number || `OC-${purchaseOrder.id}`,
+          moneda: purchaseOrder.currency || "MXN",
+          total: Number(purchaseOrder.total || 0),
+          status: derivePlanStatus(parcialidades),
+          parcialidades,
+        };
+
+        if (!cancelled) setPlan(mappedPlan);
       } catch (error) {
         console.error("Error cargando detalle del plan:", error);
-
-        if (!cancelled) {
-          setPlanes([]);
-          showAlert?.(
-            "error",
-            "Plan de pagos",
-            error?.response?.data?.error ||
-              error?.message ||
-              "No se pudo cargar el detalle del plan."
-          );
-        }
+        if (!cancelled) setPlan(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    loadPlans();
+    loadPlan();
 
     return () => {
       cancelled = true;
     };
-  }, [showAlert]);
-
-  const plan = useMemo(() => {
-    return planes.find((p) => Number(p.id) === Number(planId)) || null;
-  }, [planes, planId]);
+  }, [planId]);
 
   const resumen = useMemo(() => {
     if (!plan) return null;
 
     const total = plan.parcialidades.length;
-    const pagadas = plan.parcialidades.filter(
-      (p) => String(p.estado).toUpperCase() === "PAGADA"
+    const pagadas = plan.parcialidades.filter((p) =>
+      ["PAGADA", "APROBADA"].includes(String(p.estado).toUpperCase())
     ).length;
+
     const progreso = total ? Math.round((pagadas / total) * 100) : 0;
 
     const futuros = plan.parcialidades
       .filter((p) => String(p.estado).toUpperCase() !== "PAGADA")
-      .sort((a, b) => new Date(a.fechaCierre) - new Date(b.fechaCierre));
+      .filter((p) => !!p.fechaCierre)
+      .sort((a, b) => {
+        const da = parseLocalDate(a.fechaCierre)?.getTime() || 0;
+        const db = parseLocalDate(b.fechaCierre)?.getTime() || 0;
+        return da - db;
+      });
 
     return {
       total,
@@ -217,7 +217,6 @@ export default function DetallePlan({
 
   return (
     <div className="space-y-6 p-6">
-      {/* Top */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <button
           onClick={onBack}
@@ -233,7 +232,6 @@ export default function DetallePlan({
         </div>
       </div>
 
-      {/* Resumen */}
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
@@ -282,17 +280,12 @@ export default function DetallePlan({
         </div>
       </div>
 
-      {/* Tabla */}
       <ParcialidadesTable
         parcialidades={plan.parcialidades}
         currency={plan.moneda}
         onUpload={(p) => onUploadParcialidad?.(plan.id, p.id)}
         onView={(p) => {
-          showAlert?.(
-            "info",
-            "Parcialidad",
-            `Vista de envío para la parcialidad #${p.numero}`
-          );
+          alert(`(UI) Ver envío parcialidad #${p.numero}`);
         }}
         onViewRejection={(p) => {
           setRejectItem(p);
@@ -300,7 +293,6 @@ export default function DetallePlan({
         }}
       />
 
-      {/* Modal rechazo */}
       {showReject && rejectItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg overflow-hidden rounded-2xl border bg-white shadow-lg">

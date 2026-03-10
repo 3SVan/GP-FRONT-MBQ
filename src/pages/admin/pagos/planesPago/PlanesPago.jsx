@@ -1,4 +1,3 @@
-// src/pages/admin/pagos/planesPago/PlanesPago.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import PlanesPagoList from "./PlanesPagoList.jsx";
 import PlanesPagoCreate from "./PlanesPagoCreate.jsx";
@@ -124,18 +123,18 @@ function groupPlansFromPayments(payments = []) {
         p?.pdfUrl ||
         p?.evidence?.pdfUrl ||
         p?.files?.pdfUrl ||
-        p?.filePdfUrl ||
-        pdfEvidence?.fileUrl ||
-        pdfEvidence?.url ||
+        p?.evidences?.find?.(
+          (e) => String(e?.type || e?.kind || "").toUpperCase() === "PDF"
+        )?.url ||
         "";
 
       const xmlUrl =
         p?.xmlUrl ||
         p?.evidence?.xmlUrl ||
         p?.files?.xmlUrl ||
-        p?.fileXmlUrl ||
-        xmlEvidence?.fileUrl ||
-        xmlEvidence?.url ||
+        p?.evidences?.find?.(
+          (e) => String(e?.type || e?.kind || "").toUpperCase() === "XML"
+        )?.url ||
         "";
 
       return {
@@ -147,7 +146,7 @@ function groupPlansFromPayments(payments = []) {
           isoDate(p?.paidAt) ||
           isoDate(p?.scheduledAt) ||
           isoDate(p?.createdAt),
-        closeDate: isoDate(p?.closeDate) || "",
+        closeDate: isoDate(p?.closeAt) || "",
         status: mapPaymentToPartialStatus(p),
         pdfUrl,
         xmlUrl,
@@ -289,6 +288,7 @@ export default function PlanesPago({ showAlert }) {
           purchaseOrderId,
           amount: Number(part.amount || 0),
           paidAt: part.payDate,
+          closeAt: part.closeDate || null,
           method: "TRANSFER",
           reference: draftPlan?.notes ? `PLAN: ${draftPlan.notes}` : "PLAN",
           isScheduled: true,
@@ -300,7 +300,7 @@ export default function PlanesPago({ showAlert }) {
       showAlert?.(
         "success",
         "Plan creado",
-        "El plan de pago se creó correctamente.",
+        "El plan de pago se creó correctamente."
       );
 
       await refresh();
