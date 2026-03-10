@@ -1,4 +1,3 @@
-// src/pages/admin/pagos/planesPago/PlanesPago.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import PlanesPagoList from "./PlanesPagoList.jsx";
 import PlanesPagoCreate from "./PlanesPagoCreate.jsx";
@@ -29,6 +28,7 @@ function mapPaymentToPartialStatus(p) {
   if (st === "PAID" || st === "PAGADA") return "PAGADA";
   if (st === "APPROVED") return "APROBADA";
   if (st === "REJECTED") return "RECHAZADA";
+  if (st === "SUBMITTED") return "ENVIADA";
   if (st === "PENDING" || !st) return hasEvidence ? "ENVIADA" : "PENDIENTE";
 
   return hasEvidence ? "ENVIADA" : "PENDIENTE";
@@ -73,6 +73,7 @@ function groupPlansFromPayments(payments = []) {
         rows: [],
       });
     }
+
     map.get(poId).rows.push(p);
   }
 
@@ -108,7 +109,7 @@ function groupPlansFromPayments(payments = []) {
         p?.evidence?.pdfUrl ||
         p?.files?.pdfUrl ||
         p?.evidences?.find?.(
-          (e) => String(e?.type || "").toUpperCase() === "PDF"
+          (e) => String(e?.type || e?.kind || "").toUpperCase() === "PDF"
         )?.url ||
         "";
 
@@ -117,7 +118,7 @@ function groupPlansFromPayments(payments = []) {
         p?.evidence?.xmlUrl ||
         p?.files?.xmlUrl ||
         p?.evidences?.find?.(
-          (e) => String(e?.type || "").toUpperCase() === "XML"
+          (e) => String(e?.type || e?.kind || "").toUpperCase() === "XML"
         )?.url ||
         "";
 
@@ -130,7 +131,7 @@ function groupPlansFromPayments(payments = []) {
           isoDate(p?.paidAt) ||
           isoDate(p?.scheduledAt) ||
           isoDate(p?.createdAt),
-        closeDate: isoDate(p?.closeDate) || "",
+        closeDate: isoDate(p?.closeAt) || "",
         status: mapPaymentToPartialStatus(p),
         pdfUrl,
         xmlUrl,
@@ -219,11 +220,9 @@ export default function PlanesPago({ showAlert }) {
       const payments = paymentsRes?.payments || [];
       const approvedUnpaid = approvedUnpaidRes?.purchaseOrders || [];
 
-      // ✅ OCs para selector: vienen de órdenes aprobadas sin pagos
       const newOCs = buildOCsFromApprovedPurchaseOrders(approvedUnpaid);
       setOcs(newOCs);
 
-      // ✅ Planes existentes: vienen de payments
       const newPlans = groupPlansFromPayments(payments);
       setPlans(newPlans);
     } catch (e) {
@@ -252,7 +251,11 @@ export default function PlanesPago({ showAlert }) {
       }
 
       if (!parts.length) {
-        showAlert?.("error", "Sin parcialidades", "No hay parcialidades para guardar.");
+        showAlert?.(
+          "error",
+          "Sin parcialidades",
+          "No hay parcialidades para guardar."
+        );
         return;
       }
 
@@ -261,6 +264,7 @@ export default function PlanesPago({ showAlert }) {
           purchaseOrderId,
           amount: Number(part.amount || 0),
           paidAt: part.payDate,
+          closeAt: part.closeDate || null,
           method: "TRANSFER",
           reference: draftPlan?.notes ? `PLAN: ${draftPlan.notes}` : "PLAN",
           isScheduled: true,
@@ -269,13 +273,18 @@ export default function PlanesPago({ showAlert }) {
         });
       }
 
-      showAlert?.("success", "Plan creado", "El plan de pago se creó correctamente.");
+      showAlert?.(
+        "success",
+        "Plan creado",
+        "El plan de pago se creó correctamente."
+      );
+
       await refresh();
 
-      // como ya tendrá payments, ya existirá en plans
       setSelectedId(String(purchaseOrderId));
       setView("detail");
     } catch (e) {
+      console.error("Error guardando plan:", e);
       showAlert?.("error", "Error", "No se pudo crear el plan de pago.");
     }
   };
@@ -285,7 +294,11 @@ export default function PlanesPago({ showAlert }) {
   };
 
   if (loading && view === "list") {
-    return <div className="p-6 text-sm text-gray-600">Cargando planes de pago...</div>;
+    return (
+      <div className="p-6 text-sm text-gray-600">
+        Cargando planes de pago...
+      </div>
+    );
   }
 
   if (view === "create") {

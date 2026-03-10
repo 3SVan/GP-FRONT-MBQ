@@ -1,11 +1,34 @@
 // src/pages/provider/planesPago/SubirParcialidad.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, AlertTriangle, CheckCircle2 } from "lucide-react";
 import UploadCard from "../components/UploadCard";
 import WindowIndicator from "../components/WindowIndicator";
 import StatusBadge from "../components/StatusBadge";
 import { PaymentsAPI } from "../../../api/payments.api";
 import { PaymentEvidenceAPI } from "../../../api/paymentEvidence.api";
+
+function parseLocalDate(value) {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (m) {
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toLocalISO(value) {
+  const d = parseLocalDate(value);
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 function formatCurrency(value, currency = "MXN") {
   const n = Number(value || 0);
@@ -20,18 +43,24 @@ function formatCurrency(value, currency = "MXN") {
 }
 
 function formatDateISO(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
+  const d = parseLocalDate(value);
+  if (!d) return "—";
   return d.toLocaleDateString("es-MX");
 }
 
 function isBeforeToday(dateStr) {
+  const d = parseLocalDate(dateStr);
+  if (!d) return false;
+
   const today = new Date();
-  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return false;
-  return d.setHours(0, 0, 0, 0) < t;
+  const t = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  ).getTime();
+
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return x < t;
 }
 
 function backendStatusToUi(status) {
@@ -140,7 +169,9 @@ export default function SubirParcialidad({
           (p) => Number(p?.purchaseOrder?.id) === Number(planId)
         );
 
-        const payment = poPayments.find((p) => Number(p.id) === Number(parcialidadId));
+        const payment = poPayments.find(
+          (p) => Number(p.id) === Number(parcialidadId)
+        );
 
         if (!payment) {
           if (!cancelled) {
@@ -151,12 +182,17 @@ export default function SubirParcialidad({
         }
 
         const evidences = Array.isArray(payment.evidences) ? payment.evidences : [];
-        const pdf = evidences.find((e) => String(e.kind || "").toUpperCase() === "PDF");
-        const xml = evidences.find((e) => String(e.kind || "").toUpperCase() === "XML");
+        const pdf = evidences.find(
+          (e) => String(e.kind || "").toUpperCase() === "PDF"
+        );
+        const xml = evidences.find(
+          (e) => String(e.kind || "").toUpperCase() === "XML"
+        );
 
         const mappedPlan = {
           id: payment.purchaseOrder?.id,
-          ordenCompra: payment.purchaseOrder?.number || `OC-${payment.purchaseOrder?.id}`,
+          ordenCompra:
+            payment.purchaseOrder?.number || `OC-${payment.purchaseOrder?.id}`,
           moneda: payment.purchaseOrder?.currency || "MXN",
         };
 
@@ -164,8 +200,8 @@ export default function SubirParcialidad({
           id: payment.id,
           numero: payment.installmentNo || 1,
           monto: Number(payment.amount || 0),
-          fechaPago: payment.paidAt,
-          fechaCierre: payment.paidAt,
+          fechaPago: toLocalISO(payment.paidAt),
+          fechaCierre: toLocalISO(payment.closeDate || payment.paidAt),
           estado: backendStatusToUi(payment.status),
           rejectionType: payment.rejectionType || "",
           comentariosProveedor: "",
@@ -217,7 +253,10 @@ export default function SubirParcialidad({
   if (!plan || !parcialidad) {
     return (
       <div className="p-6">
-        <button onClick={onBack} className="text-sm font-semibold text-midBlue underline">
+        <button
+          onClick={onBack}
+          className="text-sm font-semibold text-midBlue underline"
+        >
           Volver
         </button>
         <div className="mt-4 rounded-2xl border bg-white p-6">
@@ -230,7 +269,9 @@ export default function SubirParcialidad({
   const st = String(parcialidad.estado || "").toUpperCase();
   const rejectionType = String(parcialidad.rejectionType || "GENERAL").toUpperCase();
 
-  const isInvoiceErrorMode = st === "RECHAZADA" && rejectionType === "INVOICE_ERROR";
+  const isInvoiceErrorMode =
+    st === "RECHAZADA" && rejectionType === "INVOICE_ERROR";
+
   const vencida = isBeforeToday(parcialidad.fechaCierre);
   const bloqueoVentana = vencida;
 
@@ -242,9 +283,17 @@ export default function SubirParcialidad({
     ? fileOk(xmlFile, ".xml") && !fileTooBig(xmlFile, 10)
     : currentXmlList.length > 0;
 
-  const satValid = satPdfFile ? fileOk(satPdfFile, ".pdf") && !fileTooBig(satPdfFile, 10) : false;
-  const invPdfValid = invPdfFile ? fileOk(invPdfFile, ".pdf") && !fileTooBig(invPdfFile, 10) : false;
-  const invXmlValid = invXmlFile ? fileOk(invXmlFile, ".xml") && !fileTooBig(invXmlFile, 10) : false;
+  const satValid = satPdfFile
+    ? fileOk(satPdfFile, ".pdf") && !fileTooBig(satPdfFile, 10)
+    : false;
+
+  const invPdfValid = invPdfFile
+    ? fileOk(invPdfFile, ".pdf") && !fileTooBig(invPdfFile, 10)
+    : false;
+
+  const invXmlValid = invXmlFile
+    ? fileOk(invXmlFile, ".xml") && !fileTooBig(invXmlFile, 10)
+    : false;
 
   const canSend =
     !bloqueoVentana &&
@@ -252,7 +301,9 @@ export default function SubirParcialidad({
       ? satValid && invPdfValid && invXmlValid
       : normalPdfValid && normalXmlValid);
 
-  const sendLabel = isInvoiceErrorMode ? "Enviar corrección" : "Enviar a revisión";
+  const sendLabel = isInvoiceErrorMode
+    ? "Enviar corrección"
+    : "Enviar a revisión";
 
   const handleSubmit = async () => {
     try {
@@ -327,7 +378,6 @@ export default function SubirParcialidad({
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <button
           onClick={onBack}
@@ -345,7 +395,6 @@ export default function SubirParcialidad({
         </div>
       </div>
 
-      {/* Resumen */}
       <div className="space-y-3 rounded-2xl border bg-white p-5 shadow-sm">
         <p className="text-sm text-gray-500">Resumen</p>
 
@@ -365,11 +414,15 @@ export default function SubirParcialidad({
           <div className="space-y-1">
             <p className="text-sm text-gray-600">
               Pago programado:{" "}
-              <b className="text-gray-800">{formatDateISO(parcialidad.fechaPago)}</b>
+              <b className="text-gray-800">
+                {formatDateISO(parcialidad.fechaPago)}
+              </b>
             </p>
             <p className="text-sm text-gray-600">
               Cierre:{" "}
-              <b className="text-gray-800">{formatDateISO(parcialidad.fechaCierre)}</b>
+              <b className="text-gray-800">
+                {formatDateISO(parcialidad.fechaCierre)}
+              </b>
             </p>
           </div>
         </div>
@@ -391,7 +444,6 @@ export default function SubirParcialidad({
 
       {isInvoiceErrorMode && <StepCardInvoiceError />}
 
-      {/* Inputs hidden */}
       <input
         ref={pdfRef}
         type="file"
@@ -400,8 +452,10 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".pdf")) return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
-          if (fileTooBig(f, 10)) return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
+          if (!fileOk(f, ".pdf"))
+            return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
+          if (fileTooBig(f, 10))
+            return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
           setPdfFile(f);
         }}
       />
@@ -414,8 +468,10 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".xml")) return showAlert?.("error", "Archivo inválido", "Solo se permite XML.");
-          if (fileTooBig(f, 10)) return showAlert?.("error", "Archivo inválido", "El XML supera 10MB.");
+          if (!fileOk(f, ".xml"))
+            return showAlert?.("error", "Archivo inválido", "Solo se permite XML.");
+          if (fileTooBig(f, 10))
+            return showAlert?.("error", "Archivo inválido", "El XML supera 10MB.");
           setXmlFile(f);
         }}
       />
@@ -428,8 +484,10 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".pdf")) return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
-          if (fileTooBig(f, 10)) return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
+          if (!fileOk(f, ".pdf"))
+            return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
+          if (fileTooBig(f, 10))
+            return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
           setSatPdfFile(f);
         }}
       />
@@ -442,8 +500,10 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".pdf")) return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
-          if (fileTooBig(f, 10)) return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
+          if (!fileOk(f, ".pdf"))
+            return showAlert?.("error", "Archivo inválido", "Solo se permite PDF.");
+          if (fileTooBig(f, 10))
+            return showAlert?.("error", "Archivo inválido", "El PDF supera 10MB.");
           setInvPdfFile(f);
         }}
       />
@@ -456,8 +516,10 @@ export default function SubirParcialidad({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (!fileOk(f, ".xml")) return showAlert?.("error", "Archivo inválido", "Solo se permite XML.");
-          if (fileTooBig(f, 10)) return showAlert?.("error", "Archivo inválido", "El XML supera 10MB.");
+          if (!fileOk(f, ".xml"))
+            return showAlert?.("error", "Archivo inválido", "Solo se permite XML.");
+          if (fileTooBig(f, 10))
+            return showAlert?.("error", "Archivo inválido", "El XML supera 10MB.");
           setInvXmlFile(f);
         }}
       />
@@ -544,7 +606,6 @@ export default function SubirParcialidad({
         </div>
       )}
 
-      {/* Comentarios */}
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
         <p className="font-bold text-darkBlue">
           Comentarios para el aprobador (opcional)
@@ -558,14 +619,13 @@ export default function SubirParcialidad({
         />
       </div>
 
-      {/* CTA */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-white p-5 shadow-sm">
         <div className="text-sm text-gray-500">
           {bloqueoVentana
             ? "Ventana vencida. No se puede enviar."
             : isInvoiceErrorMode
-              ? "Requiere: Acuse SAT + Nueva factura PDF + Nueva factura XML."
-              : "Requiere: Factura PDF + Factura XML."}
+            ? "Requiere: Acuse SAT + Nueva factura PDF + Nueva factura XML."
+            : "Requiere: Factura PDF + Factura XML."}
         </div>
 
         <button
