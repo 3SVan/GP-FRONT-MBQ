@@ -21,8 +21,7 @@ import { getEstatusColor, getRolColor } from "./users/utils/uiColors";
 
 const ensureArray = (v) => (Array.isArray(v) ? v : []);
 
-const isAllowedEmail = (email = "") =>
-  email.endsWith("@mbqinc.com") || email.endsWith("@gmail.com");
+const isAllowedEmail = (email = "") => email.endsWith("@mbqinc.com");
 
 const uiRoleToBack = (rolUI) => {
   if (rolUI === "Administrador") return "ADMIN";
@@ -247,7 +246,7 @@ export default function Usuarios() {
       showAlert(
         "error",
         "Error de Edición",
-        "Solo se pueden modificar usuarios con correo @mbqinc.com o @gmail.com",
+        "Solo se pueden modificar usuarios con correo @mbqinc.com",
       );
     }
   };
@@ -268,7 +267,7 @@ export default function Usuarios() {
 
     if (name === "email") {
       if (value && !isAllowedEmail(value)) {
-        setErrorEmail("Solo se permiten correos @mbqinc.com o @gmail.com");
+        setErrorEmail("Solo se permiten correos @mbqinc.com");
       } else {
         setErrorEmail("");
       }
@@ -284,7 +283,7 @@ export default function Usuarios() {
     e.preventDefault();
 
     if (!isAllowedEmail(nuevoUsuario.email)) {
-      setErrorEmail("Solo se permiten correos @mbqinc.com o @gmail.com");
+      setErrorEmail("Solo se permiten correos @mbqinc.com");
       return;
     }
 

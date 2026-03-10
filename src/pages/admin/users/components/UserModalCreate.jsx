@@ -1,3 +1,4 @@
+// src/pages/admin/users/components/UserModalCreate.jsx
 import React from "react";
 import { X } from "lucide-react";
 
@@ -25,14 +26,19 @@ export default function UserModalCreate({
         >
           <div className="bg-midBlue text-white px-6 py-4 rounded-t-xl flex justify-between items-center">
             <h3 className="text-lg font-semibold">Agregar Nuevo Usuario</h3>
-            <button onClick={onClose} className="text-white hover:text-lightBlue transition">
+            <button
+              onClick={onClose}
+              className="text-white hover:text-lightBlue transition"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           <form onSubmit={onSubmit} className="p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-darkBlue mb-1">Nombre Completo *</label>
+              <label className="block text-sm font-medium text-darkBlue mb-1">
+                Nombre Completo *
+              </label>
               <input
                 type="text"
                 name="nombre"
@@ -44,7 +50,9 @@ export default function UserModalCreate({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-darkBlue mb-1">Email *</label>
+              <label className="block text-sm font-medium text-darkBlue mb-1">
+                Email *
+              </label>
               <input
                 type="email"
                 name="email"
@@ -56,12 +64,18 @@ export default function UserModalCreate({
                 placeholder="usuario@mbqinc.com"
                 required
               />
-              {errorEmail && <p className="text-red-500 text-xs mt-1">{errorEmail}</p>}
-              <p className="text-midBlue text-xs mt-1">Dominios permitidos: @mbqinc.com (oficial) y @gmail.com (temporal)</p>
+              {errorEmail && (
+                <p className="text-red-500 text-xs mt-1">{errorEmail}</p>
+              )}
+              <p className="text-midBlue text-xs mt-1">
+                Dominio permitido: @mbqinc.com
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-darkBlue mb-1">Departamento *</label>
+              <label className="block text-sm font-medium text-darkBlue mb-1">
+                Departamento *
+              </label>
               <select
                 name="departamento"
                 value={nuevoUsuario?.departamento || ""}
@@ -79,7 +93,9 @@ export default function UserModalCreate({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-darkBlue mb-1">Rol *</label>
+              <label className="block text-sm font-medium text-darkBlue mb-1">
+                Rol *
+              </label>
               <select
                 name="rol"
                 value={nuevoUsuario?.rol || "Aprobador"}
