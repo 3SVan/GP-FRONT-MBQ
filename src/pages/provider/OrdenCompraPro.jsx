@@ -1,11 +1,6 @@
 // src/pages/provider/OrdenCompraPro.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Upload,
-  FileText,
-  RefreshCcw,
-  X,
-} from "lucide-react";
+import { Upload, FileText, RefreshCcw, X } from "lucide-react";
 
 import { PurchaseOrdersAPI } from "../../api/purchaseOrders.api";
 
@@ -75,8 +70,11 @@ function formatDate(value) {
 }
 
 function normalizeOrderStatus(status) {
-  const s = String(status || "").trim().toUpperCase();
+  const s = String(status || "")
+    .trim()
+    .toUpperCase();
 
+  if (s === "DRAFT") return "Borrador";
   if (s === "SENT") return "Enviada";
   if (s === "APPROVED") return "Aprobada";
   if (s === "REJECTED") return "Rechazada";
@@ -87,8 +85,11 @@ function normalizeOrderStatus(status) {
 }
 
 function statusTone(status) {
-  const s = String(status || "").trim().toLowerCase();
+  const s = String(status || "")
+    .trim()
+    .toLowerCase();
 
+  if (["draft", "borrador"].includes(s)) return "info";
   if (["approved", "aprobada"].includes(s)) return "success";
   if (["rejected", "rechazada", "cancelled", "cancelada"].includes(s))
     return "danger";
@@ -97,20 +98,23 @@ function statusTone(status) {
   return statusToneFromText(status);
 }
 
-function FilePill({ name, onRemove }) {
+function FilePill({ name, sizeText = "", onRemove }) {
   return (
-    <div className="mt-3 w-full">
-      <div className="inline-flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-        <div className="min-w-0">
-          <div className="max-w-[240px] truncate text-xs text-gray-700 sm:max-w-[280px] md:max-w-[260px]">
+    <div className="mt-3 flex w-full justify-center">
+      <div className="grid min-h-[58px] w-full max-w-[320px] grid-cols-[1fr_auto] items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+        <div className="min-w-0 text-center">
+          <div className="truncate text-sm font-medium text-darkBlue">
             {name}
+          </div>
+          <div className="mt-0.5 text-[11px] text-blue-700/70">
+            {sizeText || "—"}
           </div>
         </div>
 
         <button
           type="button"
           onClick={onRemove}
-          className="ml-1 text-gray-500 hover:text-gray-800"
+          className="text-blue-500 transition hover:text-blue-700"
           title="Quitar archivo"
         >
           <X className="h-4 w-4" />
@@ -124,33 +128,31 @@ function FilePillList({ files = [], onRemoveAt }) {
   if (!Array.isArray(files) || files.length === 0) return null;
 
   return (
-    <div className="mt-3 w-full">
-      <div className="flex flex-wrap gap-2">
-        {files.map((f, idx) => (
-          <div
-            key={`${f.name}-${idx}`}
-            className="inline-flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm"
-          >
-            <div className="min-w-0">
-              <div className="max-w-[240px] truncate text-xs text-gray-700 sm:max-w-[280px] md:max-w-[220px]">
-                {f.name}
-              </div>
-              <div className="text-[11px] text-gray-400">
-                {formatMb(f.size)} MB
-              </div>
+    <div className="mt-3 flex w-full flex-col items-center gap-2">
+      {files.map((f, idx) => (
+        <div
+          key={`${f.name}-${idx}`}
+          className="grid min-h-[58px] w-full max-w-[320px] grid-cols-[1fr_auto] items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2"
+        >
+          <div className="min-w-0 text-center">
+            <div className="truncate text-sm font-medium text-darkBlue">
+              {f.name}
             </div>
-
-            <button
-              type="button"
-              onClick={() => onRemoveAt(idx)}
-              className="ml-1 text-gray-500 hover:text-gray-800"
-              title="Quitar archivo"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="mt-0.5 text-[11px] text-blue-700/70">
+              {formatMb(f.size)} MB
+            </div>
           </div>
-        ))}
-      </div>
+
+          <button
+            type="button"
+            onClick={() => onRemoveAt(idx)}
+            className="text-blue-500 transition hover:text-blue-700"
+            title="Quitar archivo"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -170,7 +172,7 @@ function UploadCardSingle({
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, ""),
-    [label]
+    [label],
   );
 
   const typeText = accept.includes("pdf") ? "PDF" : "XML";
@@ -217,7 +219,13 @@ function UploadCardSingle({
             Agregar archivo
           </button>
 
-          {file?.name ? <FilePill name={file.name} onRemove={onRemove} /> : null}
+          {file?.name ? (
+            <FilePill
+              name={file.name}
+              sizeText={file?.size ? `${formatMb(file.size)} MB` : "—"}
+              onRemove={onRemove}
+            />
+          ) : null}
 
           {errorText ? (
             <div className="mt-1 text-xs text-red-600">{errorText}</div>
@@ -243,7 +251,7 @@ function UploadCardMulti({
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, ""),
-    [label]
+    [label],
   );
 
   const typeText = accept.includes("pdf") ? "PDF" : "XML";
@@ -414,7 +422,7 @@ export default function OrdenCompraPro() {
         `Solo se permite ${kind.toUpperCase()}. Archivo(s) recibido(s): ${invalid
           .map((f) => `"${f.name}"`)
           .join(", ")}`,
-        "Formato inválido"
+        "Formato inválido",
       );
     } else {
       setErrors((e) => ({ ...e, [key]: "" }));
@@ -425,7 +433,11 @@ export default function OrdenCompraPro() {
     const tooBig = valid.find((f) => (f?.size || 0) > 10 * 1024 * 1024);
     if (tooBig) {
       setErrors((e) => ({ ...e, [key]: msgPerCard }));
-      showAlert("error", `El archivo "${tooBig.name}" excede 10MB.`, "Archivo demasiado grande");
+      showAlert(
+        "error",
+        `El archivo "${tooBig.name}" excede 10MB.`,
+        "Archivo demasiado grande",
+      );
       return;
     }
 
@@ -463,7 +475,7 @@ export default function OrdenCompraPro() {
       showAlert(
         "info",
         "Completa los campos obligatorios y sube la orden en PDF.",
-        "Información incompleta"
+        "Información incompleta",
       );
       return;
     }
@@ -472,7 +484,7 @@ export default function OrdenCompraPro() {
       showAlert(
         "info",
         "Sube al menos 1 factura en PDF y 1 factura en XML.",
-        "Archivos requeridos"
+        "Archivos requeridos",
       );
       return;
     }
@@ -481,7 +493,7 @@ export default function OrdenCompraPro() {
       showAlert(
         "error",
         `La cantidad de facturas PDF (${files.facturasPdf.length}) debe ser igual a la de XML (${files.facturasXml.length}).`,
-        "Cantidad inconsistente"
+        "Cantidad inconsistente",
       );
       return;
     }
@@ -508,7 +520,7 @@ export default function OrdenCompraPro() {
       showAlert(
         "success",
         "La orden de compra fue enviada correctamente.",
-        "Orden registrada"
+        "Orden registrada",
       );
 
       setForm({
@@ -656,7 +668,7 @@ export default function OrdenCompraPro() {
                     showAlert(
                       "error",
                       `Solo se permite PDF. Archivo recibido: "${f.name}"`,
-                      "Formato inválido"
+                      "Formato inválido",
                     );
                     return;
                   }
@@ -667,7 +679,7 @@ export default function OrdenCompraPro() {
                     showAlert(
                       "error",
                       `El archivo "${f.name}" excede 10MB.`,
-                      "Archivo demasiado grande"
+                      "Archivo demasiado grande",
                     );
                     return;
                   }
@@ -787,7 +799,10 @@ export default function OrdenCompraPro() {
 
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {items.map((it) => (
-                    <tr key={it.id} className="transition-colors hover:bg-gray-50">
+                    <tr
+                      key={it.id}
+                      className="transition-colors hover:bg-gray-50"
+                    >
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">
                         {it.number || it.numeroOrden || "-"}
                       </td>
