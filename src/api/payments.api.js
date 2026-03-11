@@ -47,6 +47,15 @@ export const PaymentsAPI = {
     },
 
     /**
+     * DELETE /api/payments/:id
+     * payload: none
+     */
+    async delete(id) {
+        const { data } = await api.delete(`/payments/${id}`);
+        return data;
+    },
+
+    /**
      * PATCH /api/payments/:id/decision
      * payload: { decision: "APPROVE"|"REJECT", comment?: string }
      */
