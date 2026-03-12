@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { UsersAPI } from "../../api/users.api";
@@ -35,28 +35,35 @@ import {
 } from "lucide-react";
 
 // ADMIN → EXPEDIENTES
-import ExpedientesDigitales from "./expedientes/ExpedientesDigitales.jsx";
+const ExpedientesDigitales = lazy(() =>
+  import("./expedientes/ExpedientesDigitales.jsx")
+);
 
 // ADMIN → PROVEEDORES
-import GestionProveedores from "./proveedores/GestionProveedores.jsx";
-import ReactivacionProveedores from "./proveedores/ReactivacionProveedores.jsx";
+const GestionProveedores = lazy(() =>
+  import("./proveedores/GestionProveedores.jsx")
+);
+const ReactivacionProveedores = lazy(() =>
+  import("./proveedores/ReactivacionProveedores.jsx")
+);
 
 // ADMIN → USUARIOS / ACTIVIDAD
-import Usuarios from "./Usuarios.jsx";
-import HistorialActividad from "./HistorialActividad.jsx";
-import VerificacionR from "./sat/VerificacionR.jsx";
+const Usuarios = lazy(() => import("./Usuarios.jsx"));
+const HistorialActividad = lazy(() => import("./HistorialActividad.jsx"));
+const VerificacionR = lazy(() => import("./sat/VerificacionR.jsx"));
 
 // ADMIN → PAGOS
-import PlanesPago from "./pagos/planesPago/PlanesPago.jsx";
-import GestionPagos from "./pagos/GestionPagos.jsx";
-import HistorialPagos from "./pagos/HistorialPagos.jsx";
+const PlanesPago = lazy(() => import("./pagos/planesPago/PlanesPago.jsx"));
+const GestionPagos = lazy(() => import("./pagos/GestionPagos.jsx"));
+const HistorialPagos = lazy(() => import("./pagos/HistorialPagos.jsx"));
 
 // ADMIN → OTROS
-import ActualizacionListaSAT from "./sat/ActualizacionListaSAT.jsx";
+const ActualizacionListaSAT = lazy(() =>
+  import("./sat/ActualizacionListaSAT.jsx")
+);
 
 // SHARED
-import Graficas from "../shared/Graficas.jsx";
-
+const Graficas = lazy(() => import("../shared/Graficas.jsx"));
 /** Helpers */
 function normalizeNotifType(t) {
   const s = String(t || "").toLowerCase();
@@ -105,8 +112,8 @@ function mapAccessRequestToNotification(req) {
     ? personType === "FISICA"
       ? "Persona Física"
       : personType === "MORAL"
-      ? "Persona Moral"
-      : "Sin definir"
+        ? "Persona Moral"
+        : "Sin definir"
     : department || "Sin área asignada";
 
   const nombreMostrar =
@@ -247,10 +254,10 @@ function DashboardAdmin() {
         const rawAccessRequests = Array.isArray(accessReqsRes?.data)
           ? accessReqsRes.data
           : Array.isArray(accessReqsRes?.data?.data)
-          ? accessReqsRes.data.data
-          : Array.isArray(accessReqsRes)
-          ? accessReqsRes
-          : [];
+            ? accessReqsRes.data.data
+            : Array.isArray(accessReqsRes)
+              ? accessReqsRes
+              : [];
 
         const accessRequestNotifications = rawAccessRequests.map(
           mapAccessRequestToNotification
@@ -297,9 +304,9 @@ function DashboardAdmin() {
         prev.map((n) =>
           n.id === id
             ? {
-                ...n,
-                readAt: n.readAt || readAt,
-              }
+              ...n,
+              readAt: n.readAt || readAt,
+            }
             : n
         )
       );
@@ -318,9 +325,9 @@ function DashboardAdmin() {
         prev.map((n) =>
           n.id === id
             ? {
-                ...n,
-                readAt: null,
-              }
+              ...n,
+              readAt: null,
+            }
             : n
         )
       );
@@ -524,12 +531,22 @@ function DashboardAdmin() {
     const renderModalContent = () => {
       if (modalConfig) {
         const ModalComponent = modalConfig.component;
+
         return (
-          <ModalComponent
-            {...modalConfig.props}
-            onClose={onClose}
-            showAlert={showAlert}
-          />
+          <Suspense
+            fallback={
+              <div className="py-16 text-center">
+                <div className="w-10 h-10 border-4 border-lightBlue border-t-midBlue rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-midBlue font-medium">Cargando módulo...</p>
+              </div>
+            }
+          >
+            <ModalComponent
+              {...modalConfig.props}
+              onClose={onClose}
+              showAlert={showAlert}
+            />
+          </Suspense>
         );
       }
 
@@ -589,9 +606,8 @@ function DashboardAdmin() {
   return (
     <div className="min-h-screen flex bg-beige">
       <aside
-        className={`bg-white border-r border-lightBlue shadow-lg transition-all duration-300 flex flex-col ${
-          sidebarOpen ? "w-64" : "w-20"
-        }`}
+        className={`bg-white border-r border-lightBlue shadow-lg transition-all duration-300 flex flex-col ${sidebarOpen ? "w-64" : "w-20"
+          }`}
       >
         <div className="flex items-center justify-between px-4 py-4">
           {sidebarOpen && (
@@ -623,20 +639,18 @@ function DashboardAdmin() {
                   if (item.submenu) openModal(item.submenu[0].id);
                   else openModal(item.id);
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
-                  currentModal === item.id ||
-                  item.submenu?.some((s) => s.id === currentModal)
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${currentModal === item.id ||
+                    item.submenu?.some((s) => s.id === currentModal)
                     ? "bg-lightBlue text-darkBlue border border-midBlue"
                     : "text-darkBlue hover:bg-lightBlue"
-                }`}
+                  }`}
               >
                 <div
-                  className={`p-1.5 rounded-lg ${
-                    currentModal === item.id ||
-                    item.submenu?.some((s) => s.id === currentModal)
+                  className={`p-1.5 rounded-lg ${currentModal === item.id ||
+                      item.submenu?.some((s) => s.id === currentModal)
                       ? "bg-midBlue text-white"
                       : "bg-lightBlue text-darkBlue"
-                  }`}
+                    }`}
                 >
                   {item.icon}
                 </div>
@@ -652,11 +666,10 @@ function DashboardAdmin() {
                     <button
                       key={sub.id}
                       onClick={() => openModal(sub.id)}
-                      className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm transition-colors ${
-                        currentModal === sub.id
+                      className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm transition-colors ${currentModal === sub.id
                           ? "text-midBlue font-medium"
                           : "text-darkBlue hover:text-midBlue"
-                      }`}
+                        }`}
                     >
                       {sub.icon}
                       {sub.title}
@@ -723,22 +736,20 @@ function DashboardAdmin() {
                         return (
                           <div
                             key={n.id}
-                            className={`p-4 border-b border-lightBlue hover:bg-lightBlue transition cursor-pointer ${
-                              !isRead ? "bg-blue-50" : ""
-                            }`}
+                            className={`p-4 border-b border-lightBlue hover:bg-lightBlue transition cursor-pointer ${!isRead ? "bg-blue-50" : ""
+                              }`}
                             onClick={() => handleGeneralNotificationClick(n)}
                           >
                             <div className="flex items-start gap-3">
                               <div
-                                className={`p-2 rounded-full ${
-                                  type === "success"
+                                className={`p-2 rounded-full ${type === "success"
                                     ? "bg-green-100 text-green-600"
                                     : type === "warning"
-                                    ? "bg-yellow-100 text-yellow-600"
-                                    : type === "error"
-                                    ? "bg-red-100 text-red-600"
-                                    : "bg-blue-100 text-blue-600"
-                                }`}
+                                      ? "bg-yellow-100 text-yellow-600"
+                                      : type === "error"
+                                        ? "bg-red-100 text-red-600"
+                                        : "bg-blue-100 text-blue-600"
+                                  }`}
                               >
                                 {type === "success" ? (
                                   <CheckCircle2 className="w-4 h-4" />

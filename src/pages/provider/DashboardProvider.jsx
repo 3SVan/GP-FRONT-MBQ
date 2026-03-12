@@ -1,7 +1,7 @@
 // src/pages/provider/DashboardProvider.jsx
 import { AnalyticsAPI } from "../../api/analytics.api";
 import { PaymentsAPI } from "../../api/payments.api";
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import {
   User,
   FileText,
@@ -21,13 +21,12 @@ import { useNavigate } from "react-router-dom";
 
 import logo from "../../assets/logo-relleno.png";
 
-import GestionDatosPro from "./GestionDatosPro.jsx";
-import OrdenCompraPro from "./OrdenCompraPro.jsx";
-import DocumentosPro from "./DocumentosPro.jsx";
-import EstatusPago from "./EstatusPago.jsx";
-import ExpedientesProveedor from "./ExpedientesProveedor.jsx";
-
-import PlanesPagoShell from "./planesPago/PlanesPagoShell.jsx";
+const GestionDatosPro = lazy(() => import("./GestionDatosPro.jsx"));
+const OrdenCompraPro = lazy(() => import("./OrdenCompraPro.jsx"));
+const DocumentosPro = lazy(() => import("./DocumentosPro.jsx"));
+const EstatusPago = lazy(() => import("./EstatusPago.jsx"));
+const ExpedientesProveedor = lazy(() => import("./ExpedientesProveedor.jsx"));
+const PlanesPagoShell = lazy(() => import("./planesPago/PlanesPagoShell.jsx"));
 
 import { ProvidersAPI } from "../../api/providers.api";
 import SystemAlert from "../../components/ui/SystemAlert";
@@ -737,26 +736,38 @@ function DashboardProvider() {
 
     const modalConfig = modalComponents[currentModal];
 
-    const renderModalContent = () => {
-      if (modalConfig?.component) {
-        const ModalComponent = modalConfig.component;
-        return <ModalComponent onClose={onClose} showAlert={showAlert} />;
-      }
+const renderModalContent = () => {
+  if (modalConfig?.component) {
+    const ModalComponent = modalConfig.component;
 
-      return (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 bg-lightBlue rounded-full flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-midBlue" />
+    return (
+      <Suspense
+        fallback={
+          <div className="py-16 text-center">
+            <div className="w-10 h-10 border-4 border-lightBlue border-t-midBlue rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-midBlue font-medium">Cargando módulo...</p>
           </div>
-          <p className="text-midBlue text-lg">
-            {modalConfig?.title || "Contenido no disponible"}
-          </p>
-          <p className="text-darkBlue mt-2">
-            Esta funcionalidad estará disponible próximamente
-          </p>
-        </div>
-      );
-    };
+        }
+      >
+        <ModalComponent onClose={onClose} showAlert={showAlert} />
+      </Suspense>
+    );
+  }
+
+  return (
+    <div className="text-center py-8">
+      <div className="w-16 h-16 bg-lightBlue rounded-full flex items-center justify-center mx-auto mb-4">
+        <FileText className="w-8 h-8 text-midBlue" />
+      </div>
+      <p className="text-midBlue text-lg">
+        {modalConfig?.title || "Contenido no disponible"}
+      </p>
+      <p className="text-darkBlue mt-2">
+        Esta funcionalidad estará disponible próximamente
+      </p>
+    </div>
+  );
+};
 
     return (
       <>
