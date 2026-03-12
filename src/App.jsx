@@ -1,62 +1,158 @@
-import { Routes, Route } from "react-router-dom";
-import Login from "./routes/Login.jsx";
-import Autentificacion from "./routes/Autentificacion.jsx";
-import CambioPass from "./routes/CambioPass.jsx";
-import DashboardAdmin from "./routes/DashboardAdmin.jsx";
-import ExpedientesDigitales from "./routes/ExpedientesDigitales.jsx";
-import GestionProveedores from "./routes/GestionProveedores.jsx";
-import Usuarios from "./routes/Usuarios.jsx";
-import VerificacionR from "./routes/VerificacionR.jsx";
-import Aprobacion from "./routes/Aprobacion.jsx";
-import DashboardApro from "./routes/DashboardApro.jsx";
-import Graficas from "./routes/Graficas.jsx";
-import Reportes from "./routes/Reportes.jsx";
-import DashboardProvider from "./routes/DashboardProvider.jsx";
-import GestionDatosPro from "./routes/GestionDatosPro.jsx";
-import OrdenCompraPro from "./routes/OrdenCompraPro.jsx";
-import DocumentosPro from "./routes/DocumentosPro.jsx";
-import EstatusPago from "./routes/EstatusPago.jsx";
+import React, { Suspense, lazy } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 
-import HistorialActividad from './routes/HistorialActividad';
-import ActualizacionListaSAT from './routes/ActualizacionListaSAT';
-import ReactivacionProveedores from './routes/ReactivacionProveedores';
-import HistorialPagos from './routes/HistorialPagos';
-import GestionPagos from "./routes/GestionPagos.jsx";
-import AprobaciondePagos from "./routes/AprobaciondePagos.jsx";
+/* AUTH */
+const Login = lazy(() => import("./pages/auth/Login.jsx"));
+const Autentificacion = lazy(() => import("./pages/auth/Autentificacion.jsx"));
+const CambioPass = lazy(() => import("./pages/auth/CambioPass.jsx"));
 
+/* ADMIN */
+const DashboardAdmin = lazy(() => import("./pages/admin/DashboardAdmin.jsx"));
+const GestionProveedores = lazy(() =>
+  import("./pages/admin/proveedores/GestionProveedores.jsx")
+);
+const Usuarios = lazy(() => import("./pages/admin/Usuarios.jsx"));
+const VerificacionR = lazy(() => import("./pages/admin/sat/VerificacionR.jsx"));
+const HistorialActividad = lazy(() =>
+  import("./pages/admin/HistorialActividad.jsx")
+);
+const ReactivacionProveedores = lazy(() =>
+  import("./pages/admin/proveedores/ReactivacionProveedores.jsx")
+);
+const ActualizacionListaSAT = lazy(() =>
+  import("./pages/admin/sat/ActualizacionListaSAT.jsx")
+);
 
+/* ADMIN → PAGOS */
+const GestionPagos = lazy(() => import("./pages/admin/pagos/GestionPagos.jsx"));
+const HistorialPagos = lazy(() =>
+  import("./pages/admin/pagos/HistorialPagos.jsx")
+);
+const AprobaciondePagos = lazy(() =>
+  import("./pages/admin/pagos/AprobaciondePagos.jsx")
+);
 
+/* ADMIN → EXPEDIENTES */
+const ExpedientesDigitales = lazy(() =>
+  import("./pages/admin/expedientes/ExpedientesDigitales.jsx")
+);
+
+/* APPROVER */
+const DashboardApro = lazy(() => import("./pages/approver/DashboardApro.jsx"));
+const Documents = lazy(() => import("./pages/approver/Documents.jsx"));
+const Reportes = lazy(() => import("./pages/approver/Reportes.jsx"));
+const SolicitudesAcceso = lazy(() =>
+  import("./pages/approver/SolicitudesAcceso.jsx")
+);
+
+/* PROVIDER */
+const DashboardProvider = lazy(() =>
+  import("./pages/provider/DashboardProvider.jsx")
+);
+const GestionDatosPro = lazy(() =>
+  import("./pages/provider/GestionDatosPro.jsx")
+);
+const OrdenCompraPro = lazy(() =>
+  import("./pages/provider/OrdenCompraPro.jsx")
+);
+const DocumentosPro = lazy(() =>
+  import("./pages/provider/DocumentosPro.jsx")
+);
+const EstatusPago = lazy(() => import("./pages/provider/EstatusPago.jsx"));
+const XmlViewer = lazy(() => import("./pages/provider/XmlViewer.jsx"));
+
+/* SHARED */
+const Graficas = lazy(() => import("./pages/shared/Graficas.jsx"));
+
+/* DEV */
+const TestApi = lazy(() => import("./components/TestApi.jsx"));
+
+/* GUARDS */
+import ProtectedRoute from "./routes/ProtectedRoute.jsx";
+import PublicOnlyRoute from "./routes/PublicOnlyRoute.jsx";
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Login />} />
-      <Route path="/autentificacion" element={<Autentificacion />} />
-        <Route path="/cambio-pass" element={<CambioPass />} />
-        <Route path="/dashboarda" element={<DashboardAdmin />} />
-        <Route path="/expedientes" element={<ExpedientesDigitales />} />
-        <Route path="/gestionpro" element={<GestionProveedores />} />
-        <Route path="/usarios" element={<Usuarios />} />
-        <Route path="/verificacior" element={<VerificacionR />} />
-        <Route path="/aprobacion" element={<Aprobacion />} />
-        <Route path="/dashboardapro" element={<DashboardApro />} />
-        <Route path="/graficas" element={<Graficas />} />
-        <Route path="/reportes" element={<Reportes />} />
-        <Route path="/dashboardprovider" element={<DashboardProvider />} />
-        <Route path="/gestionproveedor" element={<GestionDatosPro />} />
-        <Route path="/ordenesdecomprapro" element={<OrdenCompraPro />} />
-        <Route path="/documentospro" element={<DocumentosPro />} />
-        <Route path="/estatuspago" element={<EstatusPago />} />
-        <Route path="/historialactividad" element={<HistorialActividad />} />
-        <Route path="/actualizacionsat" element={<ActualizacionListaSAT />} />
-        <Route path="/reactivacionproveedores" element={<ReactivacionProveedores />} />
-        <Route path="/historialpagos" element={<HistorialPagos />} />
-        <Route path="/gestionpagos" element={<GestionPagos />} />
-        <Route path="/apropagos" element={<AprobaciondePagos />} />
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-beige">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-lightBlue border-t-midBlue rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-darkBlue font-medium">Cargando...</p>
+          </div>
+        </div>
+      }
+    >
+      <Routes>
+        {/* Públicas solo si no hay sesión */}
+        <Route element={<PublicOnlyRoute />}>
+          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/autentificacion" element={<Autentificacion />} />
+        </Route>
 
-    </Routes>
+        {/* Cambio de contraseña: requiere sesión */}
+        <Route path="/cambio-pass" element={<CambioPass />} />
+
+        {/* ADMIN */}
+        <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+          <Route path="/admin" element={<DashboardAdmin />} />
+          <Route path="/admin/proveedores" element={<GestionProveedores />} />
+          <Route path="/admin/usuarios" element={<Usuarios />} />
+          <Route path="/admin/verificacion" element={<VerificacionR />} />
+          <Route
+            path="/admin/historial-actividad"
+            element={<HistorialActividad />}
+          />
+          <Route
+            path="/admin/reactivacion-proveedores"
+            element={<ReactivacionProveedores />}
+          />
+          <Route
+            path="/admin/actualizacion-sat"
+            element={<ActualizacionListaSAT />}
+          />
+
+          <Route path="/admin/pagos" element={<GestionPagos />} />
+          <Route path="/admin/pagos/historial" element={<HistorialPagos />} />
+          <Route path="/admin/pagos/aprobacion" element={<AprobaciondePagos />} />
+
+          <Route path="/admin/expedientes" element={<ExpedientesDigitales />} />
+        </Route>
+
+        {/* APPROVER */}
+        <Route element={<ProtectedRoute allowedRoles={["APPROVER"]} />}>
+          <Route path="/approver" element={<DashboardApro />} />
+          <Route path="/approver/documentos" element={<Documents />} />
+          <Route path="/approver/reportes" element={<Reportes />} />
+          <Route
+            path="/approver/solicitudes-acceso"
+            element={<SolicitudesAcceso />}
+          />
+        </Route>
+
+        {/* PROVIDER */}
+        <Route element={<ProtectedRoute allowedRoles={["PROVIDER"]} />}>
+          <Route path="/provider" element={<DashboardProvider />} />
+          <Route path="/provider/datos" element={<GestionDatosPro />} />
+          <Route path="/provider/ordenes-compra" element={<OrdenCompraPro />} />
+          <Route path="/provider/documentos" element={<DocumentosPro />} />
+          <Route path="/provider/estatus-pago" element={<EstatusPago />} />
+          <Route path="/provider/xml-viewer/:orderId" element={<XmlViewer />} />
+          <Route path="/xml-viewer/:orderId" element={<XmlViewer />} />
+        </Route>
+
+        {/* Compartidas, pero con sesión */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/graficas" element={<Graficas />} />
+          <Route path="/test-api" element={<TestApi />} />
+        </Route>
+
+        {/* fallback */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
 export default App;
- 
