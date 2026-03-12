@@ -1,3 +1,12 @@
+# Gestión de Provedores
+Este repositorio alberga el código fuente de Gestión de Provedores, una aplicación que separa el backend y el frontend en proyectos independientes. A continuación encontrarás información útil para entender la estructura de ramas, levantar cada servicio y conectar la base de datos y el almacenamiento utilizando Supabase.
+
+## Estructura de ramas
+| Rama          | Descripción                                                         |
+| ------------- | ------------------------------------------------------------------- |
+| **main**      | Rama estable con las versiones listas para producción.              |
+| **dev**       | Rama de desarrollo activo donde se integran nuevas funcionalidades. |
+
 ## Cómo levantar el frontend
 El proyecto frontend se encuentra en `Front‑Gestion‑de‑Provedores` y utiliza Vite con Vue para el desarrollo. Para ponerlo en marcha:
 
